@@ -642,3 +642,23 @@ aplica tag na pessoa errada, e tag no ManyChat dispara WhatsApp.
 ```sql
 select public.normalizar_telefone('551133334444') is null;   -- fixo: tem que ser true
 ```
+
+### E cuidado com o DDD 55
+
+Santa Maria/RS é o **DDD 55** — os mesmos dois dígitos do código do Brasil. Um número de
+lá começa com `55` tanto com DDI quanto sem, e as regras olham justamente os dois
+primeiros dígitos.
+
+O que salva é a decisão **não sair do prefixo sozinho**: ela sai do dígito que vem depois
+do DDD presumido, junto com o comprimento do número.
+
+| Entra | É | Sai |
+|---|---|---|
+| `5555999990000` | celular de lá, com DDI | `5555999990000` |
+| `55999990000` | o mesmo, sem DDI | `5555999990000` |
+| `555533334444` | fixo de lá | *(recusado)* |
+
+Há 213 pessoas com DDD 55 na base. Se alguém "simplificar" a regra para um
+`startsWith('55')`, são elas que quebram primeiro — e `555533334444` volta a virar
+celular de outra pessoa. Os casos estão na prova no fim de `telefone_v2_fixo.sql`
+justamente para isso.

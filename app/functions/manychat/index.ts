@@ -39,6 +39,11 @@ type Corpo = {
 // de diferença e a pessoa "não existe". As regras abaixo são as mesmas do
 // n8n que já roda em produção — vale mantê-las iguais, porque números
 // gravados por lá precisam ser encontrados por aqui.
+// DDI 55 x DDD 55: Santa Maria/RS tem o mesmo par de dígitos do código do
+// Brasil, e as regras abaixo olham justamente os dois primeiros. O que
+// salva é a decisão não sair do prefixo sozinho — ela sai do dígito que vem
+// DEPOIS do DDD presumido, junto com o comprimento. Não troque isto por um
+// startsWith("55") isolado: 555533334444 voltaria a virar celular.
 export function formatarTelefone(bruto: string): string {
   let n = String(bruto ?? "").replace(/\D+/g, "");
   if (!n) return "";

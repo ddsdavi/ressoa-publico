@@ -24,6 +24,21 @@
 --
 -- A mesma correção vale para o nó "Formatar telefone" do n8n, que tem a
 -- regra antiga.
+--
+-- DDI 55 x DDD 55
+-- ---------------
+-- Santa Maria/RS é o DDD 55, os mesmos dois dígitos do código do Brasil.
+-- Um número de lá começa com "55" tanto com DDI quanto sem, e as regras
+-- daqui olham justamente os dois primeiros dígitos.
+--
+-- O que salva é não decidir pelo prefixo sozinho: a decisão sai do dígito
+-- que vem DEPOIS do DDD presumido, junto com o comprimento. Por isso
+-- 5555999990000 (com DDI) e 55999990000 (sem) chegam ao mesmo lugar, e
+-- 555533334444 é reconhecido como fixo em vez de virar celular.
+--
+-- Os casos de Santa Maria estão na prova no fim do arquivo, e é para
+-- continuarem lá: são eles que quebram primeiro se alguém "simplificar"
+-- estas regras para um startsWith('55').
 -- =====================================================================
 begin;
 
@@ -95,5 +110,12 @@ from (values
   ('1133334444',      null),             -- fixo sem DDI
   ('051988887777',    '5551988887777'),  -- (051) = DDD 51, com zero na frente
   ('351912345678',    '351912345678'),   -- Portugal
-  ('123',             null)              -- curto demais
+  ('123',             null),             -- curto demais
+  -- DDD 55 (Santa Maria/RS): colide com o DDI do Brasil
+  ('5555999990000',   '5555999990000'),  -- celular de lá, com DDI
+  ('55999990000',     '5555999990000'),  -- o mesmo, sem DDI
+  ('555533334444',    null),             -- FIXO de lá: não vira celular
+  ('5533334444',      null),             -- o mesmo, sem DDI
+  ('555588887777',    '5555988887777'),  -- celular velho de lá
+  ('055999990000',    '5555999990000')   -- com o zero do DDD
 ) v(entrada, esperado);
