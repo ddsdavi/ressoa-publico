@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Ajuda from "../components/Ajuda";
 import { supabase } from "../lib/supabase";
 
 const BASE_FUNC = "https://SEU-PROJETO.supabase.co/functions/v1";
@@ -17,7 +18,17 @@ function Codigo({ children }: { children: string }) {
   );
 }
 
+const SUBABAS = [
+  { id: "entrada", rotulo: "Endereços de entrada",
+    sub: "Os endereços para colar na Hotmart, num formulário ou em outro sistema." },
+  { id: "saida", rotulo: "Webhooks de saída",
+    sub: "Para onde a Ressoa avisa quando algo acontece — n8n, Boost.space, planilha." },
+  { id: "api", rotulo: "API de dados",
+    sub: "Documentação: como ler e escrever nos seus dados de qualquer sistema." },
+];
+
 export default function ApiWebhooks({ embutido }: { embutido?: boolean } = {}) {
+  const [sub, setSub] = useState("entrada");
   const [webhooks, setWebhooks] = useState<any[]>([]);
   const [autoHooks, setAutoHooks] = useState<{ automacao: string; url: string; ativa: boolean }[]>([]);
   const [cfg, setCfg] = useState<Record<string, string>>({});
@@ -67,15 +78,42 @@ export default function ApiWebhooks({ embutido }: { embutido?: boolean } = {}) {
   return (
     <div>
       {!embutido && <h1>API &amp; Webhooks</h1>}
-      <div className="sub">A área de desenvolvedor do seu Active — igual à do AC, só que sua.</div>
 
+      {/* Operação e documentação estavam empilhadas na mesma coluna: os
+          endereços para colar na Hotmart apareciam depois de quatro blocos
+          de exemplo de curl. Quem vem pegar um endereço não quer ler API. */}
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 18 }}>
+        {SUBABAS.map((x) => {
+          const ativa = sub === x.id;
+          return (
+            <button key={x.id} onClick={() => setSub(x.id)}
+              style={{
+                padding: "6px 14px", borderRadius: 999, cursor: "pointer",
+                border: `1px solid ${ativa ? "var(--marca)" : "var(--borda)"}`,
+                background: ativa ? "var(--marca)" : "transparent",
+                color: ativa ? "#fff" : "var(--texto2)",
+                fontSize: "calc(13px * var(--escala-texto))",
+              }}>
+              {x.rotulo}
+            </button>
+          );
+        })}
+      </div>
+      <div className="sub" style={{ marginTop: -8, marginBottom: 14 }}>
+        {SUBABAS.find((x) => x.id === sub)?.sub}
+      </div>
+
+      {sub === "api" && (
       <div className="caixa">
-        <h2>Sua API de dados (REST)</h2>
-        <div style={{ fontSize: "calc(13.5px * var(--escala-texto))", lineHeight: 1.7 }}>
-          Tudo que o painel faz, qualquer sistema seu pode fazer via API — n8n, Make, um site, um checkout.
-          Base: <code>{BASE_REST}</code> · autenticação por chave no header (a mesma <code>service_role</code> do
-          arquivo <code>app/painel/.env.local</code> — <b>nunca</b> exponha essa chave em site público).
-        </div>
+        <h2>Exemplos prontos
+          <Ajuda>
+            Tudo que o painel faz, qualquer sistema seu pode fazer por aqui — n8n, Make,
+            um site, um checkout. A autenticação é por chave no cabeçalho, a mesma
+            <code> service_role</code>. <b>Nunca</b> exponha essa chave em site público:
+            ela ignora todas as regras de acesso.
+          </Ajuda>
+        </h2>
+        <div className="sub">Base: <code>{BASE_REST}</code></div>
         <label>Buscar leads (igual ao "list contacts" do AC)</label>
         <Codigo>{`curl "${BASE_REST}/tabela_1_leads?select=lead_id,nome,email,whatsapp&email=ilike.*@gmail.com*&limit=10" \\
   -H "apikey: SUA_SERVICE_KEY" -H "Authorization: Bearer SUA_SERVICE_KEY"`}</Codigo>
@@ -94,9 +132,11 @@ export default function ApiWebhooks({ embutido }: { embutido?: boolean } = {}) {
   -H "apikey: SUA_SERVICE_KEY" -H "Authorization: Bearer SUA_SERVICE_KEY" \\
   -H "Content-Type: application/json" -d '{"p_campanha": "UUID_DA_CAMPANHA"}'`}</Codigo>
       </div>
+      )}
 
+      {sub === "entrada" && (
       <div className="caixa">
-        <h2>Endpoints públicos (webhooks de ENTRADA)</h2>
+        <h2>Endereços para colar<Ajuda>São públicos de propósito: quem chama é a Hotmart, um formulário ou o ManyChat, e nenhum deles tem como guardar uma senha sua.</Ajuda></h2>
         <div style={{ fontSize: "calc(13.5px * var(--escala-texto))", lineHeight: 1.7, marginBottom: 6 }}>
           Não precisam de chave — são as portas de entrada do mundo pro seu Active.
         </div>
@@ -133,9 +173,11 @@ export default function ApiWebhooks({ embutido }: { embutido?: boolean } = {}) {
 ${BASE_FUNC}/rastreio?t=c&e=ENVIO_ID&u=URL  (clique rastreado)
 ${BASE_FUNC}/descadastro?e=ENVIO_ID          (página de descadastro)`}</Codigo>
       </div>
+      )}
 
+      {sub === "saida" && (
       <div className="caixa">
-        <h2>Webhooks de SAÍDA (para n8n, Boost.space, Sheets…)</h2>
+        <h2>Para onde avisar<Ajuda>Quando um evento acontece aqui, a Ressoa faz um POST nestes endereços. É como o n8n fica sabendo.</Ajuda></h2>
         <div className="sub">
           O motor faz POST com o contato completo em cada evento assinado — mesmo papel dos webhooks que o AC postava pro seu n8n.
         </div>
@@ -179,9 +221,11 @@ ${BASE_FUNC}/descadastro?e=ENVIO_ID          (página de descadastro)`}</Codigo>
           <code>tag_adicionada</code>, <code>lead_descadastrado</code>. Payload: {"{ evento, payload, contato: { email, nome, whatsapp, listas, tags, atributos } }"}.
         </div>
       </div>
+      )}
 
+      {sub === "saida" && (
       <div className="caixa">
-        <h2>Webhooks já usados pelas suas automações (herdados do AC)</h2>
+        <h2>Herdados do ActiveCampaign<Ajuda>Endereços que já estavam dentro das automações importadas. Ficam aqui para você conferir o que ainda aponta para fora.</Ajuda></h2>
         <table>
           <thead><tr><th>Automação</th><th>Destino</th><th></th></tr></thead>
           <tbody>
@@ -198,6 +242,7 @@ ${BASE_FUNC}/descadastro?e=ENVIO_ID          (página de descadastro)`}</Codigo>
           Estes POSTs só saem com a chave-geral LIGADA — pra não duplicar com o AC enquanto ele existir.
         </div>
       </div>
+      )}
     </div>
   );
 }

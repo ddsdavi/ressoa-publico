@@ -44,6 +44,7 @@ export default function Config() {
   const [mcConfigurado, setMcConfigurado] = useState(false);
   const [mcResposta, setMcResposta] = useState("");
   const [aba, setAba] = useState("email");
+  const [naFila, setNaFila] = useState(0);
 
   async function carregar() {
     const { data } = await supabase.from("app_config").select("chave, valor");
@@ -52,6 +53,11 @@ export default function Config() {
     // pergunta se a chave existe, não qual é — a função devolve só o fato
     const { data: seg } = await supabase.rpc("segredos_configurados");
     setMcConfigurado(!!(seg as Record<string, unknown>)?.manychat_api_key);
+
+    // quanto está represado agora — é o número que dá sentido ao "pausar"
+    const { count } = await supabase.from("envios")
+      .select("envio_id", { count: "exact", head: true }).eq("status", "queued");
+    setNaFila(count ?? 0);
   }
   useEffect(() => { carregar(); }, []);
 
@@ -140,11 +146,23 @@ export default function Config() {
           <span>
             Pausar todo envio
             <Ajuda>
-              Botão de pânico. A fila continua enchendo; só não escoa. Nada se perde: ao
-              desligar, sai tudo o que estava esperando.
+              Botão de pânico: a fila para de escoar. Ela continua enchendo, e nada se
+              perde.
+              <br /><br />
+              <b>Ao despausar, não sai tudo de uma vez.</b> O motor manda 100 por minuto,
+              cerca de 6 mil por hora, e retoma de onde parou. Uma campanha de 12 mil
+              pessoas leva umas 2 horas para escoar inteira — pausada ou não.
             </Ajuda>
           </span>
         </label>
+
+        {cfg.envio_pausado === "true" && naFila > 0 && (
+          <div className="aviso" style={{ marginTop: 10 }}>
+            <b>{naFila.toLocaleString("pt-BR")}</b> e-mail(s) esperando na fila. Ao
+            despausar, saem a 100 por minuto — cerca de {Math.ceil(naFila / 100)} minuto(s)
+            até o último.
+          </div>
+        )}
 
         <label style={{ marginTop: 14 }}>
           Só enviar para
@@ -376,10 +394,6 @@ export default function Config() {
         )}
 
         <div style={{ marginTop: 18 }}>
-          <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar"}</button>
-        </div>
-
-        <div style={{ marginTop: 14 }}>
           <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar"}</button>
         </div>
 
