@@ -158,3 +158,23 @@ ManyChat ...: CASA_H_{AA}_{MM}_{DD}
 ```
 
 Os dois são calculados do mesmo instante, então nunca discordam sobre qual turma é.
+
+### Operar e testar pela tela
+
+Em **Automações → ManyChat** dá para fazer, um passo de cada vez, o que a automação faz
+de uma vez só:
+
+| O quê | Para quê |
+|---|---|
+| Procurar pelo WhatsApp | ver se a pessoa existe lá, e com quais tags |
+| Criar a pessoa | quando não existe — precisa do WhatsApp |
+| Aplicar e remover tag | conferir antes de ligar um fluxo de verdade |
+| Ver e criar tags | são as tags da conta do ManyChat, não as daqui |
+| Trazer alguém da Ressoa | usa o WhatsApp de um contato daqui, sem digitar |
+
+O número aparece já formatado antes da busca — é o que permite descobrir na hora quando
+o telefone gravado está diferente do que o ManyChat tem.
+
+**Cuidado ao testar:** aplicar uma tag **dispara a automação do ManyChat ligada a ela**, e
+isso significa mensagem de WhatsApp saindo para uma pessoa real. Para experimentar sem
+risco, crie uma tag nova na própria tela: tag recém-criada não tem automação pendurada.

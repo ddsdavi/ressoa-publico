@@ -28,6 +28,8 @@ type Corpo = {
   lead_id?: string; manychat_id?: string; email?: string; nome?: string;
   whatsapp?: string; tag?: string; criar?: boolean;
   subscriber_id?: string | number; registrar?: boolean;
+  // operações avulsas usadas pela tela
+  acao?: "tags" | "criar_tag" | "procurar" | "criar" | "desmarcar";
 };
 
 // ---------------------------------------------------------------------
@@ -134,6 +136,95 @@ Deno.serve(async (req) => {
   }
 
   const c = (await req.json().catch(() => ({}))) as Corpo;
+
+  // ---- operações avulsas, para a tela do painel ----
+  //
+  // São as mesmas chamadas que a automação faz, só que uma de cada vez e
+  // com a resposta crua. É o que permite conferir antes de ligar um fluxo
+  // que vai mandar WhatsApp para gente de verdade.
+  if (c.acao) {
+    const fone = formatarTelefone(c.whatsapp ?? "");
+
+    if (c.acao === "tags") {
+      const r = await mc("/page/getTags");
+      const tags = ((r.dados as { data?: { id: number; name: string }[] })?.data ?? [])
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return new Response(JSON.stringify({ ok: r.ok, tags }), { headers: CORS });
+    }
+
+    if (c.acao === "criar_tag") {
+      const nome = (c.tag ?? "").trim();
+      if (!nome) {
+        return new Response(JSON.stringify({ ok: false, erro: "informe o nome da tag" }),
+                            { status: 400, headers: CORS });
+      }
+      const r = await mc("/page/createTag", "POST", { name: nome });
+      const jaExiste = JSON.stringify(r.dados).includes("already exist");
+      return new Response(JSON.stringify({
+        ok: r.ok || jaExiste,
+        mensagem: r.ok ? `tag "${nome}" criada` : jaExiste ? `"${nome}" já existia` : "não deu para criar",
+        detalhe: r.ok || jaExiste ? undefined : r.dados,
+      }), { headers: CORS });
+    }
+
+    if (c.acao === "procurar") {
+      if (!fone) {
+        return new Response(JSON.stringify({ ok: false, erro: "telefone inválido", formatado: null }),
+                            { status: 400, headers: CORS });
+      }
+      if (!campoWhats) {
+        return new Response(JSON.stringify({ ok: false, erro: "falta o id do campo do WhatsApp" }),
+                            { status: 400, headers: CORS });
+      }
+      const r = await mc(
+        `/subscriber/findByCustomField?field_id=${encodeURIComponent(campoWhats)}` +
+        `&field_value=${encodeURIComponent(fone)}`);
+      const achados = ((r.dados as { data?: Record<string, unknown>[] })?.data ?? []);
+      const p = achados[0];
+      return new Response(JSON.stringify({
+        ok: true, formatado: fone, existe: !!p,
+        assinante: p ? {
+          id: p.id, nome: p.name, status: p.status,
+          whatsapp: p.whatsapp_phone,
+          tags: ((p.tags ?? []) as { name: string }[]).map((t) => t.name),
+        } : null,
+      }), { headers: CORS });
+    }
+
+    if (c.acao === "criar") {
+      if (!fone) {
+        return new Response(JSON.stringify({ ok: false, erro: "sem WhatsApp válido não dá para criar" }),
+                            { status: 400, headers: CORS });
+      }
+      const partes = (c.nome ?? "").trim().split(/\s+/);
+      const r = await mc("/subscriber/createSubscriber", "POST", {
+        first_name: partes[0] || "Contato",
+        last_name: partes.slice(1).join(" ") || "",
+        whatsapp_phone: fone,
+        has_opt_in_sms: true,
+        has_opt_in_email: true,
+        consent_phrase: "cadastro vindo da Ressoa",
+      });
+      const id = primeiro(r.dados);
+      await anotar(c.lead_id, "criou pela tela", "", !!id,
+                   id ? `assinante ${id}` : JSON.stringify(r.dados).slice(0, 300));
+      return new Response(JSON.stringify({
+        ok: !!id, assinante: id, formatado: fone,
+        detalhe: id ? undefined : r.dados,
+      }), { headers: CORS });
+    }
+
+    if (c.acao === "desmarcar") {
+      const r = await mc("/subscriber/removeTagByName", "POST",
+                         { subscriber_id: Number(c.manychat_id), tag_name: c.tag });
+      await anotar(c.lead_id, "desmarcou", c.tag ?? "", r.ok, JSON.stringify(r.dados).slice(0, 200));
+      return new Response(JSON.stringify({ ok: r.ok, detalhe: r.ok ? undefined : r.dados }),
+                          { headers: CORS });
+    }
+
+    return new Response(JSON.stringify({ erro: "ação desconhecida: " + c.acao }),
+                        { status: 400, headers: CORS });
+  }
 
   // ---- o ManyChat nos apresentando alguém (ação External Request) ----
   if (c.subscriber_id || c.registrar) {

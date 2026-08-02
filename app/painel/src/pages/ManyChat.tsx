@@ -1,0 +1,281 @@
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+
+// Operar o ManyChat sem sair da Ressoa: ver e criar tags, procurar alguém
+// pelo WhatsApp, criar quem não existe e marcar.
+//
+// É a mesma sequência do n8n — formata o telefone, procura pelo campo
+// personalizado, e se não achar cria antes de marcar. A diferença é que
+// aqui dá para rodar um passo de cada vez e ver a resposta. Antes de ligar
+// um fluxo que manda WhatsApp para gente de verdade, isso é o que separa
+// "acho que funciona" de "vi funcionando".
+
+const FUNCOES = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manychat`;
+const CHAVE = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
+
+async function chamar(corpo: Record<string, unknown>) {
+  const r = await fetch(FUNCOES, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: CHAVE },
+    body: JSON.stringify(corpo),
+  });
+  return r.json();
+}
+
+type Tag = { id: number; name: string };
+type Achado = {
+  id: number; nome: string; status: string; whatsapp: string; tags: string[];
+};
+type Lead = { lead_id: string; nome: string | null; email: string; whatsapp: string | null };
+
+export default function ManyChat() {
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erroGeral, setErroGeral] = useState("");
+  const [filtro, setFiltro] = useState("");
+  const [novaTag, setNovaTag] = useState("");
+  const [recado, setRecado] = useState("");
+
+  // procurar / criar
+  const [fone, setFone] = useState("");
+  const [nome, setNome] = useState("");
+  const [formatado, setFormatado] = useState("");
+  const [achado, setAchado] = useState<Achado | null>(null);
+  const [procurou, setProcurou] = useState(false);
+  const [tagEscolhida, setTagEscolhida] = useState("");
+  const [ocupado, setOcupado] = useState("");
+
+  // testar com alguém da base
+  const [busca, setBusca] = useState("");
+  const [leads, setLeads] = useState<Lead[]>([]);
+
+  async function carregarTags() {
+    setCarregando(true);
+    const d = await chamar({ acao: "tags" });
+    if (d.ok) { setTags(d.tags ?? []); setErroGeral(""); }
+    else setErroGeral(d.erro ?? "Não deu para ler as tags. Confira a chave em Configurações → ManyChat.");
+    setCarregando(false);
+  }
+  useEffect(() => { carregarTags(); }, []);
+
+  async function criarTag() {
+    if (!novaTag.trim()) return;
+    setOcupado("Criando a tag…");
+    const d = await chamar({ acao: "criar_tag", tag: novaTag.trim() });
+    setRecado(d.mensagem ?? (d.ok ? "criada" : "não deu"));
+    setNovaTag("");
+    setOcupado("");
+    carregarTags();
+  }
+
+  async function procurar() {
+    setOcupado("Procurando…");
+    setProcurou(false); setAchado(null);
+    const d = await chamar({ acao: "procurar", whatsapp: fone });
+    setFormatado(d.formatado ?? "");
+    setAchado(d.existe ? d.assinante : null);
+    setProcurou(true);
+    setRecado(d.erro ?? "");
+    setOcupado("");
+  }
+
+  async function criar() {
+    setOcupado("Criando no ManyChat…");
+    const d = await chamar({ acao: "criar", whatsapp: fone, nome });
+    setOcupado("");
+    if (!d.ok) { setRecado("Não deu para criar: " + JSON.stringify(d.detalhe ?? d.erro)); return; }
+    setRecado(`Criado no ManyChat (assinante ${d.assinante}).`);
+    procurar();
+  }
+
+  async function marcar(remover = false) {
+    if (!achado || !tagEscolhida) return;
+    setOcupado(remover ? "Removendo…" : "Marcando…");
+    const d = remover
+      ? await chamar({ acao: "desmarcar", manychat_id: String(achado.id), tag: tagEscolhida })
+      : await chamar({ manychat_id: String(achado.id), tag: tagEscolhida, criar: false });
+    setOcupado("");
+    setRecado(d.ok
+      ? `${remover ? "Removida" : "Aplicada"} a tag ${tagEscolhida}.`
+      : "Não deu: " + JSON.stringify(d.detalhe ?? d));
+    procurar();
+  }
+
+  async function procurarLead() {
+    if (busca.trim().length < 3) { setLeads([]); return; }
+    const t = `%${busca.trim()}%`;
+    const { data } = await supabase.from("tabela_1_leads")
+      .select("lead_id,nome,email,whatsapp")
+      .or(`email.ilike.${t},nome.ilike.${t},whatsapp.ilike.${t}`)
+      .limit(8);
+    setLeads((data as Lead[]) ?? []);
+  }
+
+  const tagsFiltradas = tags.filter((t) =>
+    !filtro.trim() || t.name.toLowerCase().includes(filtro.toLowerCase()));
+
+  return (
+    <div>
+      <h1>ManyChat</h1>
+      <div className="sub">
+        Procurar, criar e marcar gente lá dentro — a mesma sequência que a automação usa,
+        um passo de cada vez.
+      </div>
+
+      {erroGeral && <div className="aviso">{erroGeral}</div>}
+      {(ocupado || recado) && (
+        <div className={ocupado ? "sub" : "aviso"} style={{ marginTop: 10 }}>
+          {ocupado || recado}
+        </div>
+      )}
+
+      {/* ---------------- procurar e criar ---------------- */}
+      <div className="caixa">
+        <h2>Procurar alguém pelo WhatsApp</h2>
+        <div className="sub">
+          É assim que a Ressoa acha uma pessoa lá: pelo campo personalizado que guarda o
+          número. Pode digitar de qualquer jeito — com DDI, sem DDI, com parênteses. O
+          número é acertado antes de procurar, e a busca é exata.
+        </div>
+
+        <div className="linha" style={{ marginTop: 12 }}>
+          <div style={{ flex: 2 }}>
+            <label>WhatsApp</label>
+            <input value={fone} placeholder="(51) 99164-3377"
+              onChange={(e) => setFone(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && procurar()} />
+          </div>
+          <div style={{ flex: 2 }}>
+            <label>Nome (só para criar)</label>
+            <input value={nome} placeholder="Maria Silva"
+              onChange={(e) => setNome(e.target.value)} />
+          </div>
+          <button className="primario" style={{ flex: "0 0 auto", alignSelf: "flex-end" }}
+            onClick={procurar} disabled={!fone.trim()}>Procurar</button>
+        </div>
+
+        {formatado && (
+          <div className="sub" style={{ marginTop: 6 }}>
+            Vai procurar por <b>{formatado}</b> — é como o número fica depois de acertado.
+          </div>
+        )}
+
+        {procurou && !achado && (
+          <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 8,
+                        border: "1px solid var(--borda)" }}>
+            <b>Não existe no ManyChat.</b>
+            <div className="sub" style={{ margin: "4px 0 10px" }}>
+              É o mesmo caminho que a automação segue: quando não acha, cria. Sem WhatsApp
+              válido não dá para criar — assinante sem número nunca receberia nada.
+            </div>
+            <button className="primario" onClick={criar} disabled={!formatado}>
+              Criar esta pessoa no ManyChat
+            </button>
+          </div>
+        )}
+
+        {achado && (
+          <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 8,
+                        border: "2px solid var(--marca)", background: "var(--marca-fraca)" }}>
+            <b>{achado.nome || "(sem nome)"}</b>
+            <span className="sub"> · assinante {achado.id} · {achado.status}</span>
+            <div className="sub" style={{ margin: "2px 0 10px" }}>{achado.whatsapp}</div>
+
+            <div style={{ marginBottom: 10 }}>
+              {achado.tags.length
+                ? achado.tags.map((t) => (
+                    <span key={t} className="etiqueta et-roxa" style={{ marginRight: 6 }}>{t}</span>
+                  ))
+                : <span className="sub">nenhuma tag ainda</span>}
+            </div>
+
+            <div className="linha">
+              <select value={tagEscolhida} style={{ flex: 2 }}
+                onChange={(e) => setTagEscolhida(e.target.value)}>
+                <option value="">— escolher a tag —</option>
+                {tags.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+              </select>
+              <button className="primario" style={{ flex: "0 0 auto" }}
+                onClick={() => marcar(false)} disabled={!tagEscolhida}>Aplicar</button>
+              <button style={{ flex: "0 0 auto" }}
+                onClick={() => marcar(true)} disabled={!tagEscolhida}>Remover</button>
+            </div>
+            <div className="sub" style={{ marginTop: 6 }}>
+              Aplicar uma tag <b>dispara a automação do ManyChat</b> ligada a ela — ou seja,
+              pode sair mensagem de WhatsApp para essa pessoa. Para experimentar sem risco,
+              crie uma tag nova aqui embaixo: tag recém-criada não tem automação pendurada.
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ---------------- puxar alguém da base ---------------- */}
+      <div className="caixa">
+        <h2>Trazer alguém da Ressoa</h2>
+        <div className="sub">
+          Em vez de digitar o número na mão, procure a pessoa aqui e use o WhatsApp dela.
+        </div>
+        <div className="linha" style={{ marginTop: 10 }}>
+          <input value={busca} placeholder="nome, e-mail ou telefone"
+            onChange={(e) => setBusca(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && procurarLead()} />
+          <button style={{ flex: "0 0 auto" }} onClick={procurarLead}>Procurar</button>
+        </div>
+        {!!leads.length && (
+          <table className="tabela" style={{ marginTop: 10 }}>
+            <tbody>
+              {leads.map((l) => (
+                <tr key={l.lead_id}>
+                  <td>{l.nome || <i>sem nome</i>}</td>
+                  <td className="sub">{l.email}</td>
+                  <td>{l.whatsapp || <i className="sub">sem WhatsApp</i>}</td>
+                  <td className="direita">
+                    <button disabled={!l.whatsapp}
+                      onClick={() => { setFone(l.whatsapp ?? ""); setNome(l.nome ?? ""); }}>
+                      usar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* ---------------- tags ---------------- */}
+      <div className="caixa">
+        <h2>Tags no ManyChat <span className="contagem">({tags.length})</span></h2>
+        <div className="sub">
+          São as tags da sua conta lá, não as daqui. É por elas que os fluxos do ManyChat
+          disparam.
+        </div>
+
+        <div className="linha" style={{ marginTop: 12 }}>
+          <input value={novaTag} placeholder="nome da tag nova"
+            onChange={(e) => setNovaTag(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && criarTag()} />
+          <button className="primario" style={{ flex: "0 0 auto" }}
+            onClick={criarTag} disabled={!novaTag.trim()}>Criar tag</button>
+        </div>
+
+        <input value={filtro} placeholder="filtrar a lista…" style={{ marginTop: 12 }}
+          onChange={(e) => setFiltro(e.target.value)} />
+
+        <div style={{ marginTop: 12, maxHeight: 320, overflowY: "auto" }}>
+          {carregando && <div className="sub">carregando…</div>}
+          {!carregando && !tagsFiltradas.length && (
+            <div className="sub">nenhuma tag {filtro.trim() ? "com esse texto" : ""}.</div>
+          )}
+          {tagsFiltradas.map((t) => (
+            <span key={t.id} className="etiqueta"
+              style={{ marginRight: 6, marginBottom: 6, display: "inline-block", cursor: "pointer" }}
+              title="usar esta tag acima"
+              onClick={() => setTagEscolhida(t.name)}>
+              {t.name}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
