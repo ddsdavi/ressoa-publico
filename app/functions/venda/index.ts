@@ -217,6 +217,12 @@ Deno.serve(async (req) => {
       { headers: { ...cors, "Content-Type": "application/json" } });
   }
 
+  // Carrinho abandonado, boleto gerado, pagamento atrasado e expirado
+  // chegam como PURCHASE_*, mas NAO sao venda: ninguem pagou. Viram evento
+  // proprio, para disparar recuperacao sem sujar o registro de vendas.
+  const INTENCAO = ["PURCHASE_OUT_OF_SHOPPING_CART", "PURCHASE_BILLET_PRINTED",
+                    "PURCHASE_DELAYED", "PURCHASE_EXPIRED"];
+
   // O que não é compra fica REGISTRADO, mas não vira erro. Erro vermelho
   // para coisa normal treina a pessoa a ignorar erro — e aí o erro de
   // verdade passa batido.
@@ -349,6 +355,13 @@ Deno.serve(async (req) => {
       lead_fk: leadId,
       dados: { ...juntos, ...((abertos as Record<string, string>) ?? {}) },
       updated_at: new Date().toISOString(),
+    });
+  }
+
+  // 4c) se foi intencao e nao venda, gera o evento de recuperacao
+  if (INTENCAO.includes(evento)) {
+    await supabase.rpc("registrar_intencao", {
+      p_lead: leadId, p_evento: evento, p_produto: v.produto, p_valor: v.valor,
     });
   }
 

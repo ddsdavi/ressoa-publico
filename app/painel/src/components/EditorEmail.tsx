@@ -14,6 +14,39 @@ import presetNewsletter from "grapesjs-preset-newsletter";
 const LARGURA = 600;                            // largura clássica de newsletter
 const FONTE = "Arial, Helvetica, sans-serif";   // fonte segura em todo cliente
 
+// Endereço das funções públicas. O contador é uma imagem servida por elas —
+// precisa de URL absoluta, porque quem abre o e-mail está fora do painel.
+const BASE_FUNCOES = `${import.meta.env.VITE_SUPABASE_URL ?? ""}/functions/v1`;
+const URL_CONTADOR = `${BASE_FUNCOES}/contador`;
+
+// prazo de exemplo: uma semana à frente, só para o bloco nascer mostrando algo
+const PRAZO_EXEMPLO = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 19) + "-03:00";
+
+// As cores e a fonte que os blocos trazem de fábrica. Servem de gabarito: o
+// que estiver configurado em Ajustes substitui estes valores no momento em
+// que o bloco é registrado, e aí todo bloco arrastado já nasce na identidade
+// visual certa — sem ninguém precisar repintar nada à mão.
+const PADRAO = {
+  email_fonte: "Arial, Helvetica, sans-serif",
+  email_cor_texto: "#3c3646",
+  email_cor_titulo: "#1f1a2e",
+  email_cor_destaque: "#6b4ea8",
+  email_cor_fundo: "#f4f1ec",
+};
+
+const aplicarEstilos = (html: string, estilos: Record<string, string>) => {
+  let saida = html;
+  for (const [chave, de] of Object.entries(PADRAO)) {
+    const para = estilos[chave];
+    if (!para || para === de) continue;
+    saida = saida.split(de).join(para);
+    if (de.startsWith("#")) {                    // o mesmo tom sem o "#" (ex.: contador)
+      saida = saida.split(de.slice(1)).join(para.replace("#", ""));
+    }
+  }
+  return saida;
+};
+
 const bloco = (interno: string, padding = "8px 24px") =>
   `<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
      <td style="padding:${padding};font-family:${FONTE}">${interno}</td>
@@ -165,6 +198,27 @@ const BLOCOS: { id: string; label: string; content: string }[] = [
     </table>`),
   },
   {
+    id: "ress-contador", label: "Contador regressivo",
+    content: `<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td align="center" style="padding:20px 24px;font-family:${FONTE}">
+        <div style="font-size:13px;color:#7a756a;text-transform:uppercase;letter-spacing:.5px;
+                    padding-bottom:8px">Falta pouco</div>
+        <img src="${URL_CONTADOR}?ate=${PRAZO_EXEMPLO}&cor=6b4ea8&fundo=ffffff"
+             alt="tempo restante" width="362"
+             style="display:block;margin:0 auto;max-width:100%;height:auto" />
+        <div style="font-size:12px;color:#a09a8e;padding-top:6px">
+          dias &middot; horas &middot; min &middot; seg</div>
+      </td></tr></table>`,
+  },
+  {
+    id: "ress-rss", label: "Posts do blog (RSS)",
+    content: `<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="padding:8px 24px;font-family:${FONTE};font-size:15px;color:#3c3646">
+        Selecione este bloco e clique em <b>Buscar posts</b>, na barra de cima,
+        para trocar por publicações reais do seu blog.
+      </td></tr></table>`,
+  },
+  {
     id: "ress-html", label: "HTML livre",
     content: `<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
       <td style="padding:8px 24px;font-family:${FONTE};font-size:15px;color:#3c3646">
@@ -246,9 +300,24 @@ export default function EditorEmail({ html, design, onSalvar, onFechar }: {
   const [escolhendo, setEscolhendo] = useState(!html && !design);
   const [copiado, setCopiado] = useState("");
   const [enviandoImagem, setEnviandoImagem] = useState(false);
+  const [estilos, setEstilos] = useState<Record<string, string> | null>(null);
+  const [modulos, setModulos] = useState<{ modulo_id: string; nome: string; html: string }[]>([]);
+  const [ocupado, setOcupado] = useState("");
+
+  // Os estilos precisam chegar ANTES de registrar os blocos — depois já não
+  // adianta, o bloco arrastado sairia com a cor de fábrica.
+  useEffect(() => {
+    Promise.all([
+      supabase.from("app_config").select("chave,valor").like("chave", "email_%"),
+      supabase.from("email_modulos").select("modulo_id,nome,html").order("nome"),
+    ]).then(([cfg, mod]) => {
+      setEstilos(Object.fromEntries((cfg.data ?? []).map((r) => [r.chave, r.valor])));
+      setModulos(mod.data ?? []);
+    });
+  }, []);
 
   useEffect(() => {
-    if (!ref.current || escolhendo) return;
+    if (!ref.current || escolhendo || !estilos) return;
     const editor = grapesjs.init({
       container: ref.current,
       height: "100%",
@@ -313,12 +382,17 @@ export default function EditorEmail({ html, design, onSalvar, onFechar }: {
 
     ESTRUTURAS.forEach((e) => {
       editor.BlockManager.add(e.id, {
-        label: e.label, content: e.content, category: "Estruturas",
+        label: e.label, content: aplicarEstilos(e.content, estilos), category: "Estruturas",
       });
     });
     BLOCOS.forEach((b) => {
       editor.BlockManager.add(b.id, {
-        label: b.label, content: b.content, category: "Blocos",
+        label: b.label, content: aplicarEstilos(b.content, estilos), category: "Blocos",
+      });
+    });
+    modulos.forEach((m) => {
+      editor.BlockManager.add(`mod-${m.modulo_id}`, {
+        label: m.nome, content: m.html, category: "Meus módulos",
       });
     });
     TAGS.forEach((t, i) => {
@@ -337,7 +411,7 @@ export default function EditorEmail({ html, design, onSalvar, onFechar }: {
     editorRef.current = editor;
     return () => { editor.destroy(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [escolhendo]);
+  }, [escolhendo, estilos, modulos]);
 
   function trocarDispositivo(d: "Desktop" | "Mobile") {
     setDispositivo(d);
@@ -348,6 +422,43 @@ export default function EditorEmail({ html, design, onSalvar, onFechar }: {
     navigator.clipboard?.writeText(tag);
     setCopiado(tag);
     setTimeout(() => setCopiado(""), 1600);
+  }
+
+  // ---- guardar o bloco selecionado para reusar em outros e-mails ----
+  async function salvarModulo() {
+    const sel = editorRef.current?.getSelected();
+    if (!sel) { alert("Selecione antes o bloco que você quer guardar."); return; }
+    const nome = prompt("Nome do módulo (ex.: Cabeçalho, Assinatura):")?.trim();
+    if (!nome) return;
+    setOcupado("Guardando módulo…");
+    const html = sel.toHTML();
+    const { data, error } = await supabase.from("email_modulos")
+      .insert({ nome, html }).select("modulo_id,nome,html").single();
+    setOcupado("");
+    if (error) { alert("Não deu para guardar: " + error.message); return; }
+    // entra na lista e o editor se remonta com o módulo já disponível
+    setModulos((m) => [...m, data].sort((a, b) => a.nome.localeCompare(b.nome)));
+  }
+
+  // ---- trocar o bloco de RSS pelos posts de verdade ----
+  async function buscarPosts() {
+    const sel = editorRef.current?.getSelected();
+    if (!sel) { alert("Selecione antes o bloco de posts."); return; }
+    const url = prompt("Endereço do feed RSS do blog:", "https://")?.trim();
+    if (!url || url === "https://") return;
+    setOcupado("Lendo o blog…");
+    try {
+      const r = await fetch(
+        `${BASE_FUNCOES}/rss?url=${encodeURIComponent(url)}&qtd=3`,
+        { headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "" } });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.erro ?? "feed não respondeu");
+      if (!d.itens?.length) throw new Error("o feed não trouxe nenhum post");
+      sel.replaceWith(aplicarEstilos(d.html, estilos ?? {}));
+    } catch (e) {
+      alert("Não deu para ler o blog: " + (e as Error).message);
+    }
+    setOcupado("");
   }
 
   function salvar() {
@@ -444,9 +555,20 @@ export default function EditorEmail({ html, design, onSalvar, onFechar }: {
           ))}
         </div>
 
-        {enviandoImagem && (
+        <div style={{ display: "flex", gap: 6 }}>
+          <button style={btn(false)} onClick={salvarModulo}
+            title="Guarda o bloco selecionado para reusar em qualquer e-mail">
+            💾 Guardar bloco
+          </button>
+          <button style={btn(false)} onClick={buscarPosts}
+            title="Troca o bloco de posts pelas publicações atuais do seu blog">
+            📰 Buscar posts
+          </button>
+        </div>
+
+        {(enviandoImagem || ocupado) && (
           <span style={{ color: "var(--marca)", fontSize: "calc(12.5px * var(--escala-texto))" }}>
-            enviando imagem…
+            {ocupado || "enviando imagem…"}
           </span>
         )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>

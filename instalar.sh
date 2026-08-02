@@ -70,7 +70,23 @@ if [ "$SO_PAINEL" = false ]; then
     supabase/formularios_v1.sql \
     supabase/formularios_v1_1.sql \
     supabase/formularios_v1_2.sql \
-    supabase/relatorios_v1.sql \n    supabase/vendas_v1.sql \n    supabase/motor_v3_3_compras.sql \n    supabase/pontuacao_v1_3_vendas.sql \n    supabase/hotmart_v1.sql \n    supabase/hotmart_v1_1.sql \n    supabase/hotmart_v1_2.sql \n    supabase/hotmart_v2.sql \n    supabase/hotmart_v2_1.sql \n    supabase/atribuicao_v1.sql \n    supabase/atribuicao_v2.sql \n    supabase/turmas_v1.sql \n    supabase/imagens_v1.sql
+    supabase/relatorios_v1.sql \
+    supabase/vendas_v1.sql \
+    supabase/motor_v3_3_compras.sql \
+    supabase/pontuacao_v1_3_vendas.sql \
+    supabase/hotmart_v1.sql \
+    supabase/hotmart_v1_1.sql \
+    supabase/hotmart_v1_2.sql \
+    supabase/hotmart_v2.sql \
+    supabase/hotmart_v2_1.sql \
+    supabase/atribuicao_v1.sql \
+    supabase/atribuicao_v2.sql \
+    supabase/turmas_v1.sql \
+    supabase/imagens_v1.sql \
+    supabase/recuperacao_v1.sql \
+    supabase/contexto_rss_v1.sql \
+    supabase/rss_cron_v1.sql \
+    supabase/segredos_v1.sql
   do
     printf "  → %s\n" "$(basename "$sql")"
     "$PY" scripts/run_sql_file.py "$sql" >/dev/null || { vermelho "  falhou em $sql"; exit 1; }
@@ -112,12 +128,17 @@ EOF
         SES_SEGREDO="${SES_SEGREDO:-}" \
         --project-ref "$SUPABASE_PROJECT_REF" >/dev/null) && verde "  Credenciais do Amazon SES configuradas"
   fi
-  for f in rastreio descadastro formulario postback-resend conta-email enviar-ses postback-ses venda; do
+  # A lista sai do próprio diretório: função nova entra sozinha, e a
+  # contagem no fim não tem como mentir.
+  FUNCOES=$(ls app/functions)
+  N=0
+  for f in $FUNCOES; do
     printf "  → %s\n" "$f"
     (cd app && npx --yes supabase functions deploy "$f" \
         --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api >/dev/null)
+    N=$((N + 1))
   done
-  verde "  7 funções publicadas"
+  verde "  $N funções publicadas"
 
   # ---------- 5. painel ----------
   passo "6/6 Publicando o painel"

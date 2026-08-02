@@ -25,6 +25,16 @@ const GATILHOS: Item[] = [
   { id: "email_clicado", rotulo: "Clica em um link", icone: "🔗", categoria: "Comportamento", disponivel: true },
   { id: "compra_realizada", rotulo: "Faz uma compra", icone: "💰", categoria: "Vendas", disponivel: true,
     ajuda: "Depende de importar as vendas. Enquanto a tabela de compras estiver vazia, não dispara." },
+  { id: "carrinho_abandonado", rotulo: "Abandona o carrinho", icone: "🛒", categoria: "Vendas", disponivel: true,
+    ajuda: "A Hotmart avisa quando alguém sai do checkout sem concluir. O e-mail pode citar o produto com %EVENTO.produto%." },
+  { id: "boleto_gerado", rotulo: "Gera boleto e não paga", icone: "🧾", categoria: "Vendas", disponivel: true,
+    ajuda: "Boleto impresso é intenção declarada. Vale um lembrete antes do vencimento." },
+  { id: "pagamento_atrasado", rotulo: "Pagamento atrasa", icone: "⏳", categoria: "Vendas", disponivel: true,
+    ajuda: "Assinatura ou parcela em atraso." },
+  { id: "pagamento_expirou", rotulo: "Pagamento expira", icone: "❌", categoria: "Vendas", disponivel: true,
+    ajuda: "O prazo passou e a compra caiu. Última chance de recuperar." },
+  { id: "rss_novo_item", rotulo: "Sai um post novo (RSS)", icone: "📰", categoria: "Conteúdo", disponivel: true,
+    ajuda: "Cadastre o feed em Configurações. O e-mail pode citar %EVENTO.titulo% e %EVENTO.link%." },
 ];
 
 const ACOES: Item[] = [
@@ -528,18 +538,30 @@ export default function FluxoAutomacao({
                   acontece hoje — foi assim que o seu teste apareceu no relatório.
                 </div>
               )}
-              {gatilho?.tipo === "compra_realizada" && (
+              {["compra_realizada", "carrinho_abandonado", "boleto_gerado",
+                "pagamento_atrasado", "pagamento_expirou"].includes(gatilho?.tipo) && gatilho && (
                 <>
-                  <label>Produto (vazio = qualquer compra)</label>
+                  <label>Produto (vazio = qualquer um)</label>
                   <input value={gatilho.produto ?? ""} placeholder="parte do nome do produto"
                     onChange={(e) => onMudar({ gatilho: {
-                      tipo: "compra_realizada",
+                      tipo: gatilho.tipo,
                       ...(e.target.value ? { produto: e.target.value } : {}) } })} />
-                  <div className="aviso" style={{ marginTop: 8 }}>
-                    A tabela de compras ainda está vazia. Enquanto as vendas não forem
-                    importadas, este gatilho não dispara.
-                  </div>
+                  {gatilho?.tipo !== "compra_realizada" && (
+                    <div className="aviso" style={{ marginTop: 8 }}>
+                      No e-mail deste fluxo você pode escrever <b>%EVENTO.produto%</b> e
+                      <b> %EVENTO.valor%</b> — sai o produto que a pessoa deixou para trás,
+                      não uma frase genérica.
+                    </div>
+                  )}
                 </>
+              )}
+              {gatilho?.tipo === "rss_novo_item" && (
+                <div className="aviso">
+                  Dispara quando sai post novo em um feed cadastrado em Configurações →
+                  Conteúdo (RSS). Avisa quem está na lista escolhida lá. No e-mail use
+                  <b> %EVENTO.titulo%</b>, <b>%EVENTO.link%</b>, <b>%EVENTO.resumo%</b> e
+                  <b> %EVENTO.imagem%</b>.
+                </div>
               )}
               {gatilho?.tipo === "lead_criado" && (
                 <div className="aviso">Dispara para todo contato novo, venha de onde vier: painel, importação, formulário ou API.</div>

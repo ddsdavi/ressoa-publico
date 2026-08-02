@@ -290,3 +290,82 @@ erro, só devolve tudo.
 
 **Como detectar:** teste com dois ou três valores diferentes. Se o número não mudar, a
 condição não está sendo aplicada.
+
+---
+
+## 23. Chave de serviço em tabela que o painel lê
+
+**Sintoma:** nenhum. Esse é o ponto.
+
+**Causa:** para o agendamento chamar uma Edge Function, a chave de serviço foi guardada
+em `app_config`. Só que a tela de Configurações carrega `app_config` **inteiro** — ou seja,
+a chave que ignora todo o RLS passaria a trafegar para o navegador de quem é admin.
+
+**Regra:** segredo não mora em tabela que alguém lê pelo PostgREST. Vai para
+`public.segredos`, que tem RLS ligado e **nenhuma policy** — sem policy, ninguém passa —
+e é lido só por função `security definer`.
+
+**Como conferir:**
+
+```bash
+curl -s "$SUPABASE_URL/rest/v1/segredos?select=*" -H "apikey: $SUPABASE_ANON_KEY"
+```
+
+Tem que responder `permission denied`. Se devolver linha, pare tudo e conserte.
+
+---
+
+## 24. Contador regressivo não pode ser JavaScript
+
+**Sintoma:** o contador fica parado, ou some.
+
+**Causa:** cliente de e-mail não executa JavaScript. Gmail, Outlook e Apple Mail
+descartam `<script>` inteiro.
+
+**Regra:** contador em e-mail é **imagem**, pedida ao servidor a cada abertura. É por isso
+que `/contador` devolve PNG com `Cache-Control: no-store` — com cache, a segunda abertura
+mostraria o tempo da primeira.
+
+---
+
+## 25. Variável de evento que não existe vaza para o assinante
+
+**Sintoma:** o assinante recebe "Você deixou %EVENTO.produto% para trás".
+
+**Causa:** a automação foi disparada por um gatilho que não carrega aquele dado, e o
+texto saiu cru.
+
+**Regra:** depois de substituir o que existe, **apague o que sobrou**. É o que
+`personalizar()` faz com as duas expressões regulares no fim — melhor uma frase com um
+buraco do que uma frase com código.
+
+---
+
+## 26. `\n` literal em script de instalação
+
+**Sintoma:** o instalador falha dizendo que não achou o arquivo `n`.
+
+**Causa:** o arquivo foi escrito com `\n` literal em vez de quebra de linha real. Em
+shell, `\n` fora de aspas é só a letra `n` — cada um vira um argumento solto.
+
+**Por que passou:** `bash -n` valida **sintaxe**, e a sintaxe estava correta. Só um teste
+que confira se cada caminho da lista existe pega isso:
+
+```bash
+sed -n '/for sql in/,/^  do/p' instalar.sh | grep -o 'supabase/[a-z0-9_]*\.sql' \
+  | while read f; do [ -f "$f" ] || echo "INEXISTENTE: $f"; done
+```
+
+---
+
+## 27. Extensão do navegador bloqueando o painel
+
+**Sintoma:** página em branco no domínio próprio; `#root` sem filhos e **nenhum erro** no
+console. O mesmo endereço abre normalmente em outro navegador.
+
+**Causa:** uma extensão (bloqueador de anúncios ou de rastreadores) barrou o download do
+bundle naquele domínio. O sinal é `Failed to fetch dynamically imported module` com o
+arquivo respondendo HTTP 200 no `curl`.
+
+**Como separar do problema real:** abra o endereço `.pages.dev` do mesmo deploy. Se ele
+funciona e o domínio próprio não, o problema é do navegador, não da publicação.

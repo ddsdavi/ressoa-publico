@@ -59,7 +59,8 @@ if (-not $SoPainel) {
     "supabase/vendas_v1.sql","supabase/motor_v3_3_compras.sql",
     "supabase/pontuacao_v1_3_vendas.sql",
     "supabase/hotmart_v1.sql","supabase/hotmart_v1_1.sql","supabase/hotmart_v1_2.sql","supabase/hotmart_v2.sql","supabase/hotmart_v2_1.sql",
-    "supabase/atribuicao_v1.sql","supabase/atribuicao_v2.sql","supabase/turmas_v1.sql","supabase/imagens_v1.sql"
+    "supabase/atribuicao_v1.sql","supabase/atribuicao_v2.sql","supabase/turmas_v1.sql","supabase/imagens_v1.sql",
+    "supabase/recuperacao_v1.sql","supabase/contexto_rss_v1.sql","supabase/rss_cron_v1.sql","supabase/segredos_v1.sql"
   )
   foreach ($sql in $sqls) {
     Write-Host "  -> $(Split-Path $sql -Leaf)"
@@ -103,13 +104,15 @@ if (-not $SoBanco) {
     Pop-Location
     Write-Host "  Credenciais do Amazon SES configuradas" -ForegroundColor Green
   }
-  foreach ($f in @("rastreio","descadastro","formulario","postback-resend","conta-email","enviar-ses","postback-ses","venda")) {
+  # A lista sai do proprio diretorio: funcao nova entra sozinha.
+  $funcoes = Get-ChildItem -Directory app/functions | ForEach-Object { $_.Name }
+  foreach ($f in $funcoes) {
     Write-Host "  -> $f"
     Push-Location app
     npx --yes supabase functions deploy $f --project-ref $env:SUPABASE_PROJECT_REF --no-verify-jwt --use-api | Out-Null
     Pop-Location
   }
-  Ok "7 funcoes publicadas"
+  Ok "  $($funcoes.Count) funcoes publicadas"
 
   # ---------- 5. publicar ----------
   Passo "6/6 Publicando o painel"

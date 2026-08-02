@@ -84,6 +84,7 @@ Passo a passo detalhado: **[docs/01-INSTALAR.md](docs/01-INSTALAR.md)**
 | **[05 — Ligar o envio real](docs/05-LIGAR-ENVIO-REAL.md)** | Resend, Amazon SES, DNS e aquecimento de domínio |
 | **[06 — Armadilhas conhecidas](docs/06-PROBLEMAS-CONHECIDOS.md)** | cada uma custou horas de depuração |
 | **[07 — Vendas e Hotmart](docs/07-VENDAS-E-HOTMART.md)** | receber compra em tempo real e atribuir a venda ao anúncio |
+| **[08 — Recuperação e conteúdo](docs/08-RECUPERACAO-E-CONTEUDO.md)** | carrinho abandonado, contador regressivo, RSS e módulos salvos |
 
 ---
 
