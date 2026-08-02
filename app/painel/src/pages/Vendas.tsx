@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSessao } from "../lib/sessao";
+import Ajuda from "../components/Ajuda";
 
 // Vendas: o que cada produto faz quando é comprado, e o que a Hotmart
 // mandou.
@@ -132,22 +133,23 @@ export default function Vendas() {
 
   return (
     <div>
-      <h1>Vendas</h1>
+      <h1>Produtos e vendas</h1>
       <div className="sub">
-        O que acontece quando alguém compra, e tudo o que a Hotmart mandou.
-      </div>
-
-      <div className="caixa">
-        <div style={{ fontSize: "calc(13.5px * var(--escala-texto))", lineHeight: 1.7 }}>
-          O endereço para colar na Hotmart fica em <b>Configurações → API e webhooks</b>,
-          junto dos outros endereços de integração. Aqui você define o que acontece
-          <b> depois</b> que a venda chega.
-        </div>
+        Uma regra por produto: o que acontece com a pessoa quando ela compra.
+        <Ajuda>
+          A Hotmart avisa a Ressoa a cada compra — isso já funciona e é uma configuração
+          só, para todos os produtos (o endereço fica em Configurações → API e webhooks).
+          O que muda de produto para produto é o <b>depois</b>: em que lista a pessoa
+          entra, que tag ganha, se é marcada no ManyChat. É isso que se define aqui.
+          <br /><br />
+          Produto sem regra não é perdido: a compra fica registrada em "Eventos
+          recebidos". Só não acontece nada com a pessoa.
+        </Ajuda>
       </div>
 
       <div className="linha" style={{ margin: "14px 0" }}>
         <button className={aba === "mapa" ? "primario" : ""} style={{ flex: "0 0 auto" }}
-          onClick={() => setAba("mapa")}>O que cada produto faz</button>
+          onClick={() => setAba("mapa")}>Regras dos produtos ({mapas.length})</button>
         <button className={aba === "eventos" ? "primario" : ""} style={{ flex: "0 0 auto" }}
           onClick={() => setAba("eventos")}>Eventos recebidos ({eventos.length})</button>
       </div>
@@ -156,8 +158,8 @@ export default function Vendas() {
         <>
           {vistos.some((v) => !v.mapeado) && (
             <div className="aviso">
-              <b>Produtos que já venderam e ainda não têm regra:</b> as compras foram registradas,
-              mas ninguém entrou em lista nem recebeu tag.{" "}
+              <b>Já venderam e ainda não têm regra.</b> As compras estão registradas; só não
+              aconteceu nada com quem comprou. Clique para criar a regra:{" "}
               {vistos.filter((v) => !v.mapeado).slice(0, 8).map((v) => (
                 <button key={v.produto} style={{ margin: "4px 4px 0 0" }} onClick={() => abrir(null, v)}>
                   configurar {v.produto} ({v.eventos})
@@ -172,46 +174,82 @@ export default function Vendas() {
             </div>
           )}
 
-          <div className="caixa">
-            <table>
-              <thead><tr>
-                <th>Produto</th><th>Reconhece por</th><th>Entra na lista</th>
-                <th>Ganha a tag</th><th>Turma</th><th>Se reembolsar</th><th></th>
-              </tr></thead>
-              <tbody>
-                {mapas.map((x) => (
-                  <tr key={x.id}>
-                    <td><b>{x.apelido}</b>
-                      {!x.ativo && <span className="etiqueta et-cinza"> desligada</span>}</td>
-                    <td style={{ fontSize: "calc(12.5px * var(--escala-texto))", color: "var(--texto2)" }}>
-                      {x.ucode ? <>código <code>{x.ucode}</code></> : <>nome contém “{x.padrao_nome}”</>}
-                    </td>
-                    <td>{nomeLista(x.lista_fk) ?? <span style={{ color: "var(--texto2)" }}>—</span>}</td>
-                    <td>{nomeTag(x.tag_fk) ?? <span style={{ color: "var(--texto2)" }}>—</span>}</td>
-                    <td style={{ fontSize: "calc(12px * var(--escala-texto))" }}>
-                      {x.tag_turma_padrao
-                        ? <>{x.tag_turma_padrao}<div style={{ color: "var(--texto2)" }}>
-                            vira {DIAS.find(([v]) => v === String(x.turma_dia_semana))?.[1]} às {x.turma_hora}h</div></>
-                        : <span style={{ color: "var(--texto2)" }}>—</span>}
-                    </td>
-                    <td>{nomeTag(x.tag_reembolso) ?? <span style={{ color: "var(--texto2)" }}>—</span>}</td>
-                    <td className="direita" style={{ whiteSpace: "nowrap" }}>
-                      {ehAdmin && <>
-                        <button onClick={() => abrir(x)}>Editar</button>{" "}
-                        <button className="perigo" onClick={() => excluir(x)}>Excluir</button>
-                      </>}
-                    </td>
-                  </tr>
-                ))}
-                {!mapas.length && (
-                  <tr><td colSpan={7} style={{ color: "var(--texto2)" }}>
-                    Nenhuma regra ainda. Sem regra, a compra é registrada mas ninguém entra em
-                    lista nem recebe tag — e as automações de comprador não disparam.
-                  </td></tr>
+          {/* Um cartão por produto, não uma tabela de sete colunas.
+              O que cada regra faz é uma lista de consequências, e lista de
+              consequências não cabe em linha: o código do produto tem 36
+              caracteres e sozinho quebrava a tabela em cinco linhas. */}
+          {mapas.map((x) => {
+            const faz = [
+              nomeLista(x.lista_fk) && { rotulo: "Entra na lista", valor: nomeLista(x.lista_fk) },
+              nomeTag(x.tag_fk) && { rotulo: "Ganha a tag", valor: nomeTag(x.tag_fk) },
+              x.tag_turma_padrao && {
+                rotulo: "Tag da turma", valor: x.tag_turma_padrao,
+                nota: `vira ${DIAS.find(([v]) => v === String(x.turma_dia_semana))?.[1]} às ${x.turma_hora}h`,
+              },
+              x.tag_manychat && { rotulo: "Marca no ManyChat", valor: x.tag_manychat },
+              x.tag_manychat_turma && {
+                rotulo: "E a turma no ManyChat",
+                valor: x.tag_manychat_turma_padrao || x.tag_turma_padrao || "(igual à daqui)",
+              },
+              nomeTag(x.tag_reembolso) && {
+                rotulo: "Se pedir reembolso", valor: nomeTag(x.tag_reembolso),
+              },
+            ].filter(Boolean) as { rotulo: string; valor: string; nota?: string }[];
+
+            return (
+              <div key={x.id} className="caixa" style={{ opacity: x.ativo ? 1 : 0.55 }}>
+                <div className="linha" style={{ alignItems: "flex-start" }}>
+                  <div style={{ flex: 1 }}>
+                    <b style={{ fontSize: "calc(15px * var(--escala-texto))" }}>{x.apelido}</b>
+                    {!x.ativo && <span className="etiqueta et-cinza" style={{ marginLeft: 8 }}>desligada</span>}
+                    <div className="sub" style={{ margin: "2px 0 0" }}>
+                      reconhecido {x.ucode
+                        ? <>pelo código do produto <span title={x.ucode}>
+                            <code>{x.ucode.slice(0, 8)}…</code></span></>
+                        : <>quando o nome contém “{x.padrao_nome}”</>}
+                    </div>
+                  </div>
+                  {ehAdmin && (
+                    <div style={{ flex: "0 0 auto", whiteSpace: "nowrap" }}>
+                      <button onClick={() => abrir(x)}>Editar</button>{" "}
+                      <button className="perigo" onClick={() => excluir(x)}>Excluir</button>
+                    </div>
+                  )}
+                </div>
+
+                {faz.length ? (
+                  <div style={{
+                    display: "grid", gap: 10, marginTop: 12,
+                    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                  }}>
+                    {faz.map((f) => (
+                      <div key={f.rotulo} style={{
+                        border: "1px solid var(--borda)", borderRadius: 8, padding: "9px 11px",
+                      }}>
+                        <div className="sub" style={{ margin: 0 }}>{f.rotulo}</div>
+                        <div style={{ wordBreak: "break-word" }}>{f.valor}</div>
+                        {f.nota && <div className="sub" style={{ margin: 0 }}>{f.nota}</div>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="aviso" style={{ marginTop: 12 }}>
+                    Esta regra não faz nada ainda: a compra é registrada, mas ninguém entra
+                    em lista, recebe tag ou é marcado no ManyChat.
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            );
+          })}
+
+          {!mapas.length && (
+            <div className="caixa">
+              <div className="sub">
+                Nenhuma regra ainda. Sem regra, a compra é registrada mas ninguém entra em
+                lista nem recebe tag — e as automações de comprador não disparam.
+              </div>
+            </div>
+          )}
         </>
       )}
 

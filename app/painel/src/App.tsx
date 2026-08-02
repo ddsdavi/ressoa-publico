@@ -33,15 +33,14 @@ const SECOES = [
     grupos: [{ titulo: null, itens: [["Visão geral", "/"]] }],
   },
   {
-    id: "contatos", titulo: "Contatos", rotas: ["/leads", "/listas", "/tags", "/campos", "/formularios", "/dados", "/relatorios", "/vendas"],
+    id: "contatos", titulo: "Contatos", rotas: ["/leads", "/listas", "/tags", "/campos", "/formularios", "/dados", "/relatorios"],
     icone: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg>,
     grupos: [
       { titulo: null, itens: [["Leads", "/leads"], ["Listas", "/listas"], ["Tags", "/tags"],
                             ["Campos", "/campos"], ["Formulários", "/formularios"]] },
       { titulo: "Gerenciar", itens: [["Envios e exclusões", "/envios"],
                                      ["Importações e exportações", "/dados"],
-                                     ["Relatórios", "/relatorios"],
-                                     ["Vendas", "/vendas"]] },
+                                     ["Relatórios", "/relatorios"]] },
     ],
   },
   {
@@ -51,6 +50,11 @@ const SECOES = [
       { titulo: null, itens: [["Campanhas", "/campanhas"], ["Mensagens", "/mensagens"]] },
       { titulo: "Relatórios", itens: [["Envios", "/envios"]] },
     ],
+  },
+  {
+    id: "produtos", titulo: "Produtos", rotas: ["/vendas"],
+    icone: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5v-9Z" /><path d="m3 7.5 9 4.5 9-4.5M12 12v9" /></svg>,
+    grupos: [{ titulo: null, itens: [["Produtos e vendas", "/vendas"]] }],
   },
   {
     id: "automacoes", titulo: "Automações", rotas: ["/automacoes", "/manychat"],
