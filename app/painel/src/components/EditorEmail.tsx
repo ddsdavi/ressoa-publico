@@ -211,14 +211,6 @@ const BLOCOS: { id: string; label: string; content: string }[] = [
       </td></tr></table>`,
   },
   {
-    id: "ress-rss", label: "Posts do blog (RSS)",
-    content: `<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td style="padding:8px 24px;font-family:${FONTE};font-size:15px;color:#3c3646">
-        Selecione este bloco e clique em <b>Buscar posts</b>, na barra de cima,
-        para trocar por publicações reais do seu blog.
-      </td></tr></table>`,
-  },
-  {
     id: "ress-html", label: "HTML livre",
     content: `<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
       <td style="padding:8px 24px;font-family:${FONTE};font-size:15px;color:#3c3646">
@@ -440,27 +432,6 @@ export default function EditorEmail({ html, design, onSalvar, onFechar }: {
     setModulos((m) => [...m, data].sort((a, b) => a.nome.localeCompare(b.nome)));
   }
 
-  // ---- trocar o bloco de RSS pelos posts de verdade ----
-  async function buscarPosts() {
-    const sel = editorRef.current?.getSelected();
-    if (!sel) { alert("Selecione antes o bloco de posts."); return; }
-    const url = prompt("Endereço do feed RSS do blog:", "https://")?.trim();
-    if (!url || url === "https://") return;
-    setOcupado("Lendo o blog…");
-    try {
-      const r = await fetch(
-        `${BASE_FUNCOES}/rss?url=${encodeURIComponent(url)}&qtd=3`,
-        { headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "" } });
-      const d = await r.json();
-      if (!d.ok) throw new Error(d.erro ?? "feed não respondeu");
-      if (!d.itens?.length) throw new Error("o feed não trouxe nenhum post");
-      sel.replaceWith(aplicarEstilos(d.html, estilos ?? {}));
-    } catch (e) {
-      alert("Não deu para ler o blog: " + (e as Error).message);
-    }
-    setOcupado("");
-  }
-
   function salvar() {
     const editor = editorRef.current;
     if (!editor) return;
@@ -559,10 +530,6 @@ export default function EditorEmail({ html, design, onSalvar, onFechar }: {
           <button style={btn(false)} onClick={salvarModulo}
             title="Guarda o bloco selecionado para reusar em qualquer e-mail">
             💾 Guardar bloco
-          </button>
-          <button style={btn(false)} onClick={buscarPosts}
-            title="Troca o bloco de posts pelas publicações atuais do seu blog">
-            📰 Buscar posts
           </button>
         </div>
 

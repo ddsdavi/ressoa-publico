@@ -17,7 +17,7 @@ function Codigo({ children }: { children: string }) {
   );
 }
 
-export default function ApiWebhooks() {
+export default function ApiWebhooks({ embutido }: { embutido?: boolean } = {}) {
   const [webhooks, setWebhooks] = useState<any[]>([]);
   const [autoHooks, setAutoHooks] = useState<{ automacao: string; url: string; ativa: boolean }[]>([]);
   const [cfg, setCfg] = useState<Record<string, string>>({});
@@ -66,7 +66,7 @@ export default function ApiWebhooks() {
 
   return (
     <div>
-      <h1>API &amp; Webhooks</h1>
+      {!embutido && <h1>API &amp; Webhooks</h1>}
       <div className="sub">A área de desenvolvedor do seu Active — igual à do AC, só que sua.</div>
 
       <div className="caixa">

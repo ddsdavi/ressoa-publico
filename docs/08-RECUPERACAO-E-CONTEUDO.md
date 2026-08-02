@@ -1,6 +1,6 @@
-# 08 — Recuperação de venda, contador, RSS e módulos
+# 08 — Recuperação de venda, contador, módulos e ManyChat
 
-Quatro recursos que dependem uns dos outros mais do que parece. Todos se apoiam na
+Recursos que dependem uns dos outros mais do que parece. Quase todos se apoiam na
 mesma peça: **o contexto do evento**.
 
 ---
@@ -19,10 +19,7 @@ No editor, escreva:
 |---|---|
 | `%EVENTO.produto%` | o produto que a pessoa não concluiu |
 | `%EVENTO.valor%` | o valor da compra |
-| `%EVENTO.titulo%` | o título do post (gatilho de RSS) |
-| `%EVENTO.link%` | o endereço do post |
-| `%EVENTO.resumo%` | o resumo do post |
-| `%EVENTO.imagem%` | a imagem de capa do post |
+| `%EVENTO.campo%` | o campo de data que disparou (gatilho por data) |
 
 Variável que o evento não trouxe é **apagada**, não sai crua para o assinante.
 
@@ -83,24 +80,6 @@ O bloco *Contador regressivo* no editor já entra com tudo montado — só troqu
 Prazo vencido mostra `00:00:00:00` em vez de dar erro: e-mail antigo continua abrindo
 sem imagem quebrada.
 
----
-
-## RSS
-
-Cadastre o feed em **Configurações → Conteúdo (RSS)**. O endereço é conferido na hora:
-se não devolver post nenhum, não grava — feed errado gravado é automação que nunca
-dispara e ninguém descobre por quê.
-
-De hora em hora o sistema confere se saiu post novo. Quando sai, quem estiver na lista
-escolhida recebe um evento `rss_novo_item`, e a automação com o gatilho **Sai um post
-novo (RSS)** roda.
-
-Só o post mais recente conta. Se saírem três de uma vez, avisa sobre o último — melhor
-um aviso certo do que três seguidos.
-
-Há também o caminho manual: no editor, o bloco *Posts do blog (RSS)* + o botão
-**Buscar posts** trocam o bloco pelas publicações atuais, já formatadas. Serve para
-newsletter escrita à mão.
 
 ---
 
@@ -116,7 +95,7 @@ bastava um esquecimento para a marca sair diferente.
 
 ## Identidade visual
 
-Em **Configurações → Identidade visual dos e-mails**: fonte, largura e quatro cores.
+Em **Configurações → E-mail**: fonte, largura e quatro cores.
 
 Vale para todo bloco **novo**. E-mail já escrito não muda sozinho — mudar o passado
 estragaria campanha aprovada.
@@ -138,7 +117,7 @@ por campo de sistema não acha ninguém, em nenhum formato.
 
 | Onde | O quê |
 |---|---|
-| Configurações → Integrações | a chave da API e o **id do campo** do WhatsApp |
+| Configurações → ManyChat | a chave da API e o **id do campo** do WhatsApp |
 | Vendas → regra do produto | a tag fixa e, se quiser, a tag da turma |
 
 O id do campo aparece na URL quando você abre o campo no ManyChat. Na conta da Patrícia

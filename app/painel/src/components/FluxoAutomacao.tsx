@@ -33,8 +33,6 @@ const GATILHOS: Item[] = [
     ajuda: "Assinatura ou parcela em atraso." },
   { id: "pagamento_expirou", rotulo: "Pagamento expira", icone: "❌", categoria: "Vendas", disponivel: true,
     ajuda: "O prazo passou e a compra caiu. Última chance de recuperar." },
-  { id: "rss_novo_item", rotulo: "Sai um post novo (RSS)", icone: "📰", categoria: "Conteúdo", disponivel: true,
-    ajuda: "Cadastre o feed em Configurações. O e-mail pode citar %EVENTO.titulo% e %EVENTO.link%." },
   { id: "data_do_contato", rotulo: "Chega uma data do contato", icone: "🎂", categoria: "Datas", disponivel: true,
     ajuda: "Aniversário, data da compra, data da consulta — qualquer campo de data. Conferido uma vez por dia, de madrugada." },
 ];
@@ -585,14 +583,6 @@ export default function FluxoAutomacao({
                     repete todo ano, e dispara no máximo uma vez por ano por pessoa.
                   </div>
                 </>
-              )}
-              {gatilho?.tipo === "rss_novo_item" && (
-                <div className="aviso">
-                  Dispara quando sai post novo em um feed cadastrado em Configurações →
-                  Conteúdo (RSS). Avisa quem está na lista escolhida lá. No e-mail use
-                  <b> %EVENTO.titulo%</b>, <b>%EVENTO.link%</b>, <b>%EVENTO.resumo%</b> e
-                  <b> %EVENTO.imagem%</b>.
-                </div>
               )}
               {gatilho?.tipo === "lead_criado" && (
                 <div className="aviso">Dispara para todo contato novo, venha de onde vier: painel, importação, formulário ou API.</div>

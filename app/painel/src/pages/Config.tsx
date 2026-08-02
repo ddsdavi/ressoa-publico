@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import ApiWebhooks from "./ApiWebhooks";
 
 // Fontes que existem em Windows, Mac, Android e iOS. Fonte fora desta lista
 // não é arriscada: é loteria — o cliente cai para o padrão dele e o e-mail
@@ -21,81 +22,37 @@ const CORES = [
 ];
 
 
-// A tela tinha virado uma coluna única com tudo dentro: trava de envio,
-// provedor, cores, ManyChat e RSS empilhados. Agora cada assunto tem o seu
-// lugar, e a aba de segurança avisa quando o modo de teste está ligado —
-// esquecer isso ligado significa campanha que não chega em ninguém.
+// Tudo que é e-mail fica junto: provedor, remetente, aparência e as travas.
+// Separar "envio" de "aparência" obrigava a pessoa a lembrar em qual das
+// duas estava o que ela procurava, sendo que as duas tratam da mesma coisa.
+// O cadeado na aba avisa quando o modo de teste está ligado — esquecer isso
+// ligado é campanha que não chega em ninguém.
 const ABAS = [
-  { id: "envio", icone: "✉", rotulo: "Envio",
-    sub: "Provedor, remetente padrão e endereço de resposta." },
-  { id: "emails", icone: "🎨", rotulo: "Aparência",
-    sub: "Fonte, cores e largura que todo e-mail novo herda." },
-  { id: "integracoes", icone: "🔌", rotulo: "Integrações",
-    sub: "ManyChat, feeds de conteúdo e webhooks de saída." },
-  { id: "seguranca", icone: "🛡", rotulo: "Segurança",
-    sub: "As travas que seguram o disparo. Comece por aqui em caso de dúvida." },
+  { id: "email", icone: "✉", rotulo: "E-mail",
+    sub: "Provedor, remetente, aparência das mensagens e as travas de envio." },
+  { id: "manychat", icone: "💬", rotulo: "ManyChat",
+    sub: "A ponte com o WhatsApp e o Instagram." },
+  { id: "api", icone: "⌨", rotulo: "API e webhooks",
+    sub: "Endereços de entrada e saída, e a chave de acesso aos dados." },
 ];
-
-type Fonte = {
-  fonte_id: number; nome: string; url: string;
-  lista_fk: number | null; ultima_checagem: string | null;
-};
 
 export default function Config() {
   const [cfg, setCfg] = useState<Record<string, string>>({});
   const [salvo, setSalvo] = useState(false);
-  const [fontes, setFontes] = useState<Fonte[]>([]);
-  const [listas, setListas] = useState<{ lista_id: number; nome: string }[]>([]);
-  const [novaFonte, setNovaFonte] = useState({ nome: "", url: "", lista_fk: "" });
-  const [erroFonte, setErroFonte] = useState("");
   const [mcChave, setMcChave] = useState("");
   const [mcConfigurado, setMcConfigurado] = useState(false);
   const [mcResposta, setMcResposta] = useState("");
-  const [aba, setAba] = useState("envio");
+  const [aba, setAba] = useState("email");
 
   async function carregar() {
     const { data } = await supabase.from("app_config").select("chave, valor");
     setCfg(Object.fromEntries((data ?? []).map((r) => [r.chave, r.valor ?? ""])));
-    const { data: f } = await supabase.from("rss_fontes")
-      .select("fonte_id,nome,url,lista_fk,ultima_checagem").order("nome");
-    setFontes(f ?? []);
-    const { data: l } = await supabase.from("listas").select("lista_id,nome").order("nome");
-    setListas(l ?? []);
 
     // pergunta se a chave existe, não qual é — a função devolve só o fato
     const { data: seg } = await supabase.rpc("segredos_configurados");
     setMcConfigurado(!!(seg as Record<string, unknown>)?.manychat_api_key);
   }
   useEffect(() => { carregar(); }, []);
-
-  async function adicionarFonte() {
-    setErroFonte("");
-    const url = novaFonte.url.trim();
-    if (!novaFonte.nome.trim() || !url) { setErroFonte("Preencha o nome e o endereço."); return; }
-    if (!/^https?:\/\//i.test(url)) { setErroFonte("O endereço precisa começar com http:// ou https://"); return; }
-    // Confere se o endereço é mesmo um feed ANTES de gravar. Feed errado
-    // gravado é uma automação que nunca dispara e ninguém entende por quê.
-    try {
-      const r = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rss?url=${encodeURIComponent(url)}&qtd=1`,
-        { headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "" } });
-      const d = await r.json();
-      if (!d.ok || !d.itens?.length) {
-        setErroFonte("Esse endereço não devolveu nenhum post. Confira se é o feed (costuma terminar em /feed ou /rss).");
-        return;
-      }
-    } catch {
-      setErroFonte("Não deu para acessar esse endereço agora.");
-      return;
-    }
-    const { error } = await supabase.from("rss_fontes").insert({
-      nome: novaFonte.nome.trim(), url,
-      lista_fk: novaFonte.lista_fk ? Number(novaFonte.lista_fk) : null,
-    });
-    if (error) { setErroFonte(error.message); return; }
-    setNovaFonte({ nome: "", url: "", lista_fk: "" });
-    carregar();
-  }
 
   async function salvarManyChat() {
     const { error } = await supabase.rpc("guardar_segredo", {
@@ -120,12 +77,6 @@ export default function Config() {
     } catch (e) {
       setMcResposta("Não deu para falar com o ManyChat agora: " + (e as Error).message);
     }
-  }
-
-  async function removerFonte(id: number) {
-    if (!confirm("Remover este feed? As automações ligadas a ele param de disparar.")) return;
-    await supabase.from("rss_fontes").delete().eq("fonte_id", id);
-    carregar();
   }
 
   async function salvar() {
@@ -158,7 +109,7 @@ export default function Config() {
                 fontSize: "calc(14px * var(--escala-texto))",
               }}>
               {a.icone} {a.rotulo}
-              {a.id === "seguranca" && (cfg.envio_so_para ?? "").trim() !== "" && (
+              {a.id === "email" && (cfg.envio_so_para ?? "").trim() !== "" && (
                 <span title="modo de teste ligado" style={{ marginLeft: 6 }}>🔒</span>
               )}
             </button>
@@ -175,7 +126,7 @@ export default function Config() {
         </div>
       )}
 
-      {aba === "seguranca" && (
+      {aba === "email" && (
       <div className="caixa" style={{ borderLeft: "4px solid var(--perigo)" }}>
         <h2>Trava de envio</h2>
         <div className="sub">
@@ -218,7 +169,7 @@ export default function Config() {
       </div>
       )}
 
-      {aba === "envio" && (
+      {aba === "email" && (
       <div className="caixa">
         <h2>Envio de e-mail</h2>
         <label>Provedor</label>
@@ -290,7 +241,7 @@ export default function Config() {
       </div>
       )}
 
-      {aba === "emails" && (
+      {aba === "email" && (
       <div className="caixa">
         <h2>Identidade visual dos e-mails</h2>
         <div className="sub">
@@ -359,7 +310,9 @@ export default function Config() {
       </div>
       )}
 
-      {aba === "integracoes" && (
+      {aba === "api" && <ApiWebhooks embutido />}
+
+      {aba === "manychat" && (
       <div className="caixa">
         <h2>ManyChat</h2>
         <div className="sub">
@@ -414,65 +367,9 @@ export default function Config() {
       </div>
       )}
 
-      {aba === "integracoes" && (
-      <div className="caixa">
-        <h2>Conteúdo (RSS)</h2>
-        <div className="sub">
-          Cadastre o endereço do feed do seu blog. De hora em hora o sistema confere se
-          saiu post novo; quando sai, quem estiver na lista escolhida recebe o aviso pela
-          automação com o gatilho <b>Sai um post novo (RSS)</b>.
-        </div>
+      
 
-        <table className="tabela">
-          <thead><tr><th>Nome</th><th>Endereço do feed</th><th>Avisar a lista</th><th>Última checagem</th><th /></tr></thead>
-          <tbody>
-            {fontes.map((f) => (
-              <tr key={f.fonte_id}>
-                <td>{f.nome}</td>
-                <td style={{ wordBreak: "break-all", maxWidth: 280 }}>{f.url}</td>
-                <td>{listas.find((l) => l.lista_id === f.lista_fk)?.nome ?? <i>nenhuma</i>}</td>
-                <td>{f.ultima_checagem ? new Date(f.ultima_checagem).toLocaleString("pt-BR") : "—"}</td>
-                <td><button onClick={() => removerFonte(f.fonte_id)}>Remover</button></td>
-              </tr>
-            ))}
-            {!fontes.length && (
-              <tr><td colSpan={5} style={{ color: "var(--texto2)" }}>Nenhum feed cadastrado.</td></tr>
-            )}
-          </tbody>
-        </table>
-
-        <div style={{ display: "grid", gap: 10, marginTop: 12,
-                      gridTemplateColumns: "1fr 2fr 1fr auto", alignItems: "end" }}>
-          <div>
-            <label>Nome</label>
-            <input value={novaFonte.nome} placeholder="Blog da Patrícia"
-              onChange={(e) => setNovaFonte({ ...novaFonte, nome: e.target.value })} />
-          </div>
-          <div>
-            <label>Endereço do feed</label>
-            <input value={novaFonte.url} placeholder="https://seublog.com.br/feed"
-              onChange={(e) => setNovaFonte({ ...novaFonte, url: e.target.value })} />
-          </div>
-          <div>
-            <label>Avisar a lista</label>
-            <select value={novaFonte.lista_fk}
-              onChange={(e) => setNovaFonte({ ...novaFonte, lista_fk: e.target.value })}>
-              <option value="">— escolher —</option>
-              {listas.map((l) => <option key={l.lista_id} value={l.lista_id}>{l.nome}</option>)}
-            </select>
-          </div>
-          <button onClick={adicionarFonte}>Adicionar</button>
-        </div>
-        {erroFonte && <div className="aviso" style={{ marginTop: 10 }}>{erroFonte}</div>}
-      </div>
-      )}
-
-      {aba === "integracoes" && (
-      <div className="caixa">
-        <h2>Webhooks</h2>
-        <div className="sub">A gestão de webhooks mudou para a página <b>API &amp; Webhooks</b>.</div>
-      </div>
-      )}
+      
     </div>
   );
 }

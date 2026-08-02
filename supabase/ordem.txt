@@ -61,7 +61,6 @@ supabase/turmas_v1.sql
 supabase/imagens_v1.sql
 supabase/recuperacao_v1.sql
 supabase/contexto_rss_v1.sql
-supabase/rss_cron_v1.sql
 supabase/segredos_v1.sql
 supabase/listas_produtos_v1.sql
 supabase/listas_produtos_v1_1.sql
@@ -71,3 +70,4 @@ supabase/trava_envio_v1.sql
 supabase/manychat_v1.sql
 supabase/manychat_v2_id.sql
 supabase/manychat_v3_automatico.sql
+supabase/remove_rss_v1.sql

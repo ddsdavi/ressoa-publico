@@ -24,7 +24,9 @@ Foi construída para operar a base da Nome do Remetente — 12 mil leads de sua 
 | **Relatórios** | base, campanhas, tags, campos e de onde vem o dinheiro |
 | **Acesso** | três níveis de usuário, com as regras dentro do banco |
 
-E o que ele **não** faz, de propósito: SMS e WhatsApp.
+| **WhatsApp** | marca a pessoa no ManyChat quando ela compra, e é a tag que dispara a mensagem lá |
+
+O WhatsApp não sai daqui: quem manda é o ManyChat. A Ressoa decide **quem** e **quando**.
 
 ---
 
@@ -58,7 +60,7 @@ cp .env.example .env      # preencha as chaves — cada linha diz onde achar
 No Windows, o último comando é `.\instalar.ps1`.
 
 **Um comando faz tudo:** cria as tabelas, instala as funções do banco, agenda as tarefas
-automáticas, publica as 8 funções públicas e sobe o painel. No fim ele imprime o endereço
+automáticas, publica as 10 funções públicas e sobe o painel. No fim ele imprime o endereço
 e o que fazer em seguida.
 
 Rodar de novo é seguro — todo arquivo usa `create ... if not exists` ou
@@ -84,7 +86,7 @@ Passo a passo detalhado: **[docs/01-INSTALAR.md](docs/01-INSTALAR.md)**
 | **[05 — Ligar o envio real](docs/05-LIGAR-ENVIO-REAL.md)** | Resend, Amazon SES, DNS e aquecimento de domínio |
 | **[06 — Armadilhas conhecidas](docs/06-PROBLEMAS-CONHECIDOS.md)** | cada uma custou horas de depuração |
 | **[07 — Vendas e Hotmart](docs/07-VENDAS-E-HOTMART.md)** | receber compra em tempo real e atribuir a venda ao anúncio |
-| **[08 — Recuperação e conteúdo](docs/08-RECUPERACAO-E-CONTEUDO.md)** | carrinho abandonado, contador regressivo, RSS e módulos salvos |
+| **[08 — Recuperação e conteúdo](docs/08-RECUPERACAO-E-CONTEUDO.md)** | carrinho abandonado, contador regressivo, módulos salvos e ManyChat |
 
 ---
 
@@ -104,7 +106,7 @@ ressoa/
 │  └─ …                         pontuação, formulários, relatórios
 │
 ├─ app/
-│  ├─ functions/                8 funções públicas (Deno)
+│  ├─ functions/                10 funções públicas (Deno)
 │  │  ├─ formulario/            captação de lead
 │  │  ├─ venda/                 webhook da Hotmart
 │  │  ├─ rastreio/              pixel de abertura e clique
@@ -112,7 +114,9 @@ ressoa/
 │  │  ├─ postback-resend/       retornos do Resend
 │  │  ├─ postback-ses/          retornos do Amazon SES
 │  │  ├─ enviar-ses/            envio assinado pela AWS
-│  │  └─ conta-email/           códigos de segurança da conta
+│  │  ├─ conta-email/           códigos de segurança da conta
+│  │  ├─ contador/              contador regressivo, desenhado como imagem
+│  │  └─ manychat/              ponte com o WhatsApp e o Instagram
 │  │
 │  └─ painel/                   React + Vite (Cloudflare Pages)
 │     └─ src/pages/             uma tela por arquivo

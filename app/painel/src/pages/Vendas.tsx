@@ -139,7 +139,7 @@ export default function Vendas() {
 
       <div className="caixa">
         <div style={{ fontSize: "calc(13.5px * var(--escala-texto))", lineHeight: 1.7 }}>
-          O endereço para colar na Hotmart fica em <b>Desenvolvedor → API &amp; Webhooks</b>,
+          O endereço para colar na Hotmart fica em <b>Configurações → API e webhooks</b>,
           junto dos outros endereços de integração. Aqui você define o que acontece
           <b> depois</b> que a venda chega.
         </div>

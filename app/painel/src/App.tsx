@@ -22,7 +22,6 @@ import FormularioPublico from "./pages/FormularioPublico";
 import Formularios from "./pages/Formularios";
 import Relatorios from "./pages/Relatorios";
 import Vendas from "./pages/Vendas";
-import ApiWebhooks from "./pages/ApiWebhooks";
 import Config from "./pages/Config";
 
 // Layout no padrão do ActiveCampaign: topbar escura + rail de ícones + sidebar branca contextual.
@@ -56,11 +55,6 @@ const SECOES = [
     id: "automacoes", titulo: "Automações", rotas: ["/automacoes"],
     icone: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="6" cy="6" r="2.5" /><circle cx="18" cy="6" r="2.5" /><circle cx="12" cy="18" r="2.5" /><path d="M6 8.5V12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8.5M12 14v1.5" /></svg>,
     grupos: [{ titulo: null, itens: [["Automações", "/automacoes"]] }],
-  },
-  {
-    id: "dev", titulo: "Desenvolvedor", rotas: ["/api"], soAdmin: true,
-    icone: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m8 7-5 5 5 5M16 7l5 5-5 5" /></svg>,
-    grupos: [{ titulo: null, itens: [["API & Webhooks", "/api"]] }],
   },
   {
     id: "admin", titulo: "Admin", rotas: ["/usuarios", "/seguranca"], soAdmin: true,
@@ -189,7 +183,8 @@ function Layout() {
             <Route path="/formularios" element={<Formularios />} />
             <Route path="/relatorios" element={<Relatorios />} />
             <Route path="/vendas" element={<Vendas />} />
-            <Route path="/api" element={ehAdmin ? <ApiWebhooks /> : <Navigate to="/" replace />} />
+            {/* endereço antigo: API e webhooks agora moram numa aba de Configurações */}
+            <Route path="/api" element={<Navigate to="/config" replace />} />
             <Route path="/config" element={ehAdmin ? <Config /> : <Navigate to="/" replace />} />
             <Route path="/usuarios" element={ehAdmin ? <Usuarios /> : <Navigate to="/" replace />} />
             <Route path="/seguranca" element={ehAdmin ? <Seguranca /> : <Navigate to="/" replace />} />
