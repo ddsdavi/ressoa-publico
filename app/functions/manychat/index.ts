@@ -26,10 +26,10 @@ const MC = "https://api.manychat.com/fb";
 
 type Corpo = {
   lead_id?: string; manychat_id?: string; email?: string; nome?: string;
-  whatsapp?: string; tag?: string; criar?: boolean;
+  whatsapp?: string; tag?: string; tag_id?: number; criar?: boolean;
   subscriber_id?: string | number; registrar?: boolean;
   // operações avulsas usadas pela tela
-  acao?: "tags" | "criar_tag" | "procurar" | "criar" | "desmarcar";
+  acao?: "tags" | "criar_tag" | "excluir_tag" | "procurar" | "criar" | "desmarcar";
 };
 
 // ---------------------------------------------------------------------
@@ -99,6 +99,30 @@ Deno.serve(async (req) => {
   const conf = Object.fromEntries(
     (cfg ?? []).map((r: { chave: string; valor: string }) => [r.chave, r.valor ?? ""]));
   const campoWhats = conf.manychat_campo_whatsapp ?? "";
+
+  // As operações destrutivas e a criação manual de contatos só existem na
+  // área de admin do painel. A chave anon do frontend é pública, então não
+  // basta confiar na rota React: o servidor confere o usuário e o papel.
+  const usuarioEhAdmin = async () => {
+    const auth = req.headers.get("Authorization") ?? "";
+    const tokenUsuario = auth.replace(/^Bearer\s+/i, "").trim();
+    if (!tokenUsuario || tokenUsuario === chave) return false;
+
+    const rUsuario = await fetch(`${base}/auth/v1/user`, {
+      headers: { apikey: chave, Authorization: `Bearer ${tokenUsuario}` },
+    });
+    if (!rUsuario.ok) return false;
+    const usuario = await rUsuario.json();
+    if (!usuario?.id) return false;
+
+    const rPerfil = await fetch(
+      `${base}/rest/v1/usuarios_ressoa?user_id=eq.${encodeURIComponent(usuario.id)}` +
+      `&select=papel,status&limit=1`,
+      { headers: cab },
+    );
+    const perfis = await rPerfil.json();
+    return perfis?.[0]?.papel === "admin" && perfis?.[0]?.status === "aprovado";
+  };
 
 
   const anotar = async (lead: string | undefined, acao: string, tag: string,
@@ -187,6 +211,42 @@ Deno.serve(async (req) => {
       }), { headers: CORS });
     }
 
+    if (c.acao === "excluir_tag") {
+      if (!(await usuarioEhAdmin())) {
+        return new Response(JSON.stringify({ ok: false, erro: "somente admin pode excluir tag" }),
+                            { status: 403, headers: CORS });
+      }
+
+      const tagId = Number(c.tag_id);
+      if (!Number.isInteger(tagId) || tagId <= 0) {
+        return new Response(JSON.stringify({ ok: false, erro: "tag inválida" }),
+                            { status: 400, headers: CORS });
+      }
+
+      // Confere novamente o id e o nome imediatamente antes de apagar. Isso
+      // impede que uma lista antiga da tela exclua outra tag por engano.
+      const lista = await mc("/page/getTags");
+      const tags = ((lista.dados as { data?: { id: number; name: string }[] })?.data ?? []);
+      const atual = tags.find((t) => Number(t.id) === tagId);
+      if (!atual) {
+        return new Response(JSON.stringify({ ok: false, erro: "tag não existe mais" }),
+                            { status: 404, headers: CORS });
+      }
+      if ((c.tag ?? "").trim() !== atual.name) {
+        return new Response(JSON.stringify({ ok: false, erro: "a tag mudou; atualize a lista" }),
+                            { status: 409, headers: CORS });
+      }
+
+      const r = await mc("/page/removeTag", "POST", { tag_id: tagId });
+      await anotar(undefined, "apagou tag da conta", atual.name, r.ok,
+                   JSON.stringify(r.dados).slice(0, 300));
+      return new Response(JSON.stringify({
+        ok: r.ok,
+        mensagem: r.ok ? `tag "${atual.name}" excluída` : undefined,
+        detalhe: r.ok ? undefined : r.dados,
+      }), { status: r.ok ? 200 : 400, headers: CORS });
+    }
+
     if (c.acao === "procurar") {
       if (!fone) {
         return new Response(JSON.stringify({ ok: false, erro: "telefone inválido", formatado: null }),
@@ -199,6 +259,11 @@ Deno.serve(async (req) => {
       const r = await mc(
         `/subscriber/findByCustomField?field_id=${encodeURIComponent(campoWhats)}` +
         `&field_value=${encodeURIComponent(fone)}`);
+      if (!r.ok) {
+        return new Response(JSON.stringify({
+          ok: false, erro: "não deu para consultar o ManyChat", detalhe: r.dados,
+        }), { status: 400, headers: CORS });
+      }
       const achados = ((r.dados as { data?: Record<string, unknown>[] })?.data ?? []);
       const p = achados[0];
       return new Response(JSON.stringify({
@@ -212,10 +277,39 @@ Deno.serve(async (req) => {
     }
 
     if (c.acao === "criar") {
+      if (!(await usuarioEhAdmin())) {
+        return new Response(JSON.stringify({ ok: false, erro: "somente admin pode criar usuário" }),
+                            { status: 403, headers: CORS });
+      }
       if (!fone) {
         return new Response(JSON.stringify({ ok: false, erro: "sem WhatsApp válido não dá para criar" }),
                             { status: 400, headers: CORS });
       }
+      if (!campoWhats) {
+        return new Response(JSON.stringify({ ok: false, erro: "falta o id do campo do WhatsApp" }),
+                            { status: 400, headers: CORS });
+      }
+      if (!(c.nome ?? "").trim()) {
+        return new Response(JSON.stringify({ ok: false, erro: "informe o nome do usuário" }),
+                            { status: 400, headers: CORS });
+      }
+
+      const existente = await mc(
+        `/subscriber/findByCustomField?field_id=${encodeURIComponent(campoWhats)}` +
+        `&field_value=${encodeURIComponent(fone)}`);
+      if (!existente.ok) {
+        return new Response(JSON.stringify({
+          ok: false, erro: "não deu para conferir se o WhatsApp já existe", detalhe: existente.dados,
+        }), { status: 400, headers: CORS });
+      }
+      const idExistente = primeiro(existente.dados);
+      if (idExistente) {
+        return new Response(JSON.stringify({
+          ok: true, criado: false, assinante: idExistente, formatado: fone,
+          mensagem: "esse WhatsApp já existe no ManyChat",
+        }), { headers: CORS });
+      }
+
       const partes = (c.nome ?? "").trim().split(/\s+/);
       const r = await mc("/subscriber/createSubscriber", "POST", {
         first_name: partes[0] || "Contato",
@@ -226,12 +320,24 @@ Deno.serve(async (req) => {
         consent_phrase: "cadastro vindo da Ressoa",
       });
       const id = primeiro(r.dados);
+      let campoLigado = false;
+      let detalheCampo: unknown;
+      if (id) {
+        const ligacao = await mc("/subscriber/setCustomField", "POST", {
+          subscriber_id: id,
+          field_id: Number(campoWhats),
+          field_value: fone,
+        });
+        campoLigado = ligacao.ok;
+        detalheCampo = ligacao.dados;
+      }
       await anotar(c.lead_id, "criou pela tela", "", !!id,
                    id ? `assinante ${id}` : JSON.stringify(r.dados).slice(0, 300));
       return new Response(JSON.stringify({
-        ok: !!id, assinante: id, formatado: fone,
-        detalhe: id ? undefined : r.dados,
-      }), { headers: CORS });
+        ok: !!id && campoLigado, criado: !!id, assinante: id, formatado: fone,
+        detalhe: !id ? r.dados : campoLigado ? undefined : detalheCampo,
+        erro: id && !campoLigado ? "usuário criado, mas não deu para ligar o campo do WhatsApp" : undefined,
+      }), { status: id && campoLigado ? 200 : 400, headers: CORS });
     }
 
     if (c.acao === "desmarcar") {
@@ -312,6 +418,21 @@ Deno.serve(async (req) => {
       await anotar(c.lead_id, "criar", c.tag, false, JSON.stringify(r.dados).slice(0, 400));
       return new Response(JSON.stringify({ ok: false, erro: "não deu para criar", detalhe: r.dados }),
                           { status: 400, headers: CORS });
+    }
+
+    // Guarda também o número no campo personalizado usado nas próximas
+    // buscas. Sem isso, o mesmo contato seria criado novamente no próximo
+    // evento porque esta conta não encontra WhatsApp pelo campo de sistema.
+    if (campoWhats) {
+      const ligacao = await mc("/subscriber/setCustomField", "POST", {
+        subscriber_id: id,
+        field_id: Number(campoWhats),
+        field_value: fone,
+      });
+      if (!ligacao.ok) {
+        await anotar(c.lead_id, "ligar whatsapp", c.tag, false,
+                     JSON.stringify(ligacao.dados).slice(0, 400));
+      }
     }
   }
 

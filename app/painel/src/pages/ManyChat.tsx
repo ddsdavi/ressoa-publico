@@ -19,12 +19,22 @@ const FUNCOES = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manychat`;
 const CHAVE = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
 
 async function chamar(corpo: Record<string, unknown>) {
+  const { data: sessao } = await supabase.auth.getSession();
   const r = await fetch(FUNCOES, {
     method: "POST",
-    headers: { "Content-Type": "application/json", apikey: CHAVE },
+    headers: {
+      "Content-Type": "application/json",
+      apikey: CHAVE,
+      Authorization: `Bearer ${sessao.session?.access_token ?? ""}`,
+    },
     body: JSON.stringify(corpo),
   });
-  return r.json();
+  const texto = await r.text();
+  let dados: Record<string, any> = {};
+  try { dados = JSON.parse(texto); }
+  catch { dados = { ok: false, erro: texto || `erro ${r.status}` }; }
+  if (!r.ok && dados.ok !== false) dados.ok = false;
+  return dados;
 }
 
 type Tag = { id: number; name: string };
@@ -51,6 +61,8 @@ export default function ManyChat() {
   const [tagAvulsa, setTagAvulsa] = useState("");
   const [passos, setPassos] = useState<Passo[]>([]);
   const [rodando, setRodando] = useState(false);
+  const [acaoContato, setAcaoContato] = useState(false);
+  const [mensagemContato, setMensagemContato] = useState<Passo | null>(null);
 
   // quem é essa pessoa, dos dois lados
   const [assinante, setAssinante] = useState<Assinante | null>(null);
@@ -61,11 +73,17 @@ export default function ManyChat() {
   const [novaTag, setNovaTag] = useState("");
   const [filtro, setFiltro] = useState("");
   const [verTags, setVerTags] = useState(false);
+  const [tagEmAcao, setTagEmAcao] = useState<number | null>(null);
+  const [mensagemTags, setMensagemTags] = useState<Passo | null>(null);
 
   async function carregarTags() {
-    const d = await chamar({ acao: "tags" });
-    if (d.ok) { setTags(d.tags ?? []); setErroGeral(""); }
-    else setErroGeral("Não deu para ler as tags do ManyChat. Confira a chave em Configurações → ManyChat.");
+    try {
+      const d = await chamar({ acao: "tags" });
+      if (d.ok) { setTags(d.tags ?? []); setErroGeral(""); }
+      else setErroGeral("Não deu para ler as tags do ManyChat. Confira a chave em Configurações → ManyChat.");
+    } catch {
+      setErroGeral("Não deu para falar com o ManyChat. Tente novamente.");
+    }
   }
 
   useEffect(() => {
@@ -88,6 +106,51 @@ export default function ManyChat() {
     setNaRessoa((rs as NaRessoa) ?? null);
     setProcurou(true);
     return mc;
+  }
+
+  async function buscarUsuario() {
+    if (!fone.trim()) return;
+    setAcaoContato(true);
+    setMensagemContato(null);
+    try {
+      const d = await procurar();
+      if (!d?.ok) {
+        setMensagemContato({ texto: d?.erro ?? "Não deu para consultar o ManyChat.", estado: "erro" });
+      } else if (d.existe) {
+        setMensagemContato({ texto: "Usuário encontrado pelo WhatsApp.", estado: "ok" });
+      } else {
+        setMensagemContato({ texto: "Nenhum usuário encontrado com esse WhatsApp.", estado: "info" });
+      }
+    } catch {
+      setMensagemContato({ texto: "Não deu para consultar o ManyChat.", estado: "erro" });
+    } finally {
+      setAcaoContato(false);
+    }
+  }
+
+  async function criarUsuario() {
+    if (!fone.trim() || !nome.trim()) return;
+    setAcaoContato(true);
+    setMensagemContato(null);
+    try {
+      const d = await chamar({ acao: "criar", whatsapp: fone, nome: nome.trim() });
+      if (!d.ok) {
+        setMensagemContato({ texto: d.erro ?? "Não deu para criar o usuário.", estado: "erro" });
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 1200));
+      await procurar();
+      setMensagemContato({
+        texto: d.criado
+          ? "Usuário criado no ManyChat e ligado ao WhatsApp."
+          : "Esse WhatsApp já existia no ManyChat; nenhum duplicado foi criado.",
+        estado: d.criado ? "ok" : "info",
+      });
+    } catch {
+      setMensagemContato({ texto: "Não deu para criar o usuário.", estado: "erro" });
+    } finally {
+      setAcaoContato(false);
+    }
   }
 
   const produtoTemTag = () => {
@@ -138,10 +201,15 @@ export default function ManyChat() {
             d.resultado?.manychat ? "ok" : "erro");
     } else {
       if (!tagAvulsa) { anota("escolha a tag", "erro"); setRodando(false); return; }
-      const d = await chamar({ whatsapp: fone, nome, tag: tagAvulsa, criar: true });
+      if (!mc.existe || !mc.assinante?.id) {
+        anota("Esse WhatsApp não existe no ManyChat. Crie o usuário primeiro.", "erro");
+        setRodando(false); return;
+      }
+      const d = await chamar({
+        manychat_id: String(mc.assinante.id), tag: tagAvulsa, criar: false,
+      });
       if (!d.ok) { anota(d.motivo ?? d.erro ?? "não deu", "erro"); setRodando(false); return; }
-      anota(d.criado ? `Criado no ManyChat (assinante ${d.assinante})`
-                     : `Já existia no ManyChat (assinante ${d.assinante}, achado por ${d.como})`);
+      anota(`Usuário encontrado pelo WhatsApp (assinante ${d.assinante})`);
       anota(`Tag ${tagAvulsa} aplicada`);
     }
 
@@ -158,20 +226,73 @@ export default function ManyChat() {
   async function marcar(tag: string, remover: boolean) {
     if (!assinante) return;
     setRodando(true);
-    await chamar(remover
-      ? { acao: "desmarcar", manychat_id: String(assinante.id), tag }
-      : { manychat_id: String(assinante.id), tag, criar: false });
-    await new Promise((r) => setTimeout(r, 1200));
-    await procurar();
-    setRodando(false);
+    setMensagemContato(null);
+    try {
+      const d = await chamar(remover
+        ? { acao: "desmarcar", manychat_id: String(assinante.id), tag }
+        : { manychat_id: String(assinante.id), tag, criar: false });
+      if (!d.ok) {
+        setMensagemContato({ texto: d.erro ?? d.motivo ?? "A operação não foi concluída.", estado: "erro" });
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 1200));
+      await procurar();
+      setMensagemContato({
+        texto: remover ? `Tag “${tag}” removida desse usuário.` : `Tag “${tag}” aplicada nesse usuário.`,
+        estado: "ok",
+      });
+    } catch {
+      setMensagemContato({ texto: "Não deu para concluir a operação no ManyChat.", estado: "erro" });
+    } finally {
+      setRodando(false);
+    }
   }
 
   async function criarTag() {
     if (!novaTag.trim()) return;
-    const d = await chamar({ acao: "criar_tag", tag: novaTag.trim() });
-    setNovaTag("");
-    if (d.ok) carregarTags();
-    else alert(JSON.stringify(d.detalhe ?? d.erro));
+    setTagEmAcao(-1);
+    setMensagemTags(null);
+    const nomeTag = novaTag.trim();
+    try {
+      const d = await chamar({ acao: "criar_tag", tag: nomeTag });
+      if (d.ok) {
+        setNovaTag("");
+        await carregarTags();
+        setMensagemTags({ texto: d.mensagem ?? `Tag “${nomeTag}” criada.`, estado: "ok" });
+      } else {
+        setMensagemTags({ texto: d.erro ?? "Não deu para criar a tag.", estado: "erro" });
+      }
+    } catch {
+      setMensagemTags({ texto: "Não deu para criar a tag.", estado: "erro" });
+    } finally {
+      setTagEmAcao(null);
+    }
+  }
+
+  async function excluirTag(t: Tag) {
+    const confirmou = window.confirm(
+      `Excluir a tag “${t.name}” do ManyChat?\n\n` +
+      "Ela será removida da conta e de todos os usuários. Esta ação não pode ser desfeita.",
+    );
+    if (!confirmou) return;
+
+    setTagEmAcao(t.id);
+    setMensagemTags(null);
+    try {
+      const d = await chamar({ acao: "excluir_tag", tag_id: t.id, tag: t.name });
+      if (!d.ok) {
+        setMensagemTags({ texto: d.erro ?? "Não deu para excluir a tag.", estado: "erro" });
+        return;
+      }
+      if (tagAvulsa === t.name) setTagAvulsa("");
+      await carregarTags();
+      if (assinante) await procurar();
+      setMensagemTags({ texto: d.mensagem ?? `Tag “${t.name}” excluída.`, estado: "ok" });
+    } catch {
+      setMensagemTags({ texto: "Não deu para excluir a tag.", estado: "erro" });
+    } finally {
+      setTagEmAcao(null);
+    }
   }
 
   const cor = (e: Passo["estado"]) =>
@@ -183,19 +304,17 @@ export default function ManyChat() {
     <div>
       <h1>ManyChat</h1>
       <div className="sub">
-        Rode o mesmo caminho da automação, com um número, e veja cada passo.
+        Gerencie pessoas e tags do ManyChat. A busca de pessoa é sempre pelo WhatsApp.
       </div>
 
       {erroGeral && <div className="aviso">{erroGeral}</div>}
 
-      {/* ---------------- o fluxo ---------------- */}
+      {/* ---------------- pessoas ---------------- */}
       <div className="caixa">
-        <h2>Rodar o fluxo
+        <h2>Pessoas no ManyChat
           <Ajuda>
-            É o mesmo que acontece quando alguém compra: o telefone é acertado, a pessoa é
-            procurada no ManyChat pelo campo do WhatsApp, e recebe a tag. Se não existir
-            lá, é criada antes. Serve para conferir que o caminho funciona antes de deixar
-            a automação solta.
+            A consulta usa somente o número completo do WhatsApp. O nome não participa da
+            busca; ele é usado apenas quando você cria um usuário novo.
           </Ajuda>
         </h2>
 
@@ -210,14 +329,13 @@ export default function ManyChat() {
             </label>
             <input value={fone} placeholder="5551999990000"
               onChange={(e) => setFone(e.target.value)}
-              onBlur={() => fone.trim() && procurar()}
-              onKeyDown={(e) => e.key === "Enter" && procurar()} />
+              onKeyDown={(e) => e.key === "Enter" && buscarUsuario()} />
           </div>
           <div style={{ flex: 2 }}>
-            <label>Nome
+            <label>Nome <span className="sub">(somente para criar)</span>
               <Ajuda>
-                Usado só se a pessoa <b>não existir</b> no ManyChat e precisar ser criada.
-                Para procurar, ele não é usado — a busca é sempre pelo número.
+                Preencha o nome e o WhatsApp para criar um usuário. Para buscar alguém,
+                basta informar o WhatsApp.
               </Ajuda>
             </label>
             <input value={nome} placeholder="Maria Silva"
@@ -225,66 +343,28 @@ export default function ManyChat() {
           </div>
         </div>
 
-        <label style={{ marginTop: 14 }}>Que tag aplicar</label>
-        <div className="linha">
-          <button style={{ flex: "0 0 auto" }} className={alvo === "produto" ? "primario" : ""}
-            onClick={() => setAlvo("produto")}>A do produto</button>
-          <button style={{ flex: "0 0 auto" }} className={alvo === "tag" ? "primario" : ""}
-            onClick={() => setAlvo("tag")}>Uma tag específica</button>
-        </div>
-
-        {alvo === "produto" ? (
-          <>
-            <select value={produto} onChange={(e) => setProduto(e.target.value)}
-              style={{ marginTop: 10 }}>
-              <option value="">— escolher o produto —</option>
-              {produtos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.apelido}{p.tag_manychat
-                    ? ` → ${p.tag_manychat}`
-                    : p.tag_manychat_turma
-                      ? " → tag semanal da turma"
-                      : " (sem tag configurada)"}
-                </option>
-              ))}
-            </select>
-            {produto && !produtoTemTag() && (
-              <div className="aviso" style={{ marginTop: 8 }}>
-                Este produto não tem tag do ManyChat. Configure em <b>Vendas</b>, na regra
-                dele, senão o fluxo mexe só aqui dentro.
-              </div>
-            )}
-          </>
-        ) : (
-          <select value={tagAvulsa} onChange={(e) => setTagAvulsa(e.target.value)}
-            style={{ marginTop: 10 }}>
-            <option value="">— escolher a tag —</option>
-            {tags.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-          </select>
-        )}
-
-        <div style={{ marginTop: 16 }}>
-          <button className="primario" onClick={rodarFluxo}
-            disabled={rodando || !fone.trim() || (alvo === "produto" ? !produto : !tagAvulsa)}>
-            {rodando ? "rodando…" : "Rodar o fluxo"}
+        <div className="linha" style={{ marginTop: 16 }}>
+          <button className="primario" style={{ flex: "0 0 auto" }}
+            onClick={buscarUsuario} disabled={acaoContato || !fone.trim()}>
+            {acaoContato ? "aguarde…" : "Buscar por WhatsApp"}
+          </button>
+          <button style={{ flex: "0 0 auto" }} onClick={criarUsuario}
+            disabled={acaoContato || !fone.trim() || !nome.trim()}>
+            Criar usuário
           </button>
         </div>
 
-        {!!passos.length && (
-          <ol style={{ marginTop: 16, paddingLeft: 20, lineHeight: 2 }}>
-            {passos.map((p, i) => (
-              <li key={i} style={{ color: cor(p.estado) }}>
-                {p.estado === "erro" ? "✕ " : p.estado === "ok" ? "✓ " : "· "}{p.texto}
-              </li>
-            ))}
-          </ol>
+        {mensagemContato && (
+          <div className="aviso" style={{ marginTop: 14, color: cor(mensagemContato.estado) }}>
+            {mensagemContato.texto}
+          </div>
         )}
       </div>
 
       {/* ---------------- quem é essa pessoa ---------------- */}
       {procurou && (
         <div className="caixa">
-          <h2>Esta pessoa</h2>
+          <h2>Resultado da busca</h2>
 
           <div style={{ display: "grid", gap: 16,
                         gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
@@ -350,6 +430,74 @@ export default function ManyChat() {
         </div>
       )}
 
+      {/* ---------------- automação e aplicação de tag ---------------- */}
+      <div className="caixa">
+        <h2>Aplicar tag ou testar automação
+          <Ajuda>
+            Usa o WhatsApp informado acima. “Tag específica” aplica somente a tag escolhida.
+            Ela não cria usuário automaticamente. “Regra do produto” percorre o mesmo caminho
+            de uma compra, inclusive lista e turma.
+          </Ajuda>
+        </h2>
+        <div className="sub" style={{ marginBottom: 12 }}>
+          WhatsApp usado: <b>{fone.trim() || "informe o número no bloco Pessoas"}</b>
+        </div>
+
+        <label>O que executar</label>
+        <div className="linha">
+          <button style={{ flex: "0 0 auto" }} className={alvo === "produto" ? "primario" : ""}
+            onClick={() => setAlvo("produto")}>Regra do produto</button>
+          <button style={{ flex: "0 0 auto" }} className={alvo === "tag" ? "primario" : ""}
+            onClick={() => setAlvo("tag")}>Tag específica</button>
+        </div>
+
+        {alvo === "produto" ? (
+          <>
+            <select value={produto} onChange={(e) => setProduto(e.target.value)}
+              style={{ marginTop: 10 }}>
+              <option value="">— escolher o produto —</option>
+              {produtos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.apelido}{p.tag_manychat
+                    ? ` → ${p.tag_manychat}`
+                    : p.tag_manychat_turma
+                      ? " → tag semanal da turma"
+                      : " (sem tag configurada)"}
+                </option>
+              ))}
+            </select>
+            {produto && !produtoTemTag() && (
+              <div className="aviso" style={{ marginTop: 8 }}>
+                Este produto não tem tag do ManyChat. Configure em <b>Vendas</b>, na regra dele.
+              </div>
+            )}
+          </>
+        ) : (
+          <select value={tagAvulsa} onChange={(e) => setTagAvulsa(e.target.value)}
+            style={{ marginTop: 10 }}>
+            <option value="">— escolher a tag —</option>
+            {tags.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+          </select>
+        )}
+
+        <div style={{ marginTop: 16 }}>
+          <button className="primario" onClick={rodarFluxo}
+            disabled={rodando || !fone.trim() || (alvo === "produto" ? !produto : !tagAvulsa)}>
+            {rodando ? "executando…" : alvo === "produto" ? "Testar regra do produto" : "Aplicar tag"}
+          </button>
+        </div>
+
+        {!!passos.length && (
+          <ol style={{ marginTop: 16, paddingLeft: 20, lineHeight: 2 }}>
+            {passos.map((p, i) => (
+              <li key={i} style={{ color: cor(p.estado) }}>
+                {p.estado === "erro" ? "✕ " : p.estado === "ok" ? "✓ " : "· "}{p.texto}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+
       {/* ---------------- tags da conta ---------------- */}
       <div className="caixa">
         <div className="linha" style={{ alignItems: "center" }}>
@@ -361,28 +509,46 @@ export default function ManyChat() {
             </Ajuda>
           </h2>
           <button style={{ flex: "0 0 auto" }} onClick={() => setVerTags((v) => !v)}>
-            {verTags ? "esconder" : "ver a lista"}
+            {verTags ? "Esconder lista" : "Gerenciar tags"}
           </button>
+        </div>
+
+        <div className="sub" style={{ marginTop: 8 }}>
+          Crie uma tag nova ou abra a lista para localizar e excluir uma tag da conta.
         </div>
 
         <div className="linha" style={{ marginTop: 12 }}>
           <input value={novaTag} placeholder="criar uma tag nova"
             onChange={(e) => setNovaTag(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && criarTag()} />
-          <button style={{ flex: "0 0 auto" }} onClick={criarTag} disabled={!novaTag.trim()}>
-            Criar
+          <button style={{ flex: "0 0 auto" }} onClick={criarTag}
+            disabled={!novaTag.trim() || tagEmAcao !== null}>
+            {tagEmAcao === -1 ? "Criando…" : "Criar tag"}
           </button>
         </div>
 
+        {mensagemTags && (
+          <div className="aviso" style={{ marginTop: 12, color: cor(mensagemTags.estado) }}>
+            {mensagemTags.texto}
+          </div>
+        )}
+
         {verTags && (
           <>
-            <input value={filtro} placeholder="filtrar…" style={{ marginTop: 12 }}
+            <input value={filtro} placeholder="buscar tag pelo nome…" style={{ marginTop: 12 }}
               onChange={(e) => setFiltro(e.target.value)} />
             <div style={{ marginTop: 10, maxHeight: 260, overflowY: "auto" }}>
               {tagsFiltradas.map((t) => (
                 <div key={t.id} className="sub"
-                  style={{ padding: "4px 0", borderBottom: "1px solid var(--borda)" }}>
-                  {t.name}
+                  style={{
+                    padding: "7px 0", borderBottom: "1px solid var(--borda)",
+                    display: "flex", alignItems: "center", gap: 10,
+                  }}>
+                  <span style={{ flex: 1 }}>{t.name}</span>
+                  <button className="perigo" style={{ flex: "0 0 auto", padding: "5px 10px" }}
+                    disabled={tagEmAcao !== null} onClick={() => excluirTag(t)}>
+                    {tagEmAcao === t.id ? "Excluindo…" : "Excluir"}
+                  </button>
                 </div>
               ))}
               {!tagsFiltradas.length && <div className="sub">nada com esse texto.</div>}

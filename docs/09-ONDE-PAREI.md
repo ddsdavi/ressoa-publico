@@ -67,6 +67,18 @@ sai. Depois apague (`removeTagByName` no assinante, `removeTag` na conta).
 
 Toda a integração foi validada assim, e a conta ficou como estava.
 
+A página **Automações → ManyChat** separa as operações para não haver efeito
+colateral escondido:
+
+- pessoa é procurada **somente pelo WhatsApp completo**;
+- “Criar usuário” não aplica tag nem roda regra de produto e impede duplicar um
+  WhatsApp que já existe no campo configurado;
+- “Criar tag” só cria a tag na conta;
+- “Excluir” remove a tag da conta e de todos os assinantes, exige confirmação e
+  só é aceito pelo servidor para um admin autenticado;
+- aplicar uma tag específica não cria usuário por conta própria: primeiro é
+  preciso buscar ou criar a pessoa.
+
 ---
 
 ## Telefone: a regra que custou dois erros
