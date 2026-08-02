@@ -90,9 +90,9 @@ export default function ManyChat() {
     return mc;
   }
 
-  const tagDoProduto = () => {
+  const produtoTemTag = () => {
     const p = produtos.find((x) => String(x.id) === produto);
-    return p?.tag_manychat ?? "";
+    return !!(p?.tag_manychat || p?.tag_manychat_turma);
   };
 
   async function rodarFluxo() {
@@ -240,11 +240,15 @@ export default function ManyChat() {
               <option value="">— escolher o produto —</option>
               {produtos.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.apelido}{p.tag_manychat ? ` → ${p.tag_manychat}` : " (sem tag configurada)"}
+                  {p.apelido}{p.tag_manychat
+                    ? ` → ${p.tag_manychat}`
+                    : p.tag_manychat_turma
+                      ? " → tag semanal da turma"
+                      : " (sem tag configurada)"}
                 </option>
               ))}
             </select>
-            {produto && !tagDoProduto() && (
+            {produto && !produtoTemTag() && (
               <div className="aviso" style={{ marginTop: 8 }}>
                 Este produto não tem tag do ManyChat. Configure em <b>Vendas</b>, na regra
                 dele, senão o fluxo mexe só aqui dentro.
