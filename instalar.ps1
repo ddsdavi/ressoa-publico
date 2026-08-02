@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # RESSOA — instalador de 1 comando (Windows)
 #   .\instalar.ps1              instala tudo
 #   .\instalar.ps1 -SoBanco     só cria/atualiza o banco
@@ -60,7 +60,8 @@ if (-not $SoPainel) {
     "supabase/pontuacao_v1_3_vendas.sql",
     "supabase/hotmart_v1.sql","supabase/hotmart_v1_1.sql","supabase/hotmart_v1_2.sql","supabase/hotmart_v2.sql","supabase/hotmart_v2_1.sql",
     "supabase/atribuicao_v1.sql","supabase/atribuicao_v2.sql","supabase/turmas_v1.sql","supabase/imagens_v1.sql",
-    "supabase/recuperacao_v1.sql","supabase/contexto_rss_v1.sql","supabase/rss_cron_v1.sql","supabase/segredos_v1.sql"
+    "supabase/recuperacao_v1.sql","supabase/contexto_rss_v1.sql","supabase/rss_cron_v1.sql","supabase/segredos_v1.sql",
+    "supabase/listas_produtos_v1.sql","supabase/listas_produtos_v1_1.sql","supabase/campanhas_v2_tipos.sql","supabase/gatilho_data_v1.sql","supabase/trava_envio_v1.sql"
   )
   foreach ($sql in $sqls) {
     Write-Host "  -> $(Split-Path $sql -Leaf)"

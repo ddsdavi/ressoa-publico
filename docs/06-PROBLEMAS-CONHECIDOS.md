@@ -369,3 +369,72 @@ arquivo respondendo HTTP 200 no `curl`.
 
 **Como separar do problema real:** abra o endereço `.pages.dev` do mesmo deploy. Se ele
 funciona e o domínio próprio não, o problema é do navegador, não da publicação.
+
+---
+
+## 28. Testar o motor de envio com leads reais
+
+**O que aconteceu:** uma prova do teste A/B enfileirou dez contatos reais da base. O
+comentário no próprio arquivo dizia "nenhum e-mail sai, porque `processar_fila_envios`
+não é chamado aqui". Estava errado — o **cron** chama, de minuto em minuto. Quatro
+pessoas receberam um e-mail cujo corpo era a letra "a" ou a letra "b".
+
+**Por que a intuição falha:** num sistema comum, nada acontece até você mandar
+acontecer. Aqui não: existe um agendamento rodando o tempo todo. Qualquer linha em
+`envios` com status `queued` **vai sair**, e o tempo entre enfileirar e enviar é de
+até sessenta segundos — menos do que o intervalo entre rodar o teste e ler o resultado.
+
+**A correção não é cuidado, é freio.** Duas travas em `app_config`, respeitadas por
+`processar_fila_envios`:
+
+| Chave | Efeito |
+|---|---|
+| `envio_pausado` | `true` para a fila inteira. Nada escoa, nada se perde. |
+| `envio_so_para` | Enquanto tiver endereços, só eles recebem. O resto vira `retido`. |
+
+**Antes de qualquer teste que toque na fila:**
+
+```sql
+update public.app_config set valor = 'seu@email.com' where chave = 'envio_so_para';
+```
+
+E confira que pegou, antes de enfileirar:
+
+```sql
+select public.cfg('envio_so_para');
+```
+
+**Detalhe que só aparece testando:** `retido` precisou entrar na restrição
+`envios_status_check`. Sem isso, a trava derrubava a transação inteira — o que, por
+sorte, também segurava o envio. Uma trava que falha fechada é uma trava; uma que falha
+aberta é um enfeite.
+
+---
+
+## 29. `.ps1` em UTF-8 sem BOM: o travessão vira aspa
+
+**Sintoma:** `instalar.ps1` não rodava em nenhuma máquina Windows. Erro de sintaxe numa
+linha que estava visivelmente correta.
+
+**Causa:** o Windows PowerShell 5.1 lê arquivo `.ps1` sem BOM como **ANSI**, não UTF-8.
+O travessão `—` é `E2 80 94` em UTF-8; lido como cp1252, o último byte (`0x94`) é a aspa
+dupla de fechamento `"`. O PowerShell aceita aspas tipográficas como delimitador de
+string — então a string terminava no meio da frase, e todo o resto do arquivo passava a
+ser interpretado errado.
+
+**Correção:** gravar `.ps1` como **UTF-8 com BOM**.
+
+**Como conferir sem uma máquina Windows à mão:**
+
+```bash
+head -c 3 instalar.ps1 | xxd | grep -q "efbb bf" && echo "tem BOM" || echo "SEM BOM"
+```
+
+**Por que passou tanto tempo:** o `instalar.sh` era testado com `bash -n`; o `.ps1`
+nunca foi testado com nada. Agora é, com o próprio parser do PowerShell:
+
+```powershell
+$e = $null
+[System.Management.Automation.Language.Parser]::ParseFile("instalar.ps1", [ref]$null, [ref]$e)
+$e.Count   # tem que ser 0
+```

@@ -101,6 +101,47 @@ export default function Config() {
         </div>
       )}
 
+      <div className="caixa" style={{ borderLeft: "4px solid var(--perigo)" }}>
+        <h2>Trava de envio</h2>
+        <div className="sub">
+          O motor escoa a fila de minuto em minuto, sozinho. Estas duas travas são o
+          jeito de segurá-lo sem depender de ninguém lembrar.
+        </div>
+
+        <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 12 }}>
+          <input type="checkbox" checked={cfg.envio_pausado === "true"}
+            onChange={(e) => setCfg({ ...cfg, envio_pausado: e.target.checked ? "true" : "false" })} />
+          <span>
+            <b>Pausar todo envio</b>
+            <div className="sub" style={{ margin: 0 }}>
+              Botão de pânico. A fila continua enchendo; só não escoa. Nada se perde —
+              ao desligar, sai tudo o que estava esperando.
+            </div>
+          </span>
+        </label>
+
+        <label style={{ marginTop: 14 }}>Modo de teste: só enviar para</label>
+        <input value={cfg.envio_so_para ?? ""}
+          placeholder="vazio = envia para todo mundo, normalmente"
+          onChange={(e) => setCfg({ ...cfg, envio_so_para: e.target.value })} />
+        <div className="sub" style={{ marginTop: 4 }}>
+          Um ou mais endereços separados por vírgula. Enquanto tiver conteúdo aqui, quem
+          não estiver na lista fica com o envio marcado como <b>retido</b> — dá para ver
+          quem teria recebido, e nada é mandado escondido depois.
+        </div>
+
+        {(cfg.envio_so_para ?? "").trim() !== "" && (
+          <div className="aviso" style={{ marginTop: 10 }}>
+            <b>Modo de teste ligado.</b> Campanha disparada agora só chega em{" "}
+            {cfg.envio_so_para}. Para começar a operar de verdade, esvazie este campo.
+          </div>
+        )}
+
+        <div style={{ marginTop: 14 }}>
+          <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar configurações"}</button>
+        </div>
+      </div>
+
       <div className="caixa">
         <h2>Envio de e-mail</h2>
         <label>Provedor</label>

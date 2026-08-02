@@ -35,6 +35,8 @@ const GATILHOS: Item[] = [
     ajuda: "O prazo passou e a compra caiu. Última chance de recuperar." },
   { id: "rss_novo_item", rotulo: "Sai um post novo (RSS)", icone: "📰", categoria: "Conteúdo", disponivel: true,
     ajuda: "Cadastre o feed em Configurações. O e-mail pode citar %EVENTO.titulo% e %EVENTO.link%." },
+  { id: "data_do_contato", rotulo: "Chega uma data do contato", icone: "🎂", categoria: "Datas", disponivel: true,
+    ajuda: "Aniversário, data da compra, data da consulta — qualquer campo de data. Conferido uma vez por dia, de madrugada." },
 ];
 
 const ACOES: Item[] = [
@@ -72,6 +74,7 @@ type Ref = {
   listas: { lista_id: number; nome: string }[];
   tags: { tag_id: number; nome: string }[];
   mensagens: { mensagem_id: string; nome: string; subject: string }[];
+  camposData?: string[];
 };
 
 // ---------- janela de escolha, no formato do AC ----------
@@ -553,6 +556,31 @@ export default function FluxoAutomacao({
                       não uma frase genérica.
                     </div>
                   )}
+                </>
+              )}
+              {gatilho?.tipo === "data_do_contato" && (
+                <>
+                  <label>Campo de data</label>
+                  {refs.camposData?.length ? (
+                    <select value={gatilho.campo ?? ""}
+                      onChange={(e) => onMudar({ gatilho: { ...gatilho, tipo: "data_do_contato", campo: e.target.value } })}>
+                      <option value="">— escolher —</option>
+                      {refs.camposData.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  ) : (
+                    <div className="aviso">
+                      Nenhum campo de data cadastrado ainda. Crie um em <b>Campos</b>
+                      (tipo "data") e preencha nos contatos — sem isso este gatilho não
+                      tem o que conferir.
+                    </div>
+                  )}
+                  <label>Avisar quantos dias antes</label>
+                  <input type="number" min={0} max={60} value={gatilho.dias_antes ?? 0}
+                    onChange={(e) => onMudar({ gatilho: { ...gatilho, tipo: "data_do_contato", dias_antes: Number(e.target.value) } })} />
+                  <div className="sub" style={{ marginTop: 4 }}>
+                    0 = no próprio dia. Compara dia e mês, então serve para data que se
+                    repete todo ano, e dispara no máximo uma vez por ano por pessoa.
+                  </div>
                 </>
               )}
               {gatilho?.tipo === "rss_novo_item" && (

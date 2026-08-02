@@ -86,7 +86,12 @@ if [ "$SO_PAINEL" = false ]; then
     supabase/recuperacao_v1.sql \
     supabase/contexto_rss_v1.sql \
     supabase/rss_cron_v1.sql \
-    supabase/segredos_v1.sql
+    supabase/segredos_v1.sql \
+    supabase/listas_produtos_v1.sql \
+    supabase/listas_produtos_v1_1.sql \
+    supabase/campanhas_v2_tipos.sql \
+    supabase/gatilho_data_v1.sql \
+    supabase/trava_envio_v1.sql
   do
     printf "  → %s\n" "$(basename "$sql")"
     "$PY" scripts/run_sql_file.py "$sql" >/dev/null || { vermelho "  falhou em $sql"; exit 1; }

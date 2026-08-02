@@ -14,6 +14,7 @@ export default function Automacoes() {
   const [listas, setListas] = useState<{ lista_id: number; nome: string }[]>([]);
   const [tags, setTags] = useState<{ tag_id: number; nome: string }[]>([]);
   const [mensagens, setMensagens] = useState<{ mensagem_id: string; nome: string; subject: string }[]>([]);
+  const [camposData, setCamposData] = useState<string[]>([]);
   const [execs, setExecs] = useState<Record<string, number>>({});
   const [editId, setEditId] = useState<string | "nova" | null>(null);
   const [eNome, setENome] = useState("");
@@ -37,6 +38,9 @@ export default function Automacoes() {
     setListas(l.data ?? []);
     setTags((t.data ?? []) as never);
     setMensagens(m.data ?? []);
+    const { data: cd } = await supabase.from("campos_personalizados")
+      .select("chave").eq("tipo", "data").order("chave");
+    setCamposData((cd ?? []).map((c) => c.chave));
     const contagem: Record<string, number> = {};
     for (const row of e.data ?? []) contagem[row.automacao_fk] = (contagem[row.automacao_fk] ?? 0) + 1;
     setExecs(contagem);
@@ -234,7 +238,7 @@ export default function Automacoes() {
           ativa={eAtiva}
           execucoes={editId !== "nova" ? (execs[editId] ?? 0) : 0}
           novo={editId === "nova"}
-          ref={{ listas, tags, mensagens }}
+          ref={{ listas, tags, mensagens, camposData }}
           onMudar={(p) => {
             if (p.nome !== undefined) setENome(p.nome);
             if (p.ativa !== undefined) setEAtiva(p.ativa);
