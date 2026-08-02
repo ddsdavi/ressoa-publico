@@ -75,6 +75,7 @@ export default function ManyChat() {
   const [verTags, setVerTags] = useState(false);
   const [tagEmAcao, setTagEmAcao] = useState<number | null>(null);
   const [mensagemTags, setMensagemTags] = useState<Passo | null>(null);
+  const [tagParaExcluir, setTagParaExcluir] = useState<Tag | null>(null);
 
   async function carregarTags() {
     try {
@@ -269,13 +270,9 @@ export default function ManyChat() {
     }
   }
 
-  async function excluirTag(t: Tag) {
-    const confirmou = window.confirm(
-      `Excluir a tag “${t.name}” do ManyChat?\n\n` +
-      "Ela será removida da conta e de todos os usuários. Esta ação não pode ser desfeita.",
-    );
-    if (!confirmou) return;
-
+  async function confirmarExclusaoTag() {
+    const t = tagParaExcluir;
+    if (!t) return;
     setTagEmAcao(t.id);
     setMensagemTags(null);
     try {
@@ -288,6 +285,7 @@ export default function ManyChat() {
       await carregarTags();
       if (assinante) await procurar();
       setMensagemTags({ texto: d.mensagem ?? `Tag “${t.name}” excluída.`, estado: "ok" });
+      setTagParaExcluir(null);
     } catch {
       setMensagemTags({ texto: "Não deu para excluir a tag.", estado: "erro" });
     } finally {
@@ -533,6 +531,23 @@ export default function ManyChat() {
           </div>
         )}
 
+        {tagParaExcluir && (
+          <div className="aviso" style={{ marginTop: 12, borderColor: "var(--perigo)" }}>
+            <b>Excluir a tag “{tagParaExcluir.name}”?</b>
+            <div className="sub" style={{ marginTop: 5 }}>
+              Ela será removida da conta e de todos os usuários. Esta ação não pode ser desfeita.
+            </div>
+            <div className="linha" style={{ marginTop: 10 }}>
+              <button style={{ flex: "0 0 auto" }} disabled={tagEmAcao !== null}
+                onClick={() => setTagParaExcluir(null)}>Cancelar</button>
+              <button className="perigo" style={{ flex: "0 0 auto" }}
+                disabled={tagEmAcao !== null} onClick={confirmarExclusaoTag}>
+                {tagEmAcao === tagParaExcluir.id ? "Excluindo…" : "Confirmar exclusão"}
+              </button>
+            </div>
+          </div>
+        )}
+
         {verTags && (
           <>
             <input value={filtro} placeholder="buscar tag pelo nome…" style={{ marginTop: 12 }}
@@ -546,7 +561,7 @@ export default function ManyChat() {
                   }}>
                   <span style={{ flex: 1 }}>{t.name}</span>
                   <button className="perigo" style={{ flex: "0 0 auto", padding: "5px 10px" }}
-                    disabled={tagEmAcao !== null} onClick={() => excluirTag(t)}>
+                    disabled={tagEmAcao !== null} onClick={() => setTagParaExcluir(t)}>
                     {tagEmAcao === t.id ? "Excluindo…" : "Excluir"}
                   </button>
                 </div>
