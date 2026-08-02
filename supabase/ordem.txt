@@ -70,3 +70,4 @@ supabase/gatilho_data_v1.sql
 supabase/trava_envio_v1.sql
 supabase/manychat_v1.sql
 supabase/manychat_v2_id.sql
+supabase/manychat_v3_automatico.sql

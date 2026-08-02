@@ -13,6 +13,8 @@ type Mapa = {
   id: number; padrao_nome: string | null; ucode: string | null; apelido: string | null;
   lista_fk: number | null; tag_fk: number | null; tag_reembolso: number | null; ativo: boolean;
   tag_turma_padrao: string | null; turma_dia_semana: number | null;
+  tag_manychat: string | null; tag_manychat_turma: boolean;
+  tag_manychat_turma_padrao: string | null;
   turma_hora: number | null; turma_fuso: string | null;
 };
 type Visto = {
@@ -29,6 +31,7 @@ const vazio = {
   padrao_nome: "", ucode: "", apelido: "",
   lista_fk: "", tag_fk: "", tag_reembolso: "", ativo: true,
   tag_turma_padrao: "", turma_dia_semana: "1", turma_hora: "7",
+  tag_manychat: "", tag_manychat_turma: false, tag_manychat_turma_padrao: "",
 };
 
 const DIAS: [string, string][] = [
@@ -76,6 +79,9 @@ export default function Vendas() {
         tag_reembolso: x.tag_reembolso ? String(x.tag_reembolso) : "",
         ativo: x.ativo,
         tag_turma_padrao: x.tag_turma_padrao ?? "",
+        tag_manychat: x.tag_manychat ?? "",
+        tag_manychat_turma: !!x.tag_manychat_turma,
+        tag_manychat_turma_padrao: x.tag_manychat_turma_padrao ?? "",
         turma_dia_semana: String(x.turma_dia_semana ?? 1),
         turma_hora: String(x.turma_hora ?? 7),
       }
@@ -101,6 +107,9 @@ export default function Vendas() {
       tag_reembolso: f.tag_reembolso ? Number(f.tag_reembolso) : null,
       ativo: f.ativo,
       tag_turma_padrao: f.tag_turma_padrao.trim() || null,
+      tag_manychat: f.tag_manychat.trim() || null,
+      tag_manychat_turma: f.tag_manychat_turma,
+      tag_manychat_turma_padrao: f.tag_manychat_turma_padrao.trim() || null,
       turma_dia_semana: f.tag_turma_padrao.trim() ? Number(f.turma_dia_semana) : null,
       turma_hora: f.tag_turma_padrao.trim() ? Number(f.turma_hora) : null,
       turma_fuso: "America/Sao_Paulo",
@@ -322,7 +331,54 @@ export default function Vendas() {
             </>
           )}
 
-          <label>Se pedir reembolso, ganha a tag</label>
+          <div style={{
+            border: "1px solid var(--borda)", borderRadius: 8,
+            padding: "14px 16px", marginTop: 18,
+          }}>
+            <b>💬 Marcar no ManyChat</b>
+            <div className="sub" style={{ margin: "2px 0 10px" }}>
+              Assim que a compra é aprovada, a pessoa é procurada no ManyChat pelo WhatsApp
+              — e criada lá se ainda não existir. A tag é o que dispara a automação de
+              mensagem do lado de lá.
+            </div>
+
+            <label>Tag fixa no ManyChat</label>
+            <input value={f.tag_manychat} placeholder="COMPROU_DESAFIO_CASA_H"
+              onChange={(e) => setF({ ...f, tag_manychat: e.target.value })} />
+            <div className="sub" style={{ marginTop: 4 }}>
+              Vazio = não marca ninguém lá. A tag é criada no ManyChat se ainda não existir.
+            </div>
+
+            <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
+              <input type="checkbox" checked={f.tag_manychat_turma}
+                onChange={(e) => setF({ ...f, tag_manychat_turma: e.target.checked })} />
+              Mandar também a tag da turma
+            </label>
+
+            {f.tag_manychat_turma && (
+              <>
+                <label>Padrão da turma no ManyChat</label>
+                <input value={f.tag_manychat_turma_padrao} placeholder="CASA_H_{AA}_{MM}_{DD}"
+                  onChange={(e) => setF({ ...f, tag_manychat_turma_padrao: e.target.value })} />
+                <div className="sub" style={{ marginTop: 4 }}>
+                  Vazio = usa o mesmo padrão daqui. Preencha quando o nome for diferente lá —
+                  no ManyChat da Patrícia o ano tem <b>dois</b> dígitos
+                  (<code>CASA_H_{"{AA}"}_{"{MM}"}_{"{DD}"}</code>), e mandar o de quatro criaria
+                  uma tag paralela que nenhuma automação de lá escuta: a pessoa seria marcada e
+                  nada aconteceria.
+                </div>
+              </>
+            )}
+
+            {!f.tag_turma_padrao.trim() && f.tag_manychat_turma && (
+              <div className="aviso" style={{ marginTop: 8 }}>
+                Este produto não tem turma configurada acima, então não há tag de turma para
+                mandar. Preencha a "Tag de turma" ou desmarque esta opção.
+              </div>
+            )}
+          </div>
+
+          <label style={{ marginTop: 18 }}>Se pedir reembolso, ganha a tag</label>
           <select value={f.tag_reembolso} onChange={(e) => setF({ ...f, tag_reembolso: e.target.value })}>
             <option value="">nenhuma</option>
             {tags.map((t) => <option key={t.tag_id} value={t.tag_id}>{t.nome}</option>)}

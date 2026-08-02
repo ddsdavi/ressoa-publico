@@ -384,6 +384,28 @@ export default function Config() {
           navegador não consegue ler; para trocar, é só digitar a nova por cima.
         </div>
 
+        <label style={{ marginTop: 14 }}>Campo que guarda o WhatsApp (id)</label>
+        <input value={cfg.manychat_campo_whatsapp ?? ""} placeholder="ex.: 12378861"
+          onChange={(e) => setCfg({ ...cfg, manychat_campo_whatsapp: e.target.value })} />
+        <div className="sub" style={{ marginTop: 4 }}>
+          É por aqui que a pessoa é encontrada lá — e não por e-mail. Quem entra pelo
+          WhatsApp ou pelo Instagram chega sem e-mail e sem telefone preenchidos; o
+          número de verdade fica num campo personalizado, que na conta da Patrícia se
+          chama <b>WHATSAPP-ID</b>. O id aparece na barra de endereço quando você abre o
+          campo no ManyChat.
+        </div>
+
+        {(cfg.manychat_campo_whatsapp ?? "").trim() === "" && mcConfigurado && (
+          <div className="aviso" style={{ marginTop: 8 }}>
+            Sem este campo preenchido, a Ressoa não consegue encontrar ninguém no ManyChat
+            — e vai acabar criando assinante repetido para gente que já existe lá.
+          </div>
+        )}
+
+        <div style={{ marginTop: 14 }}>
+          <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar configurações"}</button>
+        </div>
+
         {mcResposta && (
           <div className={mcResposta.startsWith("✓") ? "sub" : "aviso"} style={{ marginTop: 10 }}>
             {mcResposta}

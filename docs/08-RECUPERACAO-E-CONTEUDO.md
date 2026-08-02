@@ -124,3 +124,58 @@ estragaria campanha aprovada.
 A lista de fontes é curta de propósito: só as que existem em Windows, Mac, Android e
 iOS. Fonte fora dessa lista não é arriscada, é loteria — o cliente cai para o padrão
 dele, e o e-mail que você conferiu não é o que a pessoa vê.
+
+---
+
+## ManyChat
+
+A pessoa é encontrada lá por um **campo personalizado** que guarda o WhatsApp dela —
+não por e-mail nem pelo campo de telefone do sistema. Isso não é escolha: numa conta que
+recebe gente pelo WhatsApp e pelo Instagram, `email` e `phone` chegam vazios, e a busca
+por campo de sistema não acha ninguém, em nenhum formato.
+
+**O que configurar, uma vez:**
+
+| Onde | O quê |
+|---|---|
+| Configurações → Integrações | a chave da API e o **id do campo** do WhatsApp |
+| Vendas → regra do produto | a tag fixa e, se quiser, a tag da turma |
+
+O id do campo aparece na URL quando você abre o campo no ManyChat. Na conta da Patrícia
+o campo se chama `WHATSAPP-ID`.
+
+**O que acontece sozinho:** compra aprovada → a pessoa entra na lista daqui, ganha a tag
+da turma daqui, e é procurada no ManyChat pelo WhatsApp. Se não existir lá, é criada. Em
+seguida recebe as tags — e é a tag que dispara a automação de mensagem do lado de lá.
+
+**Sem WhatsApp, não cria.** Assinante de WhatsApp sem número é um registro que nunca vai
+receber nada e ainda suja a base.
+
+### O telefone precisa estar no formato certo
+
+A busca é exata: um dígito de diferença e a pessoa "não existe". As regras são as mesmas
+que já rodavam no n8n, e valem para números de fora também:
+
+| Entra | Sai | Caso |
+|---|---|---|
+| `5511955550000` | `5511955550000` | celular BR com DDI |
+| `551133334444` | `5511933334444` | fixo BR com DDI — entra o 9 |
+| `11955550000` | `5511955550000` | celular BR sem DDI |
+| `1133334444` | `5511933334444` | fixo BR sem DDI |
+| `351912345678` | `351912345678` | Portugal, devolvido como está |
+| `123` | *(vazio)* | curto demais para ser telefone |
+
+### A tag da turma pode ter nome diferente lá
+
+Na Ressoa a turma é `CASA_H_2026_08_03`; no ManyChat da Patrícia é `CASA_H_26_08_03`,
+com o ano de dois dígitos. Mandar a nossa criaria uma tag paralela que **nenhuma
+automação de lá escuta** — a pessoa seria marcada e nada aconteceria.
+
+Por isso o padrão da turma no ManyChat é um campo à parte, e aceita `{AA}`:
+
+```
+Ressoa .....: CASA_H_{AAAA}_{MM}_{DD}
+ManyChat ...: CASA_H_{AA}_{MM}_{DD}
+```
+
+Os dois são calculados do mesmo instante, então nunca discordam sobre qual turma é.
