@@ -1,0 +1,41 @@
+# ===== SEGREDOS — nunca subir =====
+.env
+.env.local
+.env.*.local
+scripts/.keys_*
+**/.keys_*
+*.pem
+*.key
+
+# ===== DADOS PESSOAIS (LGPD) — nunca subir =====
+# Contém e-mail, telefone e nome de 12 mil pessoas reais.
+activecampaign-export/
+*.csv
+
+# ===== Gerados =====
+node_modules/
+dist/
+.wrangler/
+app/supabase/
+app/painel/node_modules/
+app/painel/dist/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# ===== Temporários =====
+*.log
+/tmp/
+
+# ferramenta local de sanitizacao (guarda os tokens reais para substituir)
+scripts/sanitizar_para_github.py
+
+# planilhas de vendas (dados pessoais + financeiros de compradores)
+vendas-hotmart/
+
+# notas de planejamento, com dados da operação
+blueprint/
+
+# SQL específico de UMA operação (produtos, consertos pontuais)
+operacao/

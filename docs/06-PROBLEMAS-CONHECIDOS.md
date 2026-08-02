@@ -1,0 +1,292 @@
+# Armadilhas conhecidas
+
+Cada item aqui custou tempo real de depuração. Leia antes de mexer na parte correspondente.
+
+---
+
+## 1. A API do banco corta em 1.000 linhas — nunca some no navegador
+
+**Sintoma:** contagens absurdamente erradas nas telas de Listas e Tags.
+
+**Causa:** o painel buscava todos os vínculos (`lead_listas`, N linhas) para contar no
+navegador. O PostgREST devolve no máximo **1.000 linhas** por requisição, silenciosamente.
+A conta saía feita sobre 7% dos dados.
+
+**Regra:** qualquer contagem, soma ou média **é feita no banco** — com função SQL
+(`contagem_listas()`, `contagem_tags()`) ou `count: 'exact', head: true`.
+Nunca traga linhas para contar no front.
+
+---
+
+## 2. Acento vira `?` quando gravado via `curl` no Windows
+
+**Sintoma:** "a dona da conta" gravada como `Patr<?>cia` (bytes `efbfbd` = caractere de erro).
+
+**Causa:** JSON inline no `curl` pelo Bash do Windows converte o texto para cp1252 e perde o acento.
+
+**Regra:** para gravar texto com acento, use **arquivo `.sql` em UTF-8**
+(`python scripts/run_sql_file.py arquivo.sql`) ou Python com
+`json.dumps(..., ensure_ascii=False).encode('utf-8')`. Nunca `-d '{"nome":"a dona da conta"}'`.
+
+**Como detectar:** `select ... where campo like '%' || chr(65533) || '%'`
+
+---
+
+## 3. Tabela criada pela API não tem permissão para o PostgREST
+
+**Sintoma:** `permission denied for table X` mesmo com as políticas certas.
+
+**Causa:** tabelas criadas via Management API não herdam os `grant` que o painel do Supabase
+aplica automaticamente.
+
+**Solução:** depois de criar tabelas, rode:
+
+```sql
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
+```
+
+Quem protege os dados são as **policies** (RLS), não a ausência de grant.
+
+---
+
+## 4. A Management API do Supabase bloqueia o User-Agent padrão do Python
+
+**Sintoma:** `HTTP 403: error code: 1010` em toda chamada.
+
+**Causa:** o Cloudflare na frente da `api.supabase.com` bloqueia o User-Agent do `urllib`.
+
+**Solução:** mande um User-Agent qualquer:
+```python
+headers={"User-Agent": "ressoa/1.0", ...}
+```
+
+---
+
+## 5. `id_greater` da API do ActiveCampaign devolve ordem aleatória
+
+**Sintoma:** exportação de contatos trouxe 201 de N e parou.
+
+**Causa:** o parâmetro `id_greater` não garante ordenação — a paginação entra em loop.
+
+**Solução:** pagine por **`offset`**. Confira o total pelo `meta.total` da resposta.
+
+---
+
+## 6. O endpoint global `/contactTags` do AC pula registros
+
+**Sintoma:** faltaram 4.462 associações de tag (28% do total), com repetição de itens.
+
+**Causa:** paginação instável no endpoint global.
+
+**Solução:** busque **tag por tag** (`/contacts?tagid=X`) e confira cada uma contra o
+`subscriber_count` oficial da tag. Foi assim que fechamos N associações, 1:1 com o AC.
+
+---
+
+## 7. Personalização do e-mail de login exige SMTP próprio
+
+**Sintoma:** `Email template modification is not available for free tier projects`.
+
+**Causa:** o Supabase só deixa personalizar os e-mails de autenticação com SMTP próprio.
+Além disso, o serviço de e-mail padrão dele é limitado a poucos envios por hora.
+
+**Solução adotada:** o Ressoa **não usa** o e-mail do Supabase para recuperar senha.
+Tem fluxo próprio (`conta-email` → código de 6 dígitos → e-mail da marca pelo webhook).
+
+---
+
+## 8. Link de recuperação do Supabase loga direto, sem pedir senha nova
+
+**Sintoma:** clicar no link do e-mail entrava na conta sem trocar a senha.
+
+**Causa:** o fluxo PKCE (`?code=`) troca o código por sessão automaticamente.
+
+**Solução:** fluxo próprio com código digitado (item 7). A tela de login também detecta
+links antigos (`type=recovery` ou `?code=`), desloga e manda pedir um código novo.
+
+---
+
+## 9. Escala de texto: `zoom` está errado
+
+**Sintoma:** aumentar a fonte dava zoom na tela inteira, incluindo menus e espaçamentos.
+
+**Solução:** escalar **só o texto**, com a variável `--escala-texto` multiplicando todo
+`font-size` (`calc(14px * var(--escala-texto))`), inclusive os estilos embutidos nos
+componentes. Layout, ícones e larguras ficam intactos.
+
+---
+
+## 10. Conta Cloudflare do domínio ≠ conta do projeto
+
+**Sintoma:** `Authentication error [code: 10000]` ao publicar ou anexar domínio.
+
+**Causa:** o wrangler estava logado numa conta e a zona do domínio estava em outra.
+
+**Solução:** `npx wrangler login` e escolher a conta **dona do domínio**; criar o projeto
+Pages nessa mesma conta. O token OAuth do wrangler **lê** zonas mas **não escreve DNS** —
+o registro CNAME precisa ser criado à mão no painel.
+
+---
+
+## 11. Uma regra de CSS do mobile escondia controles
+
+**Sintoma:** o "A" do seletor de tamanho de texto sumia no celular.
+
+**Causa:** `.ac-topbar .direita span { display: none }` escondia **todos** os spans, não só o nome.
+
+**Solução:** usar filho direto — `.ac-topbar .direita > span`.
+
+---
+
+## 12. Balão do tour fugia da tela em alvos altos
+
+**Sintoma:** no passo da barra lateral, o balão saía do campo de visão.
+
+**Causa:** a posição era calculada só como "abaixo ou acima" do alvo. Alvo do tamanho da
+tela não deixa espaço em nenhum dos dois.
+
+**Solução:** tentar abaixo → acima → ao lado → centro, e **travar dentro da tela** no fim.
+
+---
+
+## 13. Automação "concluída" que nunca executou nada
+
+**Sintoma:** execuções aparecem com status **concluída** e nenhum passo aconteceu. Nenhum
+erro, nenhum alerta.
+
+**Causa:** `automacao_execucoes.passo_atual` tinha `default 0`, mas os passos são numerados
+a partir de **1**. Toda execução criada por gatilho procurava o passo 0, não achava, e se
+marcava concluída na hora.
+
+**Por que é grave:** terminava com status de **sucesso**. O relatório mostrava execuções
+concluídas e ninguém desconfiava. Nenhuma automação por gatilho jamais funcionou até isso
+ser descoberto.
+
+**Como detectar:**
+```sql
+select passo_atual, status, count(*) from public.automacao_execucoes group by 1,2;
+```
+Se houver `passo_atual = 0` com `concluida`, é este bug.
+
+**Regra:** ao mudar o filtro de status ou o contador do executor, rode
+`supabase/teste_automacao.sql` — ele prova a cadeia inteira e não manda e-mail.
+
+---
+
+## 14. Variável CSS que não existe vira transparente, sem avisar
+
+**Sintoma:** o quadro da automação aparecia **por cima da lista**, com as duas telas
+visíveis ao mesmo tempo.
+
+**Causa:** `background: var(--fundo)` com `--fundo` inexistente. O navegador não reclama —
+simplesmente não aplica cor. Os nomes reais tinham prefixo `--ac-`.
+
+**Regra:** antes de usar uma variável, confira que ela existe:
+```bash
+grep -o "var(--[a-z0-9-]*" src/**/*.tsx | sort -u
+grep -o "^\s*--[a-z0-9-]*:" src/index.css | sort -u
+```
+A segunda lista precisa conter a primeira.
+
+---
+
+## 15. Caixa de marcar gigante
+
+**Sintoma:** cada `checkbox` virava um quadrado de 38 px ocupando a linha toda.
+
+**Causa:** a regra `input, select, textarea { width: 100%; height: 38px }` vale para
+**todo** input, inclusive checkbox e radio.
+
+**Solução:** regra própria depois da genérica, com `width: auto; height: auto`.
+
+---
+
+## 16. HTML servido por Edge Function não renderiza
+
+**Sintoma:** a página do formulário voltava como **código-fonte** em vez de página.
+
+**Causa:** o Supabase força `Content-Type: text/plain` e `nosniff` em HTML servido pelo
+domínio de funções — proteção contra hospedarem página falsa lá.
+
+**Solução:** servir a página pelo domínio do próprio painel. Ficou melhor: endereço próprio
+passa mais confiança numa página de captação.
+
+---
+
+## 17. Hotmart manda o DDD separado
+
+**Sintoma:** telefone do comprador chegando sem DDD e virando contato duplicado.
+
+**Causa:** para brasileiros, a Hotmart manda `buyer.checkout_phone_code` (o DDD) e
+`buyer.checkout_phone` (o resto) em **campos diferentes**.
+
+**Solução:** concatenar antes de normalizar.
+
+---
+
+## 18. `price` não é o que o cliente pagou
+
+**Sintoma:** total gasto por cliente subestimado em toda compra parcelada.
+
+**Causa:** `purchase.price` é o valor da oferta. `purchase.full_price` é o que a pessoa
+**realmente pagou**, com taxas e juros. Num teste: 197 contra 227,50.
+
+**Regra:** para receita e total gasto, use sempre `full_price`.
+
+---
+
+## 19. Taxa de conversão com denominador enviesado
+
+**Sintoma:** "97% de conversão" no relatório de origem — número bom demais.
+
+**Causa:** a origem só era gravada quando vinha **junto com a compra**. O denominador
+continha apenas quem já tinha convertido, então qualquer percentual dava perto de 100%.
+
+**Por que é grave:** leva a colocar mais verba com base numa conta que não significa nada.
+
+**Solução:** capturar a origem também na **captação** (formulário lê `utm_*`, `sck` e
+`xcod` da URL). Enquanto não houver leads sem compra com origem, o painel exibe o aviso em
+vez do número.
+
+---
+
+## 20. Nunca ligue validação de token sem confirmar o valor
+
+**Sintoma potencial:** o sistema passa a recusar vendas reais.
+
+**Regra:** ativar uma verificação com o valor errado é **pior** do que o risco que ela
+evita — perder venda é dano imediato e silencioso.
+
+**Caminho seguro, nesta ordem:**
+1. capturar o token recebido sem exigir nada
+2. conferir que todas as requisições trazem o **mesmo** valor
+3. conferir que **nenhuma** requisição chega sem token depois que a captura entrou no ar
+4. só então ativar, e testar os três casos: sem token, token errado, token certo
+
+---
+
+## 21. Upsert de reembolso apagando dados da venda
+
+**Sintoma:** depois do reembolso, a venda ficava sem forma de pagamento e sem parcelas.
+
+**Causa:** o evento de reembolso não traz esses campos, e o upsert gravava nulo por cima
+do que a venda original tinha. O status ficava certo e o resto sumia.
+
+**Regra:** em upsert de evento parcial, o que chega vazio precisa **preservar** o que já
+estava lá — leia a linha existente e faça o merge.
+
+---
+
+## 22. Chave errada no JSON do segmento passa despercebida
+
+**Sintoma:** um segmento devolvia a base inteira para qualquer valor de filtro.
+
+**Causa:** o construtor espera `{"campo": "..."}`; foi enviado `{"tipo": "..."}`. Sem
+correspondência, o predicado vira nulo e a condição é **descartada em silêncio** — não dá
+erro, só devolve tudo.
+
+**Como detectar:** teste com dois ou três valores diferentes. Se o número não mudar, a
+condição não está sendo aplicada.
