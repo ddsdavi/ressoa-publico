@@ -438,3 +438,45 @@ $e = $null
 [System.Management.Automation.Language.Parser]::ParseFile("instalar.ps1", [ref]$null, [ref]$e)
 $e.Count   # tem que ser 0
 ```
+
+---
+
+## 30. `<>` contra NULL não protege nada
+
+**Sintoma:** nenhum. A função parecia checar permissão e não checava.
+
+```sql
+if public.papel_atual() <> 'admin' then
+  raise exception 'só admin muda segredo';
+end if;
+```
+
+Para quem não está logado, `papel_atual()` devolve `NULL`. Em SQL, `NULL <> 'admin'`
+não é verdadeiro nem falso — é `NULL`. O `if` só dispara com verdadeiro, então **a
+exceção nunca era levantada** e qualquer um com a chave pública (que vai dentro do
+JavaScript do painel, visível para o mundo) podia gravar o segredo.
+
+**Correção:** `is distinct from`, que trata NULL como valor:
+
+```sql
+if public.papel_atual() is distinct from 'admin' then
+```
+
+`coalesce(public.papel_atual(), '') <> 'admin'` também resolve.
+
+**Como achar os outros:** procure comparações de papel/permissão com `<>` ou `!=`.
+
+```bash
+grep -rn "papel_atual() *<>\|papel_atual() *!=" supabase/
+```
+
+**Como testar:** um `curl` anônimo, com a chave pública, contra a função. Se ele
+consegue fazer algo, qualquer visitante consegue.
+
+```bash
+curl -s -X POST "$SUPABASE_URL/rest/v1/rpc/SUA_FUNCAO" \
+  -H "apikey: $SUPABASE_ANON_KEY" -H "Content-Type: application/json" -d '{...}'
+```
+
+Esperado: erro de permissão. Foi assim que este apareceu — o teste devolveu
+`"guardado"` onde deveria devolver recusa.

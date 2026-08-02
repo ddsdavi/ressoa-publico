@@ -51,6 +51,8 @@ const ACOES: Item[] = [
   { id: "google_drive", rotulo: "Google Drive", icone: "📁", categoria: "Integrações", disponivel: true,
     ajuda: "Manda o contato para o seu n8n, que cria ou atualiza o arquivo." },
   { id: "webhook", rotulo: "Webhook (qualquer sistema)", icone: "⚡", categoria: "Integrações", disponivel: true },
+  { id: "manychat_tag", rotulo: "Marcar no ManyChat", icone: "💬", categoria: "Integrações", disponivel: true,
+    ajuda: "Procura a pessoa no ManyChat pelo e-mail (ou WhatsApp) e aplica a tag. A partir dela, o ManyChat manda a mensagem." },
   { id: "condicao", rotulo: "Se / então", icone: "🔀", categoria: "Fluxo", disponivel: true,
     ajuda: "Manda quem atende a condição por um caminho e o resto por outro." },
 ];
@@ -311,6 +313,7 @@ export default function FluxoAutomacao({
     if (p.tipo === "aplicar_tag" || p.tipo === "remover_tag") return !!c.tag_id;
     if (p.tipo === "inscrever_lista" || p.tipo === "desinscrever_lista") return !!c.lista_id;
     if (p.tipo === "webhook" || p.tipo === "google_sheets" || p.tipo === "google_drive") return !!c.url;
+    if (p.tipo === "manychat_tag") return !!c.tag;
     if (p.tipo === "condicao") return !!c.condicao?.tipo;
     return true;
   };
@@ -624,6 +627,28 @@ export default function FluxoAutomacao({
                       <option value="">— escolher —</option>
                       {DURACOES.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
                     </select>
+                  </>
+                )}
+                {passos[editando].tipo === "manychat_tag" && (
+                  <>
+                    <label>Tag no ManyChat</label>
+                    <input value={passos[editando].config.tag ?? ""}
+                      placeholder="COMPROU_DESAFIO"
+                      onChange={(e) => mudarPasso(editando as number, { tag: e.target.value })} />
+                    <div className="sub" style={{ marginTop: 4 }}>
+                      Se a tag ainda não existir na sua conta do ManyChat, ela é criada na hora.
+                    </div>
+                    <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
+                      <input type="checkbox"
+                        checked={passos[editando].config.criar !== false}
+                        onChange={(e) => mudarPasso(editando as number, { criar: e.target.checked })} />
+                      Criar o assinante se ele ainda não existir lá
+                    </label>
+                    <div className="aviso" style={{ marginTop: 10 }}>
+                      A busca é pelo e-mail e, se não achar, pelo WhatsApp. Configure a chave
+                      da API em <b>Configurações → ManyChat</b> — sem ela, o passo não faz nada
+                      e fica registrado como falha.
+                    </div>
                   </>
                 )}
                 {(passos[editando].tipo === "aplicar_tag" || passos[editando].tipo === "remover_tag") && (

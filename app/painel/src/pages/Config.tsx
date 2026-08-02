@@ -32,6 +32,9 @@ export default function Config() {
   const [listas, setListas] = useState<{ lista_id: number; nome: string }[]>([]);
   const [novaFonte, setNovaFonte] = useState({ nome: "", url: "", lista_fk: "" });
   const [erroFonte, setErroFonte] = useState("");
+  const [mcChave, setMcChave] = useState("");
+  const [mcConfigurado, setMcConfigurado] = useState(false);
+  const [mcResposta, setMcResposta] = useState("");
 
   async function carregar() {
     const { data } = await supabase.from("app_config").select("chave, valor");
@@ -41,6 +44,10 @@ export default function Config() {
     setFontes(f ?? []);
     const { data: l } = await supabase.from("listas").select("lista_id,nome").order("nome");
     setListas(l ?? []);
+
+    // pergunta se a chave existe, não qual é — a função devolve só o fato
+    const { data: seg } = await supabase.rpc("segredos_configurados");
+    setMcConfigurado(!!(seg as Record<string, unknown>)?.manychat_api_key);
   }
   useEffect(() => { carregar(); }, []);
 
@@ -71,6 +78,31 @@ export default function Config() {
     if (error) { setErroFonte(error.message); return; }
     setNovaFonte({ nome: "", url: "", lista_fk: "" });
     carregar();
+  }
+
+  async function salvarManyChat() {
+    const { error } = await supabase.rpc("guardar_segredo", {
+      p_chave: "manychat_api_key", p_valor: mcChave.trim(),
+    });
+    if (error) { setMcResposta("Não deu para guardar: " + error.message); return; }
+    setMcChave("");
+    setMcConfigurado(true);
+    setMcResposta("✓ Chave guardada. Clique em Testar para confirmar que o ManyChat aceita.");
+  }
+
+  async function testarManyChat() {
+    setMcResposta("Conferindo com o ManyChat…");
+    try {
+      const r = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manychat?acao=testar`,
+        { headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "" } });
+      const d = await r.json();
+      setMcResposta(d.ok
+        ? `✓ ${d.mensagem}${d.tags?.length ? ". Tags lá: " + d.tags.slice(0, 8).join(", ") : ""}`
+        : "O ManyChat recusou a chave. Confira se copiou inteira, em Settings → API.");
+    } catch (e) {
+      setMcResposta("Não deu para falar com o ManyChat agora: " + (e as Error).message);
+    }
   }
 
   async function removerFonte(id: number) {
@@ -277,6 +309,37 @@ export default function Config() {
         <div style={{ marginTop: 14 }}>
           <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar configurações"}</button>
         </div>
+      </div>
+
+      <div className="caixa">
+        <h2>ManyChat</h2>
+        <div className="sub">
+          Liga o WhatsApp e o Instagram à Ressoa: uma automação daqui pode marcar a
+          pessoa lá, e a partir da tag o ManyChat manda a mensagem.
+        </div>
+
+        <label style={{ marginTop: 10 }}>
+          Chave da API
+          {mcConfigurado && <span style={{ color: "var(--marca)" }}> · configurada ✓</span>}
+        </label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input type="password" value={mcChave} style={{ flex: 1 }}
+            placeholder={mcConfigurado ? "••••••••  (digite para trocar)" : "cole aqui a chave do ManyChat"}
+            onChange={(e) => setMcChave(e.target.value)} />
+          <button onClick={salvarManyChat} disabled={!mcChave.trim()}>Guardar</button>
+          <button onClick={testarManyChat} disabled={!mcConfigurado}>Testar</button>
+        </div>
+        <div className="sub" style={{ marginTop: 4 }}>
+          Pegue em <b>manychat.com → Settings → API</b>. Depois de guardar, a chave não
+          aparece mais nesta tela — nem para você. Ela fica num lugar do banco que o
+          navegador não consegue ler; para trocar, é só digitar a nova por cima.
+        </div>
+
+        {mcResposta && (
+          <div className={mcResposta.startsWith("✓") ? "sub" : "aviso"} style={{ marginTop: 10 }}>
+            {mcResposta}
+          </div>
+        )}
       </div>
 
       <div className="caixa">

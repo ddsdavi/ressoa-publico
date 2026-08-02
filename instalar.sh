@@ -41,63 +41,18 @@ if [ "$SO_PAINEL" = false ]; then
   #   regras_*.sql    regras dos produtos de uma operacao especifica
   #   teste_*.sql     provas do motor, para rodar a mao quando quiser
   passo "2/6 Criando o banco (tabelas, funções, permissões e agendamentos)"
-  for sql in \
-    supabase/replica_base.sql \
-    supabase/motor_v1.sql supabase/motor_v1_1.sql supabase/motor_v2.sql \
-    supabase/motor_v3.sql supabase/motor_v3_1.sql \
-    supabase/motor_v4_descadastro.sql supabase/motor_v5_ses.sql \
-    supabase/auth_v1.sql supabase/auth_v2_admin_mestre.sql supabase/auth_v3_lista_mestres.sql \
-    supabase/auth_v4_minha_conta.sql supabase/auth_v5_perfil.sql \
-    supabase/auth_v6_troca_email.sql supabase/auth_v7_codigos.sql \
-    supabase/papeis_v2.sql supabase/contagens.sql \
-    supabase/motor_v6_clique_preheader.sql \
-    supabase/motor_v7_rodape.sql \
-    supabase/motor_v8_resposta.sql \
-    supabase/motor_v9_integracoes.sql \
-    supabase/corrige_status_execucoes.sql \
-    supabase/corrige_passo_inicial.sql \
-    supabase/motor_v11_gatilhos.sql \
-    supabase/motor_v3_2_pontuacao.sql \
-    supabase/supressao_v2.sql \
-    supabase/ficha_lead_v2.sql \
-    supabase/operacoes_dados.sql \
-    supabase/gestao_v1.sql \
-    supabase/motor_v10_campos.sql \
-    supabase/campos_do_ac.sql \
-    supabase/pontuacao_v1.sql \
-    supabase/pontuacao_v1_1.sql \
-    supabase/pontuacao_v1_2.sql \
-    supabase/formularios_v1.sql \
-    supabase/formularios_v1_1.sql \
-    supabase/formularios_v1_2.sql \
-    supabase/relatorios_v1.sql \
-    supabase/vendas_v1.sql \
-    supabase/motor_v3_3_compras.sql \
-    supabase/pontuacao_v1_3_vendas.sql \
-    supabase/hotmart_v1.sql \
-    supabase/hotmart_v1_1.sql \
-    supabase/hotmart_v1_2.sql \
-    supabase/hotmart_v2.sql \
-    supabase/hotmart_v2_1.sql \
-    supabase/atribuicao_v1.sql \
-    supabase/atribuicao_v2.sql \
-    supabase/turmas_v1.sql \
-    supabase/imagens_v1.sql \
-    supabase/recuperacao_v1.sql \
-    supabase/contexto_rss_v1.sql \
-    supabase/rss_cron_v1.sql \
-    supabase/segredos_v1.sql \
-    supabase/listas_produtos_v1.sql \
-    supabase/listas_produtos_v1_1.sql \
-    supabase/campanhas_v2_tipos.sql \
-    supabase/gatilho_data_v1.sql \
-    supabase/trava_envio_v1.sql
-  do
+  # A ordem vem de supabase/ordem.txt — uma linha por arquivo. Ver o cabeçalho
+  # de lá para o porquê de não morar aqui dentro.
+  [ -f supabase/ordem.txt ] || { vermelho "Falta supabase/ordem.txt"; exit 1; }
+  while IFS= read -r sql; do
+    case "$sql" in ''|\#*) continue ;; esac
+    [ -f "$sql" ] || { vermelho "  listado em ordem.txt mas não existe: $sql"; exit 1; }
     printf "  → %s\n" "$(basename "$sql")"
     "$PY" scripts/run_sql_file.py "$sql" >/dev/null || { vermelho "  falhou em $sql"; exit 1; }
-  done
+  done < supabase/ordem.txt
   verde "  Banco pronto"
 fi
+
 
 # ---------- 3. dependências do painel ----------
 if [ "$SO_BANCO" = false ]; then
