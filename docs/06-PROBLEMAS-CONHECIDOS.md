@@ -532,3 +532,44 @@ comum é a tag já existir, e criar antes gastaria uma chamada em toda marcaçã
 mensagem de WhatsApp para uma pessoa real. Teste com uma tag **inédita** — tag recém-criada
 não tem automação pendurada — e apague depois (`removeTagByName` no assinante e
 `removeTag` na conta).
+
+---
+
+## 33. Tipo de passo desencontrado entre a tela, a tabela e o motor
+
+Um passo de automação existe em três lugares, e nada garante que os três combinem:
+
+1. o catálogo da tela (`ACOES` em `FluxoAutomacao.tsx`);
+2. a restrição `automacao_passos_tipo_check`;
+3. os `elsif` dentro de `executar_automacoes()`.
+
+Dois estragos diferentes, conforme onde a lista fura:
+
+**A tela oferece e a tabela recusa** → erro ao salvar. Chato, mas aparece na cara de quem
+está montando. Era o caso de `manychat_tag` e `google_drive`.
+
+**A tela oferece, a tabela aceita, e o motor não conhece** → o passo é salvo, a automação
+roda, o passo é **pulado sem fazer nada** e marcado como concluído. Ninguém fica sabendo.
+Era o caso de "Descadastra de uma lista": a tela salvava `desinscrever_lista` e o motor só
+procurava por `remover_lista`.
+
+O segundo é muito pior, porque a automação parece saudável.
+
+**Como conferir os três de uma vez:**
+
+```sql
+with tela as (select unnest(array['enviar_email','esperar','manychat_tag','…']) as tipo)
+select t.tipo,
+       (select position('''' || t.tipo || '''' in prosrc) > 0
+        from pg_proc where proname = 'executar_automacoes')   as o_motor_conhece,
+       position('''' || t.tipo || '''' in
+         (select pg_get_constraintdef(oid) from pg_constraint
+          where conname = 'automacao_passos_tipo_check')) > 0 as a_tabela_aceita
+from tela t;
+```
+
+Tudo tem que ser `true`. Foi assim que os dois apareceram.
+
+**A lição maior:** conferir na tela que o passo aparece e salva não prova nada. Só montar a
+automação inteira e ver o efeito do outro lado — no caso, a tag chegando no ManyChat —
+prova que o caminho existe.

@@ -72,3 +72,4 @@ supabase/manychat_v2_id.sql
 supabase/manychat_v3_automatico.sql
 supabase/remove_rss_v1.sql
 supabase/manychat_v4_ensaio_real.sql
+supabase/corrige_tipos_de_passo.sql

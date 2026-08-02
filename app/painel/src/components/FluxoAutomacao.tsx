@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // Quadro visual da automação — a mesma leitura do ActiveCampaign: o gatilho
 // no topo, os passos descendo ligados por uma linha, e o "+" entre eles.
@@ -50,7 +50,7 @@ const ACOES: Item[] = [
     ajuda: "Manda o contato para o seu n8n, que cria ou atualiza o arquivo." },
   { id: "webhook", rotulo: "Webhook (qualquer sistema)", icone: "⚡", categoria: "Integrações", disponivel: true },
   { id: "manychat_tag", rotulo: "Marcar no ManyChat", icone: "💬", categoria: "Integrações", disponivel: true,
-    ajuda: "Procura a pessoa no ManyChat pelo e-mail (ou WhatsApp) e aplica a tag. A partir dela, o ManyChat manda a mensagem." },
+    ajuda: "Procura a pessoa no ManyChat pelo WhatsApp, cria se não existir, e aplica a tag. É a tag que dispara a mensagem de lá." },
   { id: "condicao", rotulo: "Se / então", icone: "🔀", categoria: "Fluxo", disponivel: true,
     ajuda: "Manda quem atende a condição por um caminho e o resto por outro." },
 ];
@@ -247,6 +247,47 @@ export default function FluxoAutomacao({
   const [seletor, setSeletor] = useState<null | { tipo: "gatilho" } | { tipo: "acao"; posicao: number }>(null);
   const [editando, setEditando] = useState<number | "gatilho" | null>(null);
   const [zoom, setZoom] = useState(100);
+
+  // As tags que existem NA CONTA DO MANYCHAT. São elas que disparam os
+  // fluxos de lá — saber se a escolhida existe é a diferença entre montar
+  // um fluxo que funciona e um que fica marcando gente com uma tag que
+  // ninguém escuta.
+  const [tagsMC, setTagsMC] = useState<string[]>([]);
+  const [carregandoMC, setCarregandoMC] = useState(false);
+  const [criandoMC, setCriandoMC] = useState<string | null>(null);
+
+  const chamarMC = (corpo: Record<string, unknown>) =>
+    fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manychat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json",
+                 apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "" },
+      body: JSON.stringify(corpo),
+    }).then((r) => r.json()).catch(() => ({ ok: false }));
+
+  async function carregarTagsMC() {
+    setCarregandoMC(true);
+    const d = await chamarMC({ acao: "tags" });
+    setTagsMC(((d.tags ?? []) as { name: string }[]).map((t) => t.name));
+    setCarregandoMC(false);
+  }
+
+  // só consulta quando um passo de ManyChat está aberto: a conta tem
+  // centenas de tags, e não faz sentido buscar isso ao abrir qualquer fluxo
+  useEffect(() => {
+    if (typeof editando === "number" && passos[editando]?.tipo === "manychat_tag"
+        && !tagsMC.length && !carregandoMC) {
+      carregarTagsMC();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editando]);
+
+  async function criarTagMC(nome: string) {
+    setCriandoMC(nome);
+    const d = await chamarMC({ acao: "criar_tag", tag: nome });
+    setCriandoMC(null);
+    if (d.ok) await carregarTagsMC();
+    else alert("Não deu para criar: " + JSON.stringify(d.detalhe ?? d.erro ?? d));
+  }
   const [adicionando, setAdicionando] = useState(false);
 
   const mapL = Object.fromEntries(refs.listas.map((x) => [x.lista_id, x.nome]));
@@ -623,11 +664,48 @@ export default function FluxoAutomacao({
                   <>
                     <label>Tag no ManyChat</label>
                     <input value={passos[editando].config.tag ?? ""}
-                      placeholder="COMPROU_DESAFIO"
+                      placeholder="COMPROU_DESAFIO" list="tags-do-manychat"
                       onChange={(e) => mudarPasso(editando as number, { tag: e.target.value })} />
-                    <div className="sub" style={{ marginTop: 4 }}>
-                      Se a tag ainda não existir na sua conta do ManyChat, ela é criada na hora.
-                    </div>
+                    <datalist id="tags-do-manychat">
+                      {tagsMC.map((t) => <option key={t} value={t} />)}
+                    </datalist>
+
+                    {/* Dizer se a tag existe LÁ, na hora de escolher. Sem isso a
+                        pessoa monta o fluxo, ativa, e só descobre que digitou o
+                        nome errado quando ninguém recebe mensagem nenhuma. */}
+                    {(() => {
+                      const escrita = (passos[editando as number].config.tag ?? "").trim();
+                      if (!escrita) {
+                        return (
+                          <div className="sub" style={{ marginTop: 4 }}>
+                            {carregandoMC
+                              ? "consultando as tags da sua conta…"
+                              : tagsMC.length
+                                ? `${tagsMC.length} tags na sua conta — comece a digitar para ver as opções.`
+                                : "Não consegui ler as tags do ManyChat. Confira a chave em Configurações → ManyChat."}
+                          </div>
+                        );
+                      }
+                      const existe = tagsMC.some((t) => t.toLowerCase() === escrita.toLowerCase());
+                      return existe ? (
+                        <div className="sub" style={{ marginTop: 6, color: "var(--marca)" }}>
+                          ✓ <b>{escrita}</b> já existe no ManyChat. O passo vai só aplicá-la —
+                          e é ela que dispara o fluxo de lá.
+                        </div>
+                      ) : (
+                        <div className="aviso" style={{ marginTop: 8 }}>
+                          <b>{escrita}</b> ainda não existe na sua conta do ManyChat.
+                          <div className="sub" style={{ margin: "4px 0 8px" }}>
+                            Sem existir, nenhuma automação de lá está escutando por ela. O passo
+                            cria a tag ao rodar, mas aí ela nasce sem fluxo pendurado — crie
+                            agora e ligue o fluxo no ManyChat antes de ativar isto aqui.
+                          </div>
+                          <button disabled={!!criandoMC} onClick={() => criarTagMC(escrita)}>
+                            {criandoMC === escrita ? "criando…" : "Criar agora no ManyChat"}
+                          </button>
+                        </div>
+                      );
+                    })()}
                     <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
                       <input type="checkbox"
                         checked={passos[editando].config.criar !== false}
@@ -635,9 +713,9 @@ export default function FluxoAutomacao({
                       Criar o assinante se ele ainda não existir lá
                     </label>
                     <div className="aviso" style={{ marginTop: 10 }}>
-                      A busca é pelo e-mail e, se não achar, pelo WhatsApp. Configure a chave
-                      da API em <b>Configurações → ManyChat</b> — sem ela, o passo não faz nada
-                      e fica registrado como falha.
+                      A busca é pelo WhatsApp, no campo personalizado configurado em
+                      <b> Configurações → ManyChat</b>. Sem WhatsApp o passo não cria ninguém —
+                      assinante sem número nunca receberia mensagem.
                     </div>
                   </>
                 )}
