@@ -39,3 +39,10 @@ blueprint/
 
 # SQL específico de UMA operação (produtos, consertos pontuais)
 operacao/
+
+# Sobras de depuração com dado de gente real. Um script meu já gravou um
+# fones.txt na raiz por um caminho mal montado — a regra existe para o
+# próximo escorregão não virar commit.
+fones.txt
+*.emails.txt
+recorte_*.txt

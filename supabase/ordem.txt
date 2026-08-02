@@ -69,3 +69,4 @@ supabase/campanhas_v2_tipos.sql
 supabase/gatilho_data_v1.sql
 supabase/trava_envio_v1.sql
 supabase/manychat_v1.sql
+supabase/manychat_v2_id.sql

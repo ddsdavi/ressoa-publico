@@ -480,3 +480,55 @@ curl -s -X POST "$SUPABASE_URL/rest/v1/rpc/SUA_FUNCAO" \
 
 Esperado: erro de permissão. Foi assim que este apareceu — o teste devolveu
 `"guardado"` onde deveria devolver recusa.
+
+---
+
+## 31. ManyChat: a busca por e-mail/telefone não acha ninguém
+
+**Sintoma:** `findBySystemField` responde `{"data":[]}` para todo mundo — inclusive para
+um assinante cujo número você acabou de ler na própria API.
+
+**Três causas empilhadas, e todas precisam ser resolvidas:**
+
+1. **`data` é uma LISTA**, não um objeto. Ler `data.id` devolve `undefined` mesmo quando
+   encontrou. Use `data[0].id`.
+
+2. **A API aceita só `phone` ou `email`.** Qualquer outro parâmetro devolve
+   `"Only phone or email can be specified"`.
+
+3. **Numa conta de WhatsApp/Instagram, esses dois campos vêm vazios.** O número fica em
+   `whatsapp_phone`, que **não é pesquisável**. Então não existe formato de telefone que
+   funcione — o problema não é o `+55`.
+
+**A saída é inverter o sentido.** Quem sabe quem é a pessoa é o ManyChat. Dentro do fluxo
+dele, uma ação **External Request** manda o `subscriber_id` para a Ressoa, que guarda em
+`tabela_1_leads.manychat_id`. Daí em diante marcar é direto, sem busca:
+
+- URL: `POST https://SEU-PROJETO.supabase.co/functions/v1/manychat`
+- Corpo:
+
+```json
+{"subscriber_id":"{{user_id}}","email":"{{email}}",
+ "whatsapp":"{{phone}}","nome":"{{first_name}} {{last_name}}"}
+```
+
+A Ressoa casa por `manychat_id`, depois por e-mail, depois por WhatsApp — e cria o
+contato se não achar nenhum. Foi assim que um assinante real da conta foi reconhecido
+**pelo WhatsApp** e ligado ao lead que já existia aqui.
+
+---
+
+## 32. `addTagByName` não cria a tag
+
+**Sintoma:** `{"message":"Tag does not exist"}`, e a tag não é aplicada.
+
+Ao contrário do que o nome sugere, o endpoint só aplica tag que já existe. É preciso
+`POST /fb/page/createTag` antes.
+
+**Ordem que vale a pena:** tentar aplicar primeiro e criar só ao esbarrar no erro. O caso
+comum é a tag já existir, e criar antes gastaria uma chamada em toda marcação.
+
+**Cuidado ao testar:** aplicar uma tag pode disparar uma automação no ManyChat e mandar
+mensagem de WhatsApp para uma pessoa real. Teste com uma tag **inédita** — tag recém-criada
+não tem automação pendurada — e apague depois (`removeTagByName` no assinante e
+`removeTag` na conta).

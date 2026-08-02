@@ -7,8 +7,21 @@
 // banco, e é trocável pela tela de Configurações. Assim a Patrícia troca a
 // chave sozinha, sem redeploy e sem ninguém precisar ver o valor.
 //
-// Ordem da busca: e-mail primeiro, WhatsApp depois. E-mail é o que a
-// Ressoa sempre tem; telefone falta em boa parte da base.
+// Como a pessoa é encontrada, em ordem:
+//
+//   1. pelo manychat_id que já guardamos no lead — é o único caminho que
+//      funciona sempre;
+//   2. por e-mail ou telefone, como plano B.
+//
+// O plano B quase nunca acha nada nesta conta, e vale registrar o porquê:
+// findBySystemField aceita só "phone" ou "email" (a API responde "Only
+// phone or email can be specified"), e assinante que entrou pelo WhatsApp
+// ou Instagram tem os dois vazios — o número dele fica em "whatsapp_phone",
+// que não é pesquisável. Por isso o caminho principal é o ManyChat mandar
+// o subscriber_id para cá uma vez, por uma ação External Request no fluxo.
+//
+// Detalhe que custou depuração: "data" vem como LISTA nessas buscas, não
+// como objeto. Ler data.id devolve undefined mesmo quando encontrou.
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -19,8 +32,10 @@ const CORS = {
 const MC = "https://api.manychat.com/fb";
 
 type Corpo = {
-  lead_id?: string; email?: string; nome?: string;
+  lead_id?: string; manychat_id?: string; email?: string; nome?: string;
   whatsapp?: string; tag?: string; criar?: boolean;
+  // usados quando é o ManyChat que nos chama
+  subscriber_id?: string | number; registrar?: boolean;
 };
 
 Deno.serve(async (req) => {
@@ -77,21 +92,52 @@ Deno.serve(async (req) => {
   }
 
   const c = (await req.json().catch(() => ({}))) as Corpo;
+
+  // ---- o ManyChat nos chamando: guarda quem é essa pessoa ----
+  //
+  // É a ação "External Request" dentro do fluxo dele. Como o fluxo já sabe
+  // de quem se trata, ele manda o subscriber_id — e é isso que resolve o
+  // problema de a busca por e-mail/telefone não achar ninguém.
+  //
+  // No ManyChat, monte o corpo assim (os campos entre chaves são os dele):
+  //   {"subscriber_id":"{{user_id}}","email":"{{email}}",
+  //    "whatsapp":"{{phone}}","nome":"{{first_name}} {{last_name}}"}
+  if (c.subscriber_id || c.registrar) {
+    const r = await fetch(`${base}/rest/v1/rpc/manychat_registrar`, {
+      method: "POST", headers: cab,
+      body: JSON.stringify({
+        p_manychat_id: String(c.subscriber_id ?? ""),
+        p_email: c.email ?? null,
+        p_whatsapp: c.whatsapp ?? null,
+        p_nome: c.nome ?? null,
+      }),
+    });
+    const d = await r.json();
+    await registrar(d?.lead, "registrou", "", !!d?.ok, JSON.stringify(d).slice(0, 300));
+    return new Response(JSON.stringify(d), { status: r.ok ? 200 : 400, headers: CORS });
+  }
+
   if (!c.tag) {
     return new Response(JSON.stringify({ erro: "informe a tag" }), { status: 400, headers: CORS });
   }
 
   // ---- 1. achar a pessoa ----
-  let id: number | null = null;
-  if (c.email) {
-    const r = await mc(`/subscriber/findBySystemField?email=${encodeURIComponent(c.email)}`);
-    id = (r.dados as { data?: { id: number } })?.data?.id ?? null;
+  const primeiro = (d: unknown) => {
+    const dados = (d as { data?: unknown })?.data;
+    if (Array.isArray(dados)) return dados.length ? Number(dados[0].id) : null;
+    const um = dados as { id?: number } | undefined;
+    return um?.id ? Number(um.id) : null;
+  };
+
+  let id: number | null = c.manychat_id ? Number(c.manychat_id) : null;
+  if (!id && c.email) {
+    id = primeiro((await mc(`/subscriber/findBySystemField?email=${encodeURIComponent(c.email)}`)).dados);
   }
   if (!id && c.whatsapp) {
     const fone = c.whatsapp.replace(/\D/g, "");
     if (fone.length >= 10) {
-      const r = await mc(`/subscriber/findBySystemField?phone=${encodeURIComponent("+55" + fone)}`);
-      id = (r.dados as { data?: { id: number } })?.data?.id ?? null;
+      id = primeiro((await mc(
+        `/subscriber/findBySystemField?phone=${encodeURIComponent("+55" + fone)}`)).dados);
     }
   }
 
@@ -107,7 +153,7 @@ Deno.serve(async (req) => {
       has_opt_in_email: true,
       consent_phrase: "inscrito na base da Ressoa",
     });
-    id = (r.dados as { data?: { id: number } })?.data?.id ?? null;
+    id = primeiro(r.dados);
     criado = !!id;
     if (!id) {
       await registrar(c.lead_id, "criar", c.tag, false, JSON.stringify(r.dados).slice(0, 400));
@@ -123,10 +169,26 @@ Deno.serve(async (req) => {
   }
 
   // ---- 3. aplicar a tag ----
-  // addTagByName cria a tag se ela ainda não existir na conta, então não é
-  // preciso cadastrá-la antes no ManyChat
-  const r = await mc("/subscriber/addTagByName", "POST",
-                     { subscriber_id: id, tag_name: c.tag });
+  // addTagByName NÃO cria a tag: responde "Tag does not exist" e não faz
+  // nada. Então tenta aplicar, e só se esbarrar nisso é que cria e repete.
+  // Nessa ordem porque o caso comum é a tag já existir — criar antes
+  // gastaria uma chamada a cada marcação.
+  let r = await mc("/subscriber/addTagByName", "POST",
+                   { subscriber_id: id, tag_name: c.tag });
+
+  if (!r.ok && JSON.stringify(r.dados).includes("Tag does not exist")) {
+    await mc("/page/createTag", "POST", { name: c.tag });
+    r = await mc("/subscriber/addTagByName", "POST",
+                 { subscriber_id: id, tag_name: c.tag });
+  }
+
+  // achou uma vez, não procura de novo: grava o id no lead
+  if (r.ok && c.lead_id && !c.manychat_id) {
+    await fetch(`${base}/rest/v1/tabela_1_leads?lead_id=eq.${c.lead_id}`, {
+      method: "PATCH", headers: { ...cab, Prefer: "return=minimal" },
+      body: JSON.stringify({ manychat_id: String(id) }),
+    });
+  }
   await registrar(c.lead_id, criado ? "criou e marcou" : "marcou", c.tag, r.ok,
                   r.ok ? `assinante ${id}` : JSON.stringify(r.dados).slice(0, 400));
 

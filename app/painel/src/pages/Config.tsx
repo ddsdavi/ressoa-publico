@@ -20,6 +20,22 @@ const CORES = [
   { chave: "email_cor_fundo", rotulo: "Fundo", padrao: "#f4f1ec" },
 ];
 
+
+// A tela tinha virado uma coluna única com tudo dentro: trava de envio,
+// provedor, cores, ManyChat e RSS empilhados. Agora cada assunto tem o seu
+// lugar, e a aba de segurança avisa quando o modo de teste está ligado —
+// esquecer isso ligado significa campanha que não chega em ninguém.
+const ABAS = [
+  { id: "envio", icone: "✉", rotulo: "Envio",
+    sub: "Provedor, remetente padrão e endereço de resposta." },
+  { id: "emails", icone: "🎨", rotulo: "Aparência",
+    sub: "Fonte, cores e largura que todo e-mail novo herda." },
+  { id: "integracoes", icone: "🔌", rotulo: "Integrações",
+    sub: "ManyChat, feeds de conteúdo e webhooks de saída." },
+  { id: "seguranca", icone: "🛡", rotulo: "Segurança",
+    sub: "As travas que seguram o disparo. Comece por aqui em caso de dúvida." },
+];
+
 type Fonte = {
   fonte_id: number; nome: string; url: string;
   lista_fk: number | null; ultima_checagem: string | null;
@@ -35,6 +51,7 @@ export default function Config() {
   const [mcChave, setMcChave] = useState("");
   const [mcConfigurado, setMcConfigurado] = useState(false);
   const [mcResposta, setMcResposta] = useState("");
+  const [aba, setAba] = useState("envio");
 
   async function carregar() {
     const { data } = await supabase.from("app_config").select("chave, valor");
@@ -122,7 +139,32 @@ export default function Config() {
   return (
     <div>
       <h1>Configurações</h1>
-      <div className="sub">Provedor de envio, remetente padrão e webhooks de saída.</div>
+      <div className="sub">{ABAS.find((a) => a.id === aba)?.sub}</div>
+
+      <div style={{
+        display: "flex", gap: 4, flexWrap: "wrap",
+        borderBottom: "1px solid var(--borda)", margin: "18px 0 20px",
+      }}>
+        {ABAS.map((a) => {
+          const ativa = aba === a.id;
+          return (
+            <button key={a.id} onClick={() => setAba(a.id)}
+              style={{
+                border: "none", background: "transparent", cursor: "pointer",
+                padding: "9px 16px", marginBottom: -1,
+                borderBottom: `2px solid ${ativa ? "var(--marca)" : "transparent"}`,
+                color: ativa ? "var(--texto)" : "var(--texto2)",
+                fontWeight: ativa ? 700 : 400,
+                fontSize: "calc(14px * var(--escala-texto))",
+              }}>
+              {a.icone} {a.rotulo}
+              {a.id === "seguranca" && (cfg.envio_so_para ?? "").trim() !== "" && (
+                <span title="modo de teste ligado" style={{ marginLeft: 6 }}>🔒</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
       {cfg.provedor_email === "simulado" && (
         <div className="aviso">
@@ -133,6 +175,7 @@ export default function Config() {
         </div>
       )}
 
+      {aba === "seguranca" && (
       <div className="caixa" style={{ borderLeft: "4px solid var(--perigo)" }}>
         <h2>Trava de envio</h2>
         <div className="sub">
@@ -173,7 +216,9 @@ export default function Config() {
           <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar configurações"}</button>
         </div>
       </div>
+      )}
 
+      {aba === "envio" && (
       <div className="caixa">
         <h2>Envio de e-mail</h2>
         <label>Provedor</label>
@@ -243,7 +288,9 @@ export default function Config() {
           <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar configurações"}</button>
         </div>
       </div>
+      )}
 
+      {aba === "emails" && (
       <div className="caixa">
         <h2>Identidade visual dos e-mails</h2>
         <div className="sub">
@@ -310,7 +357,9 @@ export default function Config() {
           <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar configurações"}</button>
         </div>
       </div>
+      )}
 
+      {aba === "integracoes" && (
       <div className="caixa">
         <h2>ManyChat</h2>
         <div className="sub">
@@ -341,7 +390,9 @@ export default function Config() {
           </div>
         )}
       </div>
+      )}
 
+      {aba === "integracoes" && (
       <div className="caixa">
         <h2>Conteúdo (RSS)</h2>
         <div className="sub">
@@ -392,11 +443,14 @@ export default function Config() {
         </div>
         {erroFonte && <div className="aviso" style={{ marginTop: 10 }}>{erroFonte}</div>}
       </div>
+      )}
 
+      {aba === "integracoes" && (
       <div className="caixa">
         <h2>Webhooks</h2>
         <div className="sub">A gestão de webhooks mudou para a página <b>API &amp; Webhooks</b>.</div>
       </div>
+      )}
     </div>
   );
 }
