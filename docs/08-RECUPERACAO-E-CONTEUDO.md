@@ -132,15 +132,15 @@ receber nada e ainda suja a base.
 
 ### O telefone precisa estar no formato certo
 
-A busca é exata: um dígito de diferença e a pessoa "não existe". As regras são as mesmas
-que já rodavam no n8n, e valem para números de fora também:
+A busca é exata: um dígito de diferença e a pessoa "não existe". A Ressoa normaliza o
+número completo antes de comparar; nunca casa só pelos últimos dígitos:
 
 | Entra | Sai | Caso |
 |---|---|---|
 | `5511955550000` | `5511955550000` | celular BR com DDI |
-| `551133334444` | `5511933334444` | fixo BR com DDI — entra o 9 |
+| `551133334444` | *(vazio)* | fixo BR com DDI — não tem WhatsApp |
 | `11955550000` | `5511955550000` | celular BR sem DDI |
-| `1133334444` | `5511933334444` | fixo BR sem DDI |
+| `1133334444` | *(vazio)* | fixo BR sem DDI — não tem WhatsApp |
 | `351912345678` | `351912345678` | Portugal, devolvido como está |
 | `123` | *(vazio)* | curto demais para ser telefone |
 
@@ -154,7 +154,7 @@ Por isso o padrão da turma no ManyChat é um campo à parte, e aceita `{AA}`:
 
 ```
 Ressoa .....: CASA_H_{AAAA}_{MM}_{DD}
-ManyChat ...: CASA_H_{AA}_{MM}_{DD}
+ManyChat ...: CASA_H_{AA}_{MM}_{DD} - COMPROU INGRESSO CASA_H
 ```
 
 Os dois são calculados do mesmo instante, então nunca discordam sobre qual turma é.

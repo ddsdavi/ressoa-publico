@@ -38,9 +38,10 @@ Configurações → E-mail. É uma decisão consciente, não um esquecimento.
 
 ## O que está pendente
 
-1. **Tag do ManyChat por produto.** Nenhum produto tem tag configurada em
-   Vendas → regra do produto. Sem isso, a compra mexe só dentro da Ressoa.
-   Quem sabe quais tags disparam os fluxos de lá é o Davi.
+1. **Tag do ManyChat por produto.** O Desafio Casa Harmonizada usa a tag
+   semanal `CASA_H_{AA}_{MM}_{DD} - COMPROU INGRESSO CASA_H`, com virada
+   toda segunda-feira às 7h no horário de São Paulo. Os demais produtos
+   ainda dependem de o Davi informar qual tag dispara o fluxo de cada um.
 2. **CSV histórico da Hotmart.** As vendas anteriores ao webhook não existem
    aqui. Sem elas, o relatório de faturamento e a pontuação por compra só
    enxergam o que entrou desde 25/07/2026.
