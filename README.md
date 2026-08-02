@@ -23,7 +23,6 @@ Foi construída para operar a base da Nome do Remetente — 12 mil leads de sua 
 | **Pontuação** | nota por lead calculada a partir do comportamento real |
 | **Relatórios** | base, campanhas, tags, campos e de onde vem o dinheiro |
 | **Acesso** | três níveis de usuário, com as regras dentro do banco |
-
 | **WhatsApp** | marca a pessoa no ManyChat quando ela compra, e é a tag que dispara a mensagem lá |
 
 O WhatsApp não sai daqui: quem manda é o ManyChat. A Ressoa decide **quem** e **quando**.
@@ -87,6 +86,7 @@ Passo a passo detalhado: **[docs/01-INSTALAR.md](docs/01-INSTALAR.md)**
 | **[06 — Armadilhas conhecidas](docs/06-PROBLEMAS-CONHECIDOS.md)** | cada uma custou horas de depuração |
 | **[07 — Vendas e Hotmart](docs/07-VENDAS-E-HOTMART.md)** | receber compra em tempo real e atribuir a venda ao anúncio |
 | **[08 — Recuperação e conteúdo](docs/08-RECUPERACAO-E-CONTEUDO.md)** | carrinho abandonado, contador regressivo, módulos salvos e ManyChat |
+| **[09 — Onde parei](docs/09-ONDE-PAREI.md)** | **comece por aqui:** estado atual, travas ligadas e o que está pendente |
 
 ---
 

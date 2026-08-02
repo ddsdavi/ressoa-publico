@@ -74,3 +74,4 @@ supabase/remove_rss_v1.sql
 supabase/manychat_v4_ensaio_real.sql
 supabase/corrige_tipos_de_passo.sql
 supabase/telefone_v1.sql
+supabase/telefone_v2_fixo.sql

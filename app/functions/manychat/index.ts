@@ -40,28 +40,39 @@ type Corpo = {
 // n8n que já roda em produção — vale mantê-las iguais, porque números
 // gravados por lá precisam ser encontrados por aqui.
 export function formatarTelefone(bruto: string): string {
-  const n = String(bruto ?? "").replace(/\D+/g, "");
+  let n = String(bruto ?? "").replace(/\D+/g, "");
   if (!n) return "";
 
-  // celular brasileiro com DDI: 55 + DDD + 9 + 8 dígitos
-  if (n.length === 13 && n.startsWith("55")) return n;
+  // (051) — o zero do DDD não faz parte do número
+  if ((n.length === 11 || n.length === 12) && n[0] === "0") n = n.slice(1);
 
-  // fixo brasileiro com DDI: falta o 9
-  if (n.length === 12 && n.startsWith("55")) return n.slice(0, 4) + "9" + n.slice(4);
+  // Celular brasileiro completo. Desde 2017 TODO celular do país tem o
+  // nono dígito, e ele é sempre 9 — não existe DDD sem. Treze dígitos sem
+  // esse 9 não é estrangeiro, é número torto.
+  if (n.length === 13 && n.startsWith("55")) return n[4] === "9" ? n : "";
 
-  // estrangeiro já com DDI (Portugal, Argentina, Alemanha…)
+  // Doze dígitos com DDI: fixo ou celular de antes de 2017. Quem decide é
+  // o primeiro dígito depois do DDD — fixo começa em 2,3,4,5; celular, em
+  // 6,7,8,9. Enfiar um 9 num fixo inventa o número de outra pessoa.
+  if (n.length === 12 && n.startsWith("55")) {
+    return "2345".includes(n[4]) ? "" : n.slice(0, 4) + "9" + n.slice(4);
+  }
+
+  // estrangeiro já com DDI
   if (n.length >= 12) return n;
 
-  // celular brasileiro sem DDI — o 9 na terceira casa é o que o denuncia
+  // celular brasileiro sem o DDI
   if (n.length === 11 && n[2] === "9") return "55" + n;
 
-  // 11 dígitos sem esse 9: provavelmente estrangeiro (EUA, por exemplo)
+  // 11 dígitos sem esse 9: estrangeiro (EUA, por exemplo)
   if (n.length === 11) return n;
 
-  // fixo brasileiro sem DDI: entra o 55 e o 9
-  if (n.length === 10) return "55" + n.slice(0, 2) + "9" + n.slice(2);
+  // dez dígitos, sem DDI: mesma pergunta do fixo
+  if (n.length === 10) {
+    return "2345".includes(n[2]) ? "" : "55" + n.slice(0, 2) + "9" + n.slice(2);
+  }
 
-  return "";     // curto demais para ser telefone
+  return "";
 }
 
 Deno.serve(async (req) => {

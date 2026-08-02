@@ -201,8 +201,14 @@ export default function ManyChat() {
 
         <div className="linha" style={{ marginTop: 12 }}>
           <div style={{ flex: 2 }}>
-            <label>WhatsApp</label>
-            <input value={fone} placeholder="(51) 99999-0000"
+            <label>WhatsApp
+              <Ajuda>
+                DDI + DDD (sem o zero) + número, tudo junto: <b>5551999990000</b>.
+                Pode colar com pontuação que o sistema limpa — mas telefone fixo é
+                recusado, porque fixo não tem WhatsApp.
+              </Ajuda>
+            </label>
+            <input value={fone} placeholder="5551999990000"
               onChange={(e) => setFone(e.target.value)}
               onBlur={() => fone.trim() && procurar()}
               onKeyDown={(e) => e.key === "Enter" && procurar()} />

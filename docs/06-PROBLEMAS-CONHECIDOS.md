@@ -607,3 +607,38 @@ select public.normalizar_telefone('5521900000000')
 
 **A lição:** "pegar só o final do número" parece resolver o problema de formato e cria um
 pior. Formato se resolve normalizando, não truncando.
+
+---
+
+## 35. Telefone fixo não ganha o nono dígito
+
+**Sintoma:** um contato com telefone fixo vira um celular que não é dele.
+
+**Causa:** a regra dizia "12 dígitos começando com 55? Então falta o 9 — enfia depois do
+DDD". Aplicada a um fixo, `5551 3333-4444` vira `5551 9 3333-4444`, que é um número
+diferente e pode ser de outra pessoa.
+
+**Como a numeração brasileira funciona de verdade:**
+
+| | Formato | Primeiro dígito depois do DDD |
+|---|---|---|
+| Fixo | 55 + DDD + **8** dígitos | 2, 3, 4 ou 5 |
+| Celular | 55 + DDD + **9** dígitos | sempre 9 |
+
+Desde **14/02/2017** todo celular do país tem o nono dígito, em todos os DDDs — não
+existe exceção regional. Então um número de 12 dígitos ou é fixo (e não tem WhatsApp), ou
+é cadastro de celular anterior a 2017.
+
+**Correção:** olhar o primeiro dígito depois do DDD antes de decidir. Na base havia 206
+números de 12 dígitos: 185 eram celulares velhos, **21 eram fixos**.
+
+**Por que é grave:** o número é a chave que liga a Ressoa ao ManyChat. Número inventado
+aplica tag na pessoa errada, e tag no ManyChat dispara WhatsApp.
+
+**A regra vive em três lugares e os três precisam concordar:**
+`public.normalizar_telefone`, `formatarTelefone` na função do ManyChat, e o nó
+"Formatar telefone" do n8n. Se divergirem, a Ressoa acha uma pessoa e o ManyChat outra.
+
+```sql
+select public.normalizar_telefone('551133334444') is null;   -- fixo: tem que ser true
+```
