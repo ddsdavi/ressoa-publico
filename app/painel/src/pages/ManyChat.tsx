@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import Ajuda from "../components/Ajuda";
 
 // Operar o ManyChat sem sair da Ressoa: ver e criar tags, procurar alguém
 // pelo WhatsApp, criar quem não existe e marcar.
@@ -153,10 +154,7 @@ export default function ManyChat() {
   return (
     <div>
       <h1>ManyChat</h1>
-      <div className="sub">
-        Procurar, criar e marcar gente lá dentro — a mesma sequência que a automação usa,
-        um passo de cada vez.
-      </div>
+      <div className="sub">Procurar, criar e marcar gente lá dentro, um passo de cada vez.</div>
 
       {erroGeral && <div className="aviso">{erroGeral}</div>}
       {(ocupado || recado) && (
@@ -167,12 +165,13 @@ export default function ManyChat() {
 
       {/* ---------------- procurar e criar ---------------- */}
       <div className="caixa">
-        <h2>Procurar alguém pelo WhatsApp</h2>
-        <div className="sub">
-          É assim que a Ressoa acha uma pessoa lá: pelo campo personalizado que guarda o
-          número. Pode digitar de qualquer jeito — com DDI, sem DDI, com parênteses. O
-          número é acertado antes de procurar, e a busca é exata.
-        </div>
+        <h2>Procurar pelo WhatsApp
+          <Ajuda>
+            Pode digitar de qualquer jeito — com DDI, sem DDI, com parênteses. O número é
+            acertado antes de procurar, porque a busca lá é exata: um dígito de diferença
+            e a pessoa "não existe".
+          </Ajuda>
+        </h2>
 
         <div className="linha" style={{ marginTop: 12 }}>
           <div style={{ flex: 2 }}>
@@ -200,10 +199,11 @@ export default function ManyChat() {
           <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 8,
                         border: "1px solid var(--borda)" }}>
             <b>Não existe no ManyChat.</b>
-            <div className="sub" style={{ margin: "4px 0 10px" }}>
-              É o mesmo caminho que a automação segue: quando não acha, cria. Sem WhatsApp
-              válido não dá para criar — assinante sem número nunca receberia nada.
-            </div>
+            <Ajuda>
+              É o mesmo caminho da automação: quando não acha, cria. Sem WhatsApp válido
+              não dá — assinante sem número nunca receberia nada.
+            </Ajuda>
+            <div style={{ height: 10 }} />
             <button className="primario" onClick={criar} disabled={!formatado}>
               Criar esta pessoa no ManyChat
             </button>
@@ -237,10 +237,12 @@ export default function ManyChat() {
                 onClick={() => marcar(true)} disabled={!tagEscolhida}>Remover</button>
             </div>
             <div className="sub" style={{ marginTop: 6 }}>
-              Aplicar uma tag <b>dispara a automação do ManyChat</b> ligada a ela — ou seja,
-              pode sair mensagem de WhatsApp para essa pessoa. Para experimentar sem que
-              nada seja enviado, crie uma tag nova aqui embaixo: tag recém-criada não tem
-              automação pendurada em lugar nenhum.
+              Aplicar uma tag manda WhatsApp de verdade.
+              <Ajuda>
+                A tag dispara o fluxo do ManyChat ligado a ela. Para experimentar sem que
+                nada seja enviado, crie uma tag nova aqui embaixo — tag recém-criada não
+                tem automação pendurada em lugar nenhum.
+              </Ajuda>
             </div>
           </div>
         )}
@@ -249,9 +251,6 @@ export default function ManyChat() {
       {/* ---------------- puxar alguém da base ---------------- */}
       <div className="caixa">
         <h2>Trazer alguém da Ressoa</h2>
-        <div className="sub">
-          Em vez de digitar o número na mão, procure a pessoa aqui e use o WhatsApp dela.
-        </div>
         <div className="linha" style={{ marginTop: 10 }}>
           <input value={busca} placeholder="nome, e-mail ou telefone"
             onChange={(e) => setBusca(e.target.value)}
@@ -281,14 +280,14 @@ export default function ManyChat() {
 
       {/* ---------------- rodar a regra de um produto ---------------- */}
       <div className="caixa" style={{ borderLeft: "4px solid var(--marca)" }}>
-        <h2>Rodar a automação de um produto</h2>
-        <div className="sub">
-          Faz exatamente o que acontece quando alguém compra: acha ou cria o contato aqui,
-          entra na lista, ganha a tag da turma e é marcado no ManyChat. Nada é fingido — a
-          pessoa aparece lá de verdade, e você confere na sua conta.
-          <br />
-          <b>Não registra venda:</b> um teste não pode virar faturamento no relatório.
-        </div>
+        <h2>Rodar a automação de um produto
+          <Ajuda>
+            Faz o mesmo que uma compra aprovada: acha ou cria o contato aqui, entra na
+            lista, ganha a tag da turma e é marcado no ManyChat. Nada é fingido — a pessoa
+            aparece lá de verdade. <b>Não registra venda:</b> teste não pode virar
+            faturamento no relatório.
+          </Ajuda>
+        </h2>
 
         <div className="linha" style={{ marginTop: 12 }}>
           <div style={{ flex: 2 }}>
@@ -348,8 +347,7 @@ export default function ManyChat() {
                 </ul>
                 {resultado.resultado?.manychat && (
                   <div className="sub" style={{ marginTop: 10 }}>
-                    A chamada ao ManyChat é feita em segundo plano. Procure a pessoa acima
-                    pelo WhatsApp para ver as tags que ela ficou tendo lá.
+                    Procure a pessoa acima pelo WhatsApp para conferir as tags dela lá.
                   </div>
                 )}
               </>
@@ -362,11 +360,9 @@ export default function ManyChat() {
 
       {/* ---------------- tags ---------------- */}
       <div className="caixa">
-        <h2>Tags no ManyChat <span className="contagem">({tags.length})</span></h2>
-        <div className="sub">
-          São as tags da sua conta lá, não as daqui. É por elas que os fluxos do ManyChat
-          disparam.
-        </div>
+        <h2>Tags no ManyChat <span className="contagem">({tags.length})</span>
+          <Ajuda>São as tags da sua conta lá, não as daqui. É por elas que os fluxos do ManyChat disparam.</Ajuda>
+        </h2>
 
         <div className="linha" style={{ marginTop: 12 }}>
           <input value={novaTag} placeholder="nome da tag nova"

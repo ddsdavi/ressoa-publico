@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import ApiWebhooks from "./ApiWebhooks";
+import Ajuda from "../components/Ajuda";
 
 // Fontes que existem em Windows, Mac, Android e iOS. Fonte fora desta lista
 // não é arriscada: é loteria — o cliente cai para o padrão dele e o e-mail
@@ -119,52 +120,52 @@ export default function Config() {
 
       {cfg.provedor_email === "simulado" && (
         <div className="aviso">
-          <b>Modo simulado ativo:</b> os envios são processados e marcados como enviados, mas nenhum
-          e-mail real sai. Quando tiver a conta do provedor e o domínio verificado, preencha a chave
-          abaixo e troque o provedor. Trocar de provedor depois não muda mais nada: personalização,
-          rastreio, descadastro e relatórios continuam iguais.
+          <b>Modo simulado:</b> tudo é processado e marcado como enviado, mas nenhum e-mail
+          real sai.
+          <Ajuda>
+            Para ligar de verdade, preencha a chave do provedor abaixo e troque a opção.
+            Nada mais muda: personalização, rastreio, descadastro e relatórios continuam
+            iguais em qualquer provedor.
+          </Ajuda>
         </div>
       )}
 
       {aba === "email" && (
       <div className="caixa" style={{ borderLeft: "4px solid var(--perigo)" }}>
         <h2>Trava de envio</h2>
-        <div className="sub">
-          O motor escoa a fila de minuto em minuto, sozinho. Estas duas travas são o
-          jeito de segurá-lo sem depender de ninguém lembrar.
-        </div>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 12 }}>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
           <input type="checkbox" checked={cfg.envio_pausado === "true"}
             onChange={(e) => setCfg({ ...cfg, envio_pausado: e.target.checked ? "true" : "false" })} />
           <span>
-            <b>Pausar todo envio</b>
-            <div className="sub" style={{ margin: 0 }}>
-              Botão de pânico. A fila continua enchendo; só não escoa. Nada se perde —
-              ao desligar, sai tudo o que estava esperando.
-            </div>
+            Pausar todo envio
+            <Ajuda>
+              Botão de pânico. A fila continua enchendo; só não escoa. Nada se perde: ao
+              desligar, sai tudo o que estava esperando.
+            </Ajuda>
           </span>
         </label>
 
-        <label style={{ marginTop: 14 }}>Modo de teste: só enviar para</label>
+        <label style={{ marginTop: 14 }}>
+          Só enviar para
+          <Ajuda>
+            Um ou mais endereços separados por vírgula. Quem não estiver na lista fica
+            com o envio marcado como <b>retido</b> — dá para ver quem teria recebido, e
+            nada é mandado escondido depois. Vazio = envia normalmente para todos.
+          </Ajuda>
+        </label>
         <input value={cfg.envio_so_para ?? ""}
-          placeholder="vazio = envia para todo mundo, normalmente"
+          placeholder="vazio = todos"
           onChange={(e) => setCfg({ ...cfg, envio_so_para: e.target.value })} />
-        <div className="sub" style={{ marginTop: 4 }}>
-          Um ou mais endereços separados por vírgula. Enquanto tiver conteúdo aqui, quem
-          não estiver na lista fica com o envio marcado como <b>retido</b> — dá para ver
-          quem teria recebido, e nada é mandado escondido depois.
-        </div>
 
         {(cfg.envio_so_para ?? "").trim() !== "" && (
           <div className="aviso" style={{ marginTop: 10 }}>
-            <b>Modo de teste ligado.</b> Campanha disparada agora só chega em{" "}
-            {cfg.envio_so_para}. Para começar a operar de verdade, esvazie este campo.
+            Só chega em <b>{cfg.envio_so_para}</b>. Esvazie o campo para operar de verdade.
           </div>
         )}
 
-        <div style={{ marginTop: 14 }}>
-          <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar configurações"}</button>
+        <div style={{ marginTop: 16 }}>
+          <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar"}</button>
         </div>
       </div>
       )}
@@ -179,11 +180,16 @@ export default function Config() {
           <option value="resend">Resend</option>
           <option value="ses">Amazon SES</option>
         </select>
-        <label>Webhooks das automações (n8n / Boost.space)</label>
+        <label>Webhooks das automações
+          <Ajuda>
+            Enquanto o ActiveCampaign ainda estiver rodando, deixe desligados: os dois
+            sistemas disparando o mesmo n8n significa a pessoa recebendo tudo em dobro.
+          </Ajuda>
+        </label>
         <select value={cfg.executar_webhooks ?? "false"}
           onChange={(e) => setCfg({ ...cfg, executar_webhooks: e.target.value })}>
-          <option value="false">desligados (seguro durante a transição — evita disparo duplicado com o AC)</option>
-          <option value="true">ligados (POSTs reais para n8n/Boost a cada gatilho)</option>
+          <option value="false">desligados</option>
+          <option value="true">ligados</option>
         </select>
         {cfg.provedor_email !== "ses" && (
           <>
@@ -197,13 +203,16 @@ export default function Config() {
             <label>Região da AWS</label>
             <input value={cfg.ses_regiao ?? "us-east-1"} placeholder="us-east-1"
               onChange={(e) => setCfg({ ...cfg, ses_regiao: e.target.value })} />
-            <label>Segredo interno do SES</label>
+            <label>Segredo interno do SES
+              <Ajuda>
+                A mesma frase precisa estar no segredo <b>SES_SEGREDO</b> da função de
+                envio. As chaves da AWS não ficam aqui — moram nos segredos da função,
+                fora do banco.
+              </Ajuda>
+            </label>
             <input type="password" value={cfg.ses_segredo ?? ""} placeholder="uma frase secreta qualquer"
               onChange={(e) => setCfg({ ...cfg, ses_segredo: e.target.value })} />
-            <div className="sub" style={{ marginTop: 6 }}>
-              Esta mesma frase precisa estar no segredo <b>SES_SEGREDO</b> da função de envio. As chaves
-              da AWS não ficam aqui: elas moram nos segredos da função, fora do banco.
-            </div>
+
           </>
         )}
         <div className="linha">
@@ -214,58 +223,74 @@ export default function Config() {
             <input value={cfg.from_email_padrao ?? ""}
               onChange={(e) => setCfg({ ...cfg, from_email_padrao: e.target.value })} /></div>
         </div>
-        <label>Responder para (Reply-To)</label>
+        <label>Responder para
+          <Ajuda>
+            Precisa ser uma caixa que <b>existe e recebe</b>. O subdomínio de envio só
+            envia: quem responder para ele leva "endereço não encontrado", a resposta se
+            perde, e o filtro de spam anota que o remetente não aceita mensagem.
+          </Ajuda>
+        </label>
         <input value={cfg.reply_to_padrao ?? ""}
           placeholder="contato@seudominio.com.br"
           onChange={(e) => setCfg({ ...cfg, reply_to_padrao: e.target.value })} />
-        <div className="sub" style={{ marginTop: 4 }}>
-          Precisa ser uma caixa que <b>existe e recebe</b>. O subdomínio de envio só envia —
-          quem responder para ele leva "endereço não encontrado", a resposta do cliente se perde
-          e o filtro de spam anota que o remetente não aceita mensagem.
-        </div>
-        <label>Endereço físico no rodapé dos e-mails</label>
+
+        <label>Endereço físico no rodapé
+          <Ajuda>
+            Exigência da lei anti-spam: todo e-mail comercial mostra o endereço real de
+            quem envia. Precisa ser verdadeiro — endereço inventado é sinal de spam para
+            o Gmail, além de irregular. Em branco, o rodapé sai só com o descadastro.
+          </Ajuda>
+        </label>
         <input value={cfg.endereco_fisico ?? ""}
           placeholder="Razão Social, Rua, nº — Cidade/UF, CEP"
           onChange={(e) => setCfg({ ...cfg, endereco_fisico: e.target.value })} />
-        <div className="sub" style={{ marginTop: 4 }}>
-          Exigência da lei anti-spam: todo e-mail comercial precisa mostrar o endereço real de
-          quem envia. Precisa ser verdadeiro — endereço inventado é sinal de spam para o Gmail,
-          além de irregular. Se ficar em branco, o rodapé sai só com o link de descadastro.
-        </div>
-        <label>URL base do tracking (Edge Functions)</label>
+
+        <label>Endereço das funções públicas
+          <Ajuda>
+            Onde ficam o pixel de abertura, o rastreio de clique e a página de
+            descadastro. Só mude se trocar de projeto no Supabase.
+          </Ajuda>
+        </label>
         <input value={cfg.base_url_tracking ?? ""}
           onChange={(e) => setCfg({ ...cfg, base_url_tracking: e.target.value })} />
         <div style={{ marginTop: 14 }}>
-          <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar configurações"}</button>
+          <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar"}</button>
         </div>
       </div>
       )}
 
       {aba === "email" && (
       <div className="caixa">
-        <h2>Identidade visual dos e-mails</h2>
-        <div className="sub">
-          Vale para todo bloco novo do editor. Trocar aqui não mexe nos e-mails já
-          escritos — só nos próximos.
-        </div>
+        <h2>Aparência dos e-mails
+          <Ajuda>
+            Vale para todo bloco novo do editor. Trocar aqui não mexe nos e-mails já
+            escritos — mudar o passado estragaria campanha aprovada.
+          </Ajuda>
+        </h2>
+
 
         <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
           <div>
-            <label>Fonte</label>
+            <label>Fonte
+              <Ajuda>
+                Só as que existem em Windows, Mac, Android e iOS. Fonte que o cliente não
+                tem vira Times New Roman, e o e-mail que você conferiu não é o que a
+                pessoa vê.
+              </Ajuda>
+            </label>
             <select value={cfg.email_fonte ?? FONTES[0]}
               onChange={(e) => setCfg({ ...cfg, email_fonte: e.target.value })}>
               {FONTES.map((f) => <option key={f} value={f}>{f.split(",")[0]}</option>)}
             </select>
-            <div className="sub" style={{ marginTop: 4 }}>
-              Só fontes que existem em Windows, Mac e celular. Fonte bonita que o
-              cliente não tem vira Times New Roman.
-            </div>
+
           </div>
           <div>
-            <label>Largura do e-mail</label>
+            <label>Largura
+              <Ajuda>600px é o padrão do mercado, e o que a maioria dos modelos assume.</Ajuda>
+            </label>
             <input type="number" min={480} max={800} value={cfg.email_largura ?? "600"}
               onChange={(e) => setCfg({ ...cfg, email_largura: e.target.value })} />
-            <div className="sub" style={{ marginTop: 4 }}>600px é o padrão do mercado.</div>
+
           </div>
         </div>
 
@@ -305,7 +330,7 @@ export default function Config() {
         </div>
 
         <div style={{ marginTop: 14 }}>
-          <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar configurações"}</button>
+          <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar"}</button>
         </div>
       </div>
       )}
@@ -315,14 +340,15 @@ export default function Config() {
       {aba === "manychat" && (
       <div className="caixa">
         <h2>ManyChat</h2>
-        <div className="sub">
-          Liga o WhatsApp e o Instagram à Ressoa: uma automação daqui pode marcar a
-          pessoa lá, e a partir da tag o ManyChat manda a mensagem.
-        </div>
 
         <label style={{ marginTop: 10 }}>
           Chave da API
           {mcConfigurado && <span style={{ color: "var(--marca)" }}> · configurada ✓</span>}
+          <Ajuda>
+            Pegue em <b>manychat.com → Settings → API</b>. Depois de guardar, ela não
+            aparece mais aqui — nem para você: fica num lugar do banco que o navegador não
+            lê. Para trocar, digite a nova por cima.
+          </Ajuda>
         </label>
         <div style={{ display: "flex", gap: 8 }}>
           <input type="password" value={mcChave} style={{ flex: 1 }}
@@ -331,75 +357,30 @@ export default function Config() {
           <button onClick={salvarManyChat} disabled={!mcChave.trim()}>Guardar</button>
           <button onClick={testarManyChat} disabled={!mcConfigurado}>Testar</button>
         </div>
-        <div className="sub" style={{ marginTop: 4 }}>
-          Pegue em <b>manychat.com → Settings → API</b>. Depois de guardar, a chave não
-          aparece mais nesta tela — nem para você. Ela fica num lugar do banco que o
-          navegador não consegue ler; para trocar, é só digitar a nova por cima.
-        </div>
-
-        <label style={{ marginTop: 14 }}>Campo que guarda o WhatsApp (id)</label>
+        <label style={{ marginTop: 16 }}>
+          Campo que guarda o WhatsApp
+          <Ajuda>
+            É por ele que a pessoa é encontrada lá, e não por e-mail: quem entra pelo
+            WhatsApp ou pelo Instagram chega com e-mail e telefone vazios. Na conta da
+            Patrícia o campo se chama <b>WHATSAPP-ID</b>. O número que vai aqui aparece
+            na barra de endereço quando você abre o campo no ManyChat.
+          </Ajuda>
+        </label>
         <input value={cfg.manychat_campo_whatsapp ?? ""} placeholder="ex.: 12378861"
           onChange={(e) => setCfg({ ...cfg, manychat_campo_whatsapp: e.target.value })} />
-        <div className="sub" style={{ marginTop: 4 }}>
-          É por aqui que a pessoa é encontrada lá — e não por e-mail. Quem entra pelo
-          WhatsApp ou pelo Instagram chega sem e-mail e sem telefone preenchidos; o
-          número de verdade fica num campo personalizado, que na conta da Patrícia se
-          chama <b>WHATSAPP-ID</b>. O id aparece na barra de endereço quando você abre o
-          campo no ManyChat.
-        </div>
 
         {(cfg.manychat_campo_whatsapp ?? "").trim() === "" && mcConfigurado && (
-          <div className="aviso" style={{ marginTop: 8 }}>
-            Sem este campo preenchido, a Ressoa não consegue encontrar ninguém no ManyChat
-            — e vai acabar criando assinante repetido para gente que já existe lá.
+          <div className="aviso" style={{ marginTop: 10 }}>
+            Sem isto, ninguém é encontrado lá — e cada compra cria um assinante repetido.
           </div>
         )}
 
-        <div style={{
-          marginTop: 20, paddingTop: 18, borderTop: "1px solid var(--borda)",
-        }}>
-          <b>Ambiente de teste</b>
-          <div className="sub" style={{ margin: "2px 0 12px" }}>
-            No e-mail, um teste errado é um e-mail bobo. Aqui é diferente: aplicar uma tag
-            dispara o fluxo do ManyChat ligado a ela, e sai WhatsApp — com notificação, no
-            celular da pessoa, na hora. Não dá para desfazer.
-          </div>
-
-          <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-            <input type="checkbox" checked={cfg.manychat_simular === "true"}
-              onChange={(e) => setCfg({ ...cfg, manychat_simular: e.target.checked ? "true" : "false" })} />
-            <span>
-              <b>Só simular</b>
-              <div className="sub" style={{ margin: 0 }}>
-                Procura de verdade — que é o que precisa ser conferido — mas não cria
-                ninguém e não aplica tag. A resposta diz o que <i>teria</i> acontecido.
-              </div>
-            </span>
-          </label>
-
-          <label style={{ marginTop: 14 }}>Ou só agir de verdade para estes WhatsApps</label>
-          <input value={cfg.manychat_so_para ?? ""}
-            placeholder="vazio = ninguém, se estiver simulando"
-            onChange={(e) => setCfg({ ...cfg, manychat_so_para: e.target.value })} />
-          <div className="sub" style={{ marginTop: 4 }}>
-            Separados por vírgula, em qualquer formato. Quem está aqui é tratado de
-            verdade mesmo com o "só simular" ligado; todo o resto continua sendo ensaio.
-            É o jeito de testar o caminho inteiro no seu próprio número.
-          </div>
-
-          <div className="aviso" style={{ marginTop: 12 }}>
-            {(cfg.manychat_so_para ?? "").trim() !== ""
-              ? <>De verdade só para <b>{cfg.manychat_so_para}</b>. Qualquer outra pessoa é ensaio.</>
-              : cfg.manychat_simular === "true"
-                ? <><b>Tudo em ensaio.</b> Nada é criado nem marcado no ManyChat. Para operar
-                    de verdade, desmarque "só simular".</>
-                : <><b>Valendo.</b> Compra aprovada marca a pessoa no ManyChat, e a tag dispara
-                    a mensagem de lá.</>}
-          </div>
+        <div style={{ marginTop: 18 }}>
+          <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar"}</button>
         </div>
 
         <div style={{ marginTop: 14 }}>
-          <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar configurações"}</button>
+          <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar"}</button>
         </div>
 
         {mcResposta && (
