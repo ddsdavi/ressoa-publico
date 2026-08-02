@@ -355,6 +355,49 @@ export default function Config() {
           </div>
         )}
 
+        <div style={{
+          marginTop: 20, paddingTop: 18, borderTop: "1px solid var(--borda)",
+        }}>
+          <b>Ambiente de teste</b>
+          <div className="sub" style={{ margin: "2px 0 12px" }}>
+            No e-mail, um teste errado é um e-mail bobo. Aqui é diferente: aplicar uma tag
+            dispara o fluxo do ManyChat ligado a ela, e sai WhatsApp — com notificação, no
+            celular da pessoa, na hora. Não dá para desfazer.
+          </div>
+
+          <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <input type="checkbox" checked={cfg.manychat_simular === "true"}
+              onChange={(e) => setCfg({ ...cfg, manychat_simular: e.target.checked ? "true" : "false" })} />
+            <span>
+              <b>Só simular</b>
+              <div className="sub" style={{ margin: 0 }}>
+                Procura de verdade — que é o que precisa ser conferido — mas não cria
+                ninguém e não aplica tag. A resposta diz o que <i>teria</i> acontecido.
+              </div>
+            </span>
+          </label>
+
+          <label style={{ marginTop: 14 }}>Ou só agir de verdade para estes WhatsApps</label>
+          <input value={cfg.manychat_so_para ?? ""}
+            placeholder="vazio = ninguém, se estiver simulando"
+            onChange={(e) => setCfg({ ...cfg, manychat_so_para: e.target.value })} />
+          <div className="sub" style={{ marginTop: 4 }}>
+            Separados por vírgula, em qualquer formato. Quem está aqui é tratado de
+            verdade mesmo com o "só simular" ligado; todo o resto continua sendo ensaio.
+            É o jeito de testar o caminho inteiro no seu próprio número.
+          </div>
+
+          <div className="aviso" style={{ marginTop: 12 }}>
+            {(cfg.manychat_so_para ?? "").trim() !== ""
+              ? <>De verdade só para <b>{cfg.manychat_so_para}</b>. Qualquer outra pessoa é ensaio.</>
+              : cfg.manychat_simular === "true"
+                ? <><b>Tudo em ensaio.</b> Nada é criado nem marcado no ManyChat. Para operar
+                    de verdade, desmarque "só simular".</>
+                : <><b>Valendo.</b> Compra aprovada marca a pessoa no ManyChat, e a tag dispara
+                    a mensagem de lá.</>}
+          </div>
+        </div>
+
         <div style={{ marginTop: 14 }}>
           <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar configurações"}</button>
         </div>

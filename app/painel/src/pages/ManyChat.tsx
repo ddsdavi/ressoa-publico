@@ -27,6 +27,10 @@ type Achado = {
   id: number; nome: string; status: string; whatsapp: string; tags: string[];
 };
 type Lead = { lead_id: string; nome: string | null; email: string; whatsapp: string | null };
+type Produto = {
+  id: number; apelido: string;
+  tag_manychat: string | null; tag_manychat_turma: boolean;
+};
 
 export default function ManyChat() {
   const [tags, setTags] = useState<Tag[]>([]);
@@ -49,6 +53,14 @@ export default function ManyChat() {
   const [busca, setBusca] = useState("");
   const [leads, setLeads] = useState<Lead[]>([]);
 
+  // rodar a regra de um produto
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [tNome, setTNome] = useState("");
+  const [tFone, setTFone] = useState("");
+  const [tEmail, setTEmail] = useState("");
+  const [tProduto, setTProduto] = useState("");
+  const [resultado, setResultado] = useState<Record<string, any> | null>(null);
+
   async function carregarTags() {
     setCarregando(true);
     const d = await chamar({ acao: "tags" });
@@ -57,6 +69,12 @@ export default function ManyChat() {
     setCarregando(false);
   }
   useEffect(() => { carregarTags(); }, []);
+
+  useEffect(() => {
+    supabase.from("hotmart_produtos")
+      .select("id,apelido,tag_manychat,tag_manychat_turma").eq("ativo", true).order("apelido")
+      .then(({ data }) => setProdutos((data as Produto[]) ?? []));
+  }, []);
 
   async function criarTag() {
     if (!novaTag.trim()) return;
@@ -96,7 +114,7 @@ export default function ManyChat() {
       : await chamar({ manychat_id: String(achado.id), tag: tagEscolhida, criar: false });
     setOcupado("");
     setRecado(d.ok
-      ? `${remover ? "Removida" : "Aplicada"} a tag ${tagEscolhida}.`
+      ? `${remover ? "Removida" : "Aplicada"} a tag ${tagEscolhida} — confira no ManyChat.`
       : "Não deu: " + JSON.stringify(d.detalhe ?? d));
     procurar();
   }
@@ -110,6 +128,24 @@ export default function ManyChat() {
       .limit(8);
     setLeads((data as Lead[]) ?? []);
   }
+
+  async function rodarRegra() {
+    setResultado(null);
+    setOcupado("Rodando a regra…");
+    const { data, error } = await supabase.rpc("testar_regra_produto", {
+      p_nome: tNome.trim() || null,
+      p_whatsapp: tFone.trim(),
+      p_email: tEmail.trim() || null,
+      p_produto_id: Number(tProduto),
+    });
+    setOcupado("");
+    if (error) { setResultado({ ok: false, erro: error.message }); return; }
+    setResultado(data as Record<string, any>);
+    // já deixa o número carregado acima, para conferir as tags de lá
+    if (!fone.trim()) setFone(tFone);
+  }
+
+  const produtoEscolhido = produtos.find((p) => String(p.id) === tProduto);
 
   const tagsFiltradas = tags.filter((t) =>
     !filtro.trim() || t.name.toLowerCase().includes(filtro.toLowerCase()));
@@ -202,8 +238,9 @@ export default function ManyChat() {
             </div>
             <div className="sub" style={{ marginTop: 6 }}>
               Aplicar uma tag <b>dispara a automação do ManyChat</b> ligada a ela — ou seja,
-              pode sair mensagem de WhatsApp para essa pessoa. Para experimentar sem risco,
-              crie uma tag nova aqui embaixo: tag recém-criada não tem automação pendurada.
+              pode sair mensagem de WhatsApp para essa pessoa. Para experimentar sem que
+              nada seja enviado, crie uma tag nova aqui embaixo: tag recém-criada não tem
+              automação pendurada em lugar nenhum.
             </div>
           </div>
         )}
@@ -239,6 +276,87 @@ export default function ManyChat() {
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      {/* ---------------- rodar a regra de um produto ---------------- */}
+      <div className="caixa" style={{ borderLeft: "4px solid var(--marca)" }}>
+        <h2>Rodar a automação de um produto</h2>
+        <div className="sub">
+          Faz exatamente o que acontece quando alguém compra: acha ou cria o contato aqui,
+          entra na lista, ganha a tag da turma e é marcado no ManyChat. Nada é fingido — a
+          pessoa aparece lá de verdade, e você confere na sua conta.
+          <br />
+          <b>Não registra venda:</b> um teste não pode virar faturamento no relatório.
+        </div>
+
+        <div className="linha" style={{ marginTop: 12 }}>
+          <div style={{ flex: 2 }}>
+            <label>Nome</label>
+            <input value={tNome} onChange={(e) => setTNome(e.target.value)} placeholder="Maria de Teste" />
+          </div>
+          <div style={{ flex: 2 }}>
+            <label>WhatsApp</label>
+            <input value={tFone} onChange={(e) => setTFone(e.target.value)} placeholder="(51) 99999-0000" />
+          </div>
+        </div>
+        <div className="linha">
+          <div style={{ flex: 2 }}>
+            <label>E-mail (opcional)</label>
+            <input value={tEmail} onChange={(e) => setTEmail(e.target.value)} />
+          </div>
+          <div style={{ flex: 2 }}>
+            <label>Produto</label>
+            <select value={tProduto} onChange={(e) => setTProduto(e.target.value)}>
+              <option value="">— escolher —</option>
+              {produtos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.apelido}{p.tag_manychat ? ` → ${p.tag_manychat}` : " (sem tag do ManyChat)"}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button className="primario" style={{ flex: "0 0 auto", alignSelf: "flex-end" }}
+            onClick={rodarRegra} disabled={!tFone.trim() || !tProduto}>
+            Rodar agora
+          </button>
+        </div>
+
+        {produtoEscolhido && !produtoEscolhido.tag_manychat && !produtoEscolhido.tag_manychat_turma && (
+          <div className="aviso" style={{ marginTop: 10 }}>
+            Este produto ainda não tem tag do ManyChat configurada, então o teste vai mexer
+            só aqui na Ressoa. Configure em <b>Vendas → a regra do produto</b>.
+          </div>
+        )}
+
+        {resultado && (
+          <div style={{
+            marginTop: 14, padding: "14px 16px", borderRadius: 8,
+            border: "1px solid var(--borda)",
+          }}>
+            {resultado.ok ? (
+              <>
+                <b>Rodou.</b>
+                <ul style={{ margin: "8px 0 0", paddingLeft: 20, lineHeight: 1.8 }}>
+                  <li>Contato: {resultado.contato?.como}</li>
+                  <li>Produto reconhecido: <b>{resultado.resultado?.produto ?? "não reconhecido"}</b></li>
+                  <li>Lista aqui: {resultado.resultado?.lista ? "entrou" : "nenhuma configurada"}</li>
+                  <li>Turma aqui: {resultado.resultado?.turma ?? "nenhuma"}</li>
+                  <li>ManyChat: {resultado.resultado?.manychat
+                        ? <b>{resultado.resultado.manychat}</b>
+                        : "nenhuma tag configurada"}</li>
+                </ul>
+                {resultado.resultado?.manychat && (
+                  <div className="sub" style={{ marginTop: 10 }}>
+                    A chamada ao ManyChat é feita em segundo plano. Procure a pessoa acima
+                    pelo WhatsApp para ver as tags que ela ficou tendo lá.
+                  </div>
+                )}
+              </>
+            ) : (
+              <><b>Não rodou.</b> {resultado.erro}</>
+            )}
+          </div>
         )}
       </div>
 

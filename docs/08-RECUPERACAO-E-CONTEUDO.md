@@ -175,6 +175,21 @@ de uma vez só:
 O número aparece já formatado antes da busca — é o que permite descobrir na hora quando
 o telefone gravado está diferente do que o ManyChat tem.
 
-**Cuidado ao testar:** aplicar uma tag **dispara a automação do ManyChat ligada a ela**, e
-isso significa mensagem de WhatsApp saindo para uma pessoa real. Para experimentar sem
-risco, crie uma tag nova na própria tela: tag recém-criada não tem automação pendurada.
+**Tudo aqui é real.** Não existe modo simulação, de propósito: o objetivo é justamente
+ver a pessoa aparecendo na conta do ManyChat, com a tag, antes de deixar a automação
+solta. Simular provaria só que o código roda, não que a integração funciona.
+
+**O risco a conhecer:** aplicar uma tag **dispara a automação do ManyChat ligada a ela**,
+e isso significa mensagem de WhatsApp saindo para alguém. Para experimentar sem que nada
+seja enviado, crie uma tag nova na própria tela — tag recém-criada não tem automação
+pendurada em lugar nenhum. Foi assim que toda a integração foi testada.
+
+### Rodar a automação de um produto
+
+Na mesma tela: nome, WhatsApp, produto, e **Rodar agora**. Faz exatamente o que uma compra
+aprovada faria — acha ou cria o contato aqui, entra na lista, ganha a tag da turma e é
+marcado no ManyChat. Depois é só procurar a pessoa pelo WhatsApp logo acima e ver as tags
+que ela ficou tendo lá.
+
+**Não registra venda.** Um teste não pode virar faturamento no relatório nem entrar na
+conta de quantos compraram.

@@ -78,15 +78,19 @@ Deno.serve(async (req) => {
   const token = seg?.[0]?.valor;
 
   const cfg = await (await fetch(
-    `${base}/rest/v1/app_config?chave=eq.manychat_campo_whatsapp&select=valor`,
+    `${base}/rest/v1/app_config?chave=like.manychat*&select=chave,valor`,
     { headers: cab })).json();
-  const campoWhats = cfg?.[0]?.valor ?? "";
+  const conf = Object.fromEntries(
+    (cfg ?? []).map((r: { chave: string; valor: string }) => [r.chave, r.valor ?? ""]));
+  const campoWhats = conf.manychat_campo_whatsapp ?? "";
+
 
   const anotar = async (lead: string | undefined, acao: string, tag: string,
                         ok: boolean, detalhe: string) => {
     await fetch(`${base}/rest/v1/manychat_log`, {
       method: "POST", headers: { ...cab, Prefer: "return=minimal" },
-      body: JSON.stringify({ lead_fk: lead ?? null, acao, tag, sucesso: ok, detalhe }),
+      body: JSON.stringify({ lead_fk: lead ?? null, acao, tag, sucesso: ok, detalhe,
+                             simulado: false }),
     });
   };
 
