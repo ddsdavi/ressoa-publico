@@ -183,7 +183,7 @@ export default function Automacoes() {
 
   return (
     <div>
-      <h1>Automações</h1>
+      <h1>Automações de e-mail</h1>
       <div className="sub">Gatilho → passos, executados pelo motor no Postgres (ciclo de 1 min). Novas automações nascem desativadas.</div>
 
       <div className="caixa">

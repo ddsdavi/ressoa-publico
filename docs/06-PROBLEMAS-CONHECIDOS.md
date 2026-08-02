@@ -573,3 +573,37 @@ Tudo tem que ser `true`. Foi assim que os dois apareceram.
 **A lição maior:** conferir na tela que o passo aparece e salva não prova nada. Só montar a
 automação inteira e ver o efeito do outro lado — no caso, a tag chegando no ManyChat —
 prova que o caminho existe.
+
+---
+
+## 34. Casar telefone pelos últimos dígitos junta gente diferente
+
+**Sintoma:** procurar por um número inventado do DDD 11 devolve uma pessoa real do DDD 21.
+
+**Causa:** o casamento comparava os **10 últimos dígitos**. Em número brasileiro isso
+descarta o primeiro dígito do DDD:
+
+```
+5521 90000-0000  →  últimos 10 = 1900000000
+5511 90000-0000  →  últimos 10 = 1900000000
+```
+
+Duas pessoas, dois estados, o mesmo resultado.
+
+**Por que é grave aqui:** o número é a chave que liga a Ressoa ao ManyChat. Um casamento
+errado aplica a tag na pessoa errada — e tag no ManyChat dispara mensagem de WhatsApp.
+Alguém que não comprou recebe a mensagem de quem comprou.
+
+**Correção:** normalizar os dois lados para a **mesma forma canônica** antes de comparar,
+com as mesmas regras que a ponte com o ManyChat usa (`public.normalizar_telefone`). Se as
+regras divergirem, a Ressoa passa a achar uma pessoa e o ManyChat outra.
+
+**Como conferir:**
+
+```sql
+select public.normalizar_telefone('5521900000000')
+    <> public.normalizar_telefone('5511900000000');   -- tem que ser true
+```
+
+**A lição:** "pegar só o final do número" parece resolver o problema de formato e cria um
+pior. Formato se resolve normalizando, não truncando.
