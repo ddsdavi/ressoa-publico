@@ -17,6 +17,7 @@ node_modules/
 dist/
 .wrangler/
 app/supabase/
+supabase/.temp/
 app/painel/node_modules/
 app/painel/dist/
 __pycache__/

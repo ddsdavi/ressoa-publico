@@ -17,6 +17,7 @@
 // linha existente é atualizada. É assim que um reembolso lançado depois
 // corrige a venda que já estava aqui.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { ehIntencaoDeCompra, statusPedidoHotmart } from "./estados.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -36,41 +37,11 @@ const cors = {
 // PRECISAM chegar: sem eles, quem pediu o dinheiro de volta continuaria
 // no segmento de compradores recebendo campanha de quem ficou.
 // Os 9 eventos oficiais do webhook de pedidos (versão 2.0.0).
-const STATUS_EVENTO: Record<string, string> = {
-  PURCHASE_APPROVED: "aprovada",
-  PURCHASE_COMPLETE: "aprovada",
-  PURCHASE_REFUNDED: "reembolsada",
-  PURCHASE_CHARGEBACK: "chargeback",
-  PURCHASE_PROTEST: "chargeback",
-  PURCHASE_CANCELED: "cancelada",
-  PURCHASE_EXPIRED: "expirada",
-  PURCHASE_BILLET_PRINTED: "pendente",
-  PURCHASE_DELAYED: "pendente",
-};
+// A classificação fica em estados.ts para ser testada fora da função.
 
 // purchase.status é mais fino que o evento e manda quando existe: ele
 // distingue coisas que o nome do evento junta, como reembolso PARCIAL —
 // que não é reembolso (a pessoa ficou com parte) nem venda cheia.
-const STATUS_COMPRA: Record<string, string> = {
-  APPROVED: "aprovada",
-  COMPLETE: "aprovada",
-  REFUNDED: "reembolsada",
-  PARTIALLY_REFUNDED: "parcialmente_reembolsada",
-  CHARGEBACK: "chargeback",
-  DISPUTE: "chargeback",
-  CANCELLED: "cancelada",
-  BLOCKED: "cancelada",
-  EXPIRED: "expirada",
-  NO_FUNDS: "pendente",
-  OVERDUE: "pendente",
-  PRINTED_BILLET: "pendente",
-  WAITING_PAYMENT: "pendente",
-  PROCESSING_TRANSACTION: "pendente",
-  UNDER_ANALISYS: "pendente",
-  STARTED: "pendente",
-  PRE_ORDER: "pendente",
-};
-
 function normWhatsapp(p: string | null | undefined): string | null {
   if (!p) return null;
   let d = String(p).replace(/\D/g, "").replace(/^0+/, "");
@@ -93,15 +64,17 @@ function data(v: unknown): string | null {
 type Venda = {
   email: string | null; nome: string | null; telefone: string | null;
   transacao: string | null; produto: string; valor: number; moeda: string;
-  pagamento: string | null; status: string; quando: string | null;
+  pagamento: string | null; status: string | null; quando: string | null;
   parcelas: number | null; origem: string;
-  ucode: string | null; oferta: string | null; utms: Record<string, string>;
+  evento: string | null; ucode: string | null; oferta: string | null;
+  utms: Record<string, string>;
 };
 
 function daHotmart(b: Record<string, any>): Venda | null {
   const d = b.data;
   if (!d?.buyer && !d?.purchase) return null;
   const c = d.purchase ?? {};
+  const status = statusPedidoHotmart(b.event, c.status);
 
   // O DDD vem SEPARADO em checkout_phone_code para compradores
   // brasileiros. Sem juntar, o telefone chega sem DDD e vira outra
@@ -136,12 +109,13 @@ function daHotmart(b: Record<string, any>): Venda | null {
     valor,
     moeda: c.full_price?.currency_value ?? c.price?.currency_value ?? "BRL",
     pagamento: c.payment?.type ?? null,
-    status: STATUS_COMPRA[String(c.status ?? "")]
-      ?? STATUS_EVENTO[String(b.event ?? "")]
-      ?? "aprovada",
-    quando: data(c.approved_date ?? c.order_date ?? b.creation_date),
+    status,
+    quando: data(status === "aprovada"
+      ? c.approved_date ?? c.order_date ?? b.creation_date
+      : c.order_date ?? b.creation_date),
     parcelas: c.payment?.installments_number ?? null,
     origem: "hotmart",
+    evento: b.event ?? null,
     ucode: d.product?.ucode ?? null,
     oferta: c.offer?.name ?? c.offer?.code ?? null,
     utms,
@@ -162,6 +136,7 @@ function simples(b: Record<string, any>): Venda {
     quando: data(b.data ?? b.quando),
     parcelas: b.parcelas ? Number(b.parcelas) : null,
     origem: b.origem ?? "api",
+    evento: b.event ?? null,
     ucode: b.ucode ?? null,
     oferta: b.oferta ?? null,
     utms: {},
@@ -217,12 +192,6 @@ Deno.serve(async (req) => {
       { headers: { ...cors, "Content-Type": "application/json" } });
   }
 
-  // Carrinho abandonado, boleto gerado, pagamento atrasado e expirado
-  // chegam como PURCHASE_*, mas NAO sao venda: ninguem pagou. Viram evento
-  // proprio, para disparar recuperacao sem sujar o registro de vendas.
-  const INTENCAO = ["PURCHASE_OUT_OF_SHOPPING_CART", "PURCHASE_BILLET_PRINTED",
-                    "PURCHASE_DELAYED", "PURCHASE_EXPIRED"];
-
   // O que não é compra fica REGISTRADO, mas não vira erro. Erro vermelho
   // para coisa normal treina a pessoa a ignorar erro — e aí o erro de
   // verdade passa batido.
@@ -263,6 +232,15 @@ Deno.serve(async (req) => {
     }
     return new Response(JSON.stringify({ erro: msg }), { status: code, headers: cors });
   };
+
+  // Nunca presumir venda para um estado novo da Hotmart. Guardamos o corpo
+  // cru acima e falhamos de forma visivel ate que o novo estado seja mapeado.
+  if (!v.status) {
+    return await falhar(
+      `evento/status Hotmart nao reconhecido: ${evento || "sem evento"}/${String(b.data?.purchase?.status ?? "sem status")}`,
+      422,
+    );
+  }
 
   if (!v.email && !v.telefone) {
     return await falhar("sem e-mail nem telefone do comprador", 400);
@@ -312,7 +290,7 @@ Deno.serve(async (req) => {
   // o status ficaria certo e o resto da informação sumiria. Por isso o que
   // chega vazio preserva o que já estava lá.
   const { data: existente } = await supabase.from("tabela_4_alunos")
-    .select("forma_de_pagamento, parcelas, data_compra, valor, nome_produto")
+    .select("forma_de_pagamento, parcelas, data_compra, valor, nome_produto, evento_origem")
     .eq("codigo_transacao", transacao).maybeSingle();
 
   const { error } = await supabase.from("tabela_4_alunos").upsert({
@@ -326,17 +304,19 @@ Deno.serve(async (req) => {
     data_compra: v.quando ?? existente?.data_compra ?? new Date().toISOString(),
     parcelas: v.parcelas ?? existente?.parcelas ?? null,
     origem: v.origem,
+    evento_origem: v.evento ?? existente?.evento_origem ?? null,
+    updated_at: new Date().toISOString(),
   }, { onConflict: "codigo_transacao" });
 
-  if (error) return new Response(JSON.stringify({ erro: error.message }), { status: 500, headers: cors });
+  if (error) return await falhar(error.message, 500);
 
   // 4) tag opcional, para o disparo da automação de comprador
-  if (b.tag_id) {
+  if (v.status === "aprovada" && b.tag_id) {
     await supabase.from("lead_tags").upsert(
       { lead_fk: leadId, tag_fk: Number(b.tag_id) },
       { onConflict: "lead_fk,tag_fk", ignoreDuplicates: true });
   }
-  if (b.lista_id) {
+  if (v.status === "aprovada" && b.lista_id) {
     await supabase.from("lead_listas").upsert(
       { lead_fk: leadId, lista_fk: Number(b.lista_id), status: 1, source: "venda:" + v.origem },
       { onConflict: "lead_fk,lista_fk", ignoreDuplicates: true });
@@ -359,7 +339,7 @@ Deno.serve(async (req) => {
   }
 
   // 4c) se foi intencao e nao venda, gera o evento de recuperacao
-  if (INTENCAO.includes(evento)) {
+  if (ehIntencaoDeCompra(evento)) {
     await supabase.rpc("registrar_intencao", {
       p_lead: leadId, p_evento: evento, p_produto: v.produto, p_valor: v.valor,
     });

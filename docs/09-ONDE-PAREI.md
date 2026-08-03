@@ -13,12 +13,12 @@ reconstituir a conversa.
 - A Ressoa está **no ar e operando sozinha**: sete tarefas agendadas dentro do
   próprio Postgres, quatro delas rodando a cada minuto. Não depende de ninguém
   estar com o computador ligado.
-- As vendas da Hotmart chegam por webhook, em tempo real, e já entram em lista,
-  ganham tag de turma e podem marcar a pessoa no ManyChat.
+- Os pedidos da Hotmart chegam por webhook em tempo real. Só estado aprovado vira compra,
+  entra em lista, ganha tag de turma e pode marcar a pessoa no ManyChat.
 - O envio de e-mail está **travado** para dois endereços de teste (veja abaixo).
 - A migração do ActiveCampaign foi uma fotografia: a base de lá continua
   recebendo gente, e a daqui só atualiza quando alguém roda o sincronizador.
-- 34 armadilhas conhecidas estão em [06-PROBLEMAS-CONHECIDOS.md](06-PROBLEMAS-CONHECIDOS.md).
+- 36 armadilhas conhecidas estão em [06-PROBLEMAS-CONHECIDOS.md](06-PROBLEMAS-CONHECIDOS.md).
   Vale ler antes de mexer em qualquer coisa; várias custaram horas.
 
 ---
@@ -42,16 +42,21 @@ Configurações → E-mail. É uma decisão consciente, não um esquecimento.
    semanal `CASA_H_{AA}_{MM}_{DD} - COMPROU INGRESSO CASA_H`, com virada
    toda segunda-feira às 7h no horário de São Paulo. Os demais produtos
    ainda dependem de o Davi informar qual tag dispara o fluxo de cada um.
-2. **CSV histórico da Hotmart.** As vendas anteriores ao webhook não existem
-   aqui. Sem elas, o relatório de faturamento e a pontuação por compra só
-   enxergam o que entrou desde 25/07/2026.
-3. **`reply_to_padrao` vazio.** O subdomínio de envio não recebe: quem
+2. **`reply_to_padrao` vazio.** O subdomínio de envio não recebe: quem
    responder leva "endereço não encontrado". Precisa apontar para uma caixa
    que existe.
-4. **Sincronizar com o ActiveCampaign.** Toda vez que a diferença incomodar:
+3. **Sincronizar com o ActiveCampaign.** Toda vez que a diferença incomodar:
    exporte a base completa de lá e rode
    `python scripts/sincronizar_csv_ac.py "caminho/export.csv" --aplicar`.
    Ele cria quem falta e liga as tags. Não apaga nada.
+
+## Importação histórica concluída
+
+Em 02/08/2026, o relatório anual da Hotmart foi importado diretamente no Supabase:
+1.391 transações completas, todas novas, e 510 leads criados. O casamento foi feito por
+e-mail exato sem diferença entre maiúsculas e minúsculas; telefone conflitante foi
+descartado em vez de juntar pessoas diferentes. O CSV e o SQL com dados pessoais ficaram
+fora do repositório.
 
 ---
 
@@ -117,8 +122,8 @@ antiga e adiciona 9 em fixo.**
 ```
 Hotmart  ──webhook──►  /functions/v1/venda
                             │
-                            ├─► registra a compra
-                            ├─► aplicar_mapa_produto:
+                            ├─► registra o pedido e seu estado
+                            ├─► se aprovado, aplicar_mapa_produto:
                             │      lista + tag de turma + tag no ManyChat
                             └─► eventos (carrinho abandonado, boleto…)
                                     │

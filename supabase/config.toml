@@ -1,0 +1,3 @@
+[functions.venda]
+verify_jwt = false
+entrypoint = "../app/functions/venda/index.ts"

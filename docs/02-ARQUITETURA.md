@@ -32,7 +32,7 @@ cuida de banco, login e funções; o motor vive dentro do próprio Postgres.
 | `tabela_1_leads` | a pessoa (e-mail único, WhatsApp único quando existe) |
 | `tabela_2_participacoes` | participações em eventos (1 linha por lead × evento) |
 | `tabela_3_precheckout` | quem chegou ao pré-checkout |
-| `tabela_4_alunos` | compras (código de transação, valor, forma de pagamento) |
+| `tabela_4_alunos` | pedidos do checkout, com estado, transação, valor e pagamento; só `aprovada` é compra |
 
 ### 2. Operação de e-mail
 `listas` + `lead_listas` (status 0=não confirmado, 1=ativo, 2=descadastrado, 3=bounce) ·
@@ -41,10 +41,13 @@ cuida de banco, login e funções; o motor vive dentro do próprio Postgres.
 `envios` · `eventos_email` · `supressao` · `formularios`
 
 ### 2b. Vendas e atribuição
-`tabela_4_alunos` (uma linha por compra, com status e data real) ·
+`tabela_4_alunos` (uma linha por pedido, inclusive boleto, expiração, cancelamento e estorno) ·
 `compras_por_lead` (visão: quantas compras, quanto gastou, quantos produtos) ·
 `hotmart_eventos` (o corpo cru de tudo que a Hotmart mandou) ·
 `hotmart_produtos` (o que cada produto faz ao ser comprado)
+
+As visões, segmentos e gatilhos de comprador filtram `status = 'aprovada'`. Guardar um
+pedido não significa afirmar que houve venda.
 
 ### 2c. Pontuação
 `regras_pontuacao` (quanto vale cada comportamento) · `lead_pontuacao` (a nota, recalculada

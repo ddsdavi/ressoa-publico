@@ -33,7 +33,7 @@ Na Hotmart: **Ferramentas → Webhook (API e notificações) → Cadastrar Webho
 | URL | o endereço copiado |
 | Versão | **2.0.0** |
 | Produtos | **Todos os produtos** |
-| Eventos | os de compra |
+| Eventos | os nove eventos de pedido listados abaixo |
 
 Três decisões aí merecem explicação.
 
@@ -44,9 +44,23 @@ mudam de nome e nada casa.
 fazer com cada produto é o Ressoa. Produto novo vira uma linha numa tela, não uma volta à
 Hotmart.
 
-**Marque reembolso e chargeback junto com aprovada.** São eles que tiram do segmento de
-compradores quem pediu o dinheiro de volta. Sem eles, você mandaria campanha de comprador
-para quem devolveu o produto.
+**Marque todos os nove eventos de pedido da especificação 2.0.0:**
+
+| Evento Hotmart | Estado no Ressoa | É compra? |
+|---|---|---|
+| `PURCHASE_APPROVED` | aprovada | sim |
+| `PURCHASE_COMPLETE` | aprovada | sim |
+| `PURCHASE_BILLET_PRINTED` | pendente | não |
+| `PURCHASE_DELAYED` | pendente | não |
+| `PURCHASE_EXPIRED` | expirada | não |
+| `PURCHASE_CANCELED` | cancelada | não |
+| `PURCHASE_REFUNDED` | reembolsada | não é mais comprador |
+| `PURCHASE_CHARGEBACK` | chargeback | não é mais comprador |
+| `PURCHASE_PROTEST` | chargeback/protestada | não é mais comprador |
+
+O `purchase.status` detalha ainda estados como espera, análise, falta de fundos e reembolso
+parcial. Ele prevalece sobre o nome genérico do evento. Qualquer estado futuro ainda não
+mapeado é guardado no histórico bruto e retorna erro visível; nunca é presumido como venda.
 
 ---
 
@@ -72,18 +86,20 @@ npx supabase secrets set VENDA_SEGREDO=SEU_HOTTOK --project-ref SEU-PROJETO
 
 ---
 
-## O que acontece quando uma venda chega
+## O que acontece quando um pedido chega
 
 1. **O corpo cru é guardado** em `hotmart_eventos`, antes de qualquer processamento.
    Webhook de venda é dinheiro: se algo falhar no meio, a Hotmart não reenvia para sempre,
    e sem o original não há como reprocessar nem descobrir o que deu errado.
-2. **O comprador é localizado** por WhatsApp, depois por e-mail. Se não existir, **é
-   criado** — quem pagou é o contato mais valioso que existe.
-3. **A compra é gravada** com produto, valor, forma de pagamento, parcelas, status e a data
-   real da compra.
+2. **A pessoa é localizada** por WhatsApp, depois por e-mail. Se não existir, é criada.
+3. **O pedido é gravado** com produto, valor, forma de pagamento, parcelas, estado, evento
+   de origem e a data real. Isso não o transforma em compra.
 4. **A origem é aberta** em campos utilizáveis (veja abaixo).
-5. **A regra do produto é aplicada**: entra na lista, ganha a tag.
-6. **As automações disparam** a partir dessa lista e dessa tag.
+5. **Somente se estiver aprovado**, a regra do produto é aplicada: entra na lista e ganha
+   a tag.
+6. **Somente a transição para aprovado** produz `compra_realizada`. Boleto, atraso e
+   expiração produzem eventos próprios de recuperação; cancelamento e estorno também têm
+   estados próprios.
 
 Reenviar o mesmo evento **não duplica**: o código da transação é único e a linha existente
 é atualizada. É assim que um reembolso lançado depois corrige a venda que já estava lá.

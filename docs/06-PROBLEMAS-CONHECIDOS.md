@@ -662,3 +662,25 @@ Há 213 pessoas com DDD 55 na base. Se alguém "simplificar" a regra para um
 `startsWith('55')`, são elas que quebram primeiro — e `555533334444` volta a virar
 celular de outra pessoa. Os casos estão na prova no fim de `telefone_v2_fixo.sql`
 justamente para isso.
+
+---
+
+## 36. Pedido da Hotmart não é sinônimo de compra
+
+**Sintoma:** alguém que apenas emitiu um boleto — ou cujo pedido expirou — aparece na
+linha do tempo como “Comprou” e pode produzir o evento `compra_realizada`.
+
+**Causa:** havia três presunções independentes: evento/status desconhecido caía em
+`aprovada`; o gatilho do banco tratava toda linha nova de pedido como compra; e a linha do
+tempo escrevia “Comprou” sem olhar o status. Bastava receber `PURCHASE_EXPIRED` para criar
+uma falsa venda que não existia no relatório da Hotmart.
+
+**Correção:** os nove eventos e os dezessete estados oficiais estão mapeados em
+`app/functions/venda/estados.ts`. Estado desconhecido falha fechado e continua auditável
+em `hotmart_eventos`. Só `status = 'aprovada'` dispara compra, satisfaz a condição
+“comprou”, recebe tag/lista de produto ou aparece como “Comprou”. Os outros estados são
+mostrados como boleto, pagamento pendente/expirado, cancelamento, reembolso ou chargeback.
+
+**Limpeza aplicada:** foram removidos apenas eventos derivados `compra_realizada`
+comprovadamente falsos, sem apagar pedidos nem corpos brutos dos webhooks. Histórico de
+compra seguida de reembolso ou chargeback foi preservado.
