@@ -56,13 +56,13 @@ export default function ManyChat() {
   // o fluxo
   const [fone, setFone] = useState("");
   const [nome, setNome] = useState("");
-  const [alvo, setAlvo] = useState<"produto" | "tag">("produto");
   const [produto, setProduto] = useState("");
   const [tagAvulsa, setTagAvulsa] = useState("");
   const [passos, setPassos] = useState<Passo[]>([]);
   const [rodando, setRodando] = useState(false);
   const [acaoContato, setAcaoContato] = useState(false);
   const [mensagemContato, setMensagemContato] = useState<Passo | null>(null);
+  const [mensagemTagUsuario, setMensagemTagUsuario] = useState<Passo | null>(null);
 
   // quem é essa pessoa, dos dois lados
   const [assinante, setAssinante] = useState<Assinante | null>(null);
@@ -181,38 +181,24 @@ export default function ManyChat() {
     }
     anota(`Telefone acertado para ${mc.formatado}`, "info");
 
-    // 2. rodar
-    if (alvo === "produto") {
-      if (!produto) { anota("escolha o produto", "erro"); setRodando(false); return; }
-      const { data, error } = await supabase.rpc("testar_regra_produto", {
-        p_nome: nome.trim() || null, p_whatsapp: fone.trim(),
-        p_email: null, p_produto_id: Number(produto),
-      });
-      if (error) { anota(error.message, "erro"); setRodando(false); return; }
-      const d = data as Record<string, any>;
-      if (!d?.ok) { anota(d?.erro ?? "não rodou", "erro"); setRodando(false); return; }
-      anota(`Contato: ${d.como}`);
-      anota(d.resultado?.lista ? "Entrou na lista do produto" : "Produto sem lista configurada",
-            d.resultado?.lista ? "ok" : "info");
-      anota(d.resultado?.turma ? `Tag de turma aqui: ${d.resultado.turma}` : "Sem tag de turma",
-            d.resultado?.turma ? "ok" : "info");
-      anota(d.resultado?.manychat
-              ? `Mandado ao ManyChat: ${d.resultado.manychat}`
-              : "Produto sem tag do ManyChat — configure em Vendas",
-            d.resultado?.manychat ? "ok" : "erro");
-    } else {
-      if (!tagAvulsa) { anota("escolha a tag", "erro"); setRodando(false); return; }
-      if (!mc.existe || !mc.assinante?.id) {
-        anota("Esse WhatsApp não existe no ManyChat. Crie o usuário primeiro.", "erro");
-        setRodando(false); return;
-      }
-      const d = await chamar({
-        manychat_id: String(mc.assinante.id), tag: tagAvulsa, criar: false,
-      });
-      if (!d.ok) { anota(d.motivo ?? d.erro ?? "não deu", "erro"); setRodando(false); return; }
-      anota(`Usuário encontrado pelo WhatsApp (assinante ${d.assinante})`);
-      anota(`Tag ${tagAvulsa} aplicada`);
-    }
+    // 2. rodar a regra do produto
+    if (!produto) { anota("escolha o produto", "erro"); setRodando(false); return; }
+    const { data, error } = await supabase.rpc("testar_regra_produto", {
+      p_nome: nome.trim() || null, p_whatsapp: fone.trim(),
+      p_email: null, p_produto_id: Number(produto),
+    });
+    if (error) { anota(error.message, "erro"); setRodando(false); return; }
+    const d = data as Record<string, any>;
+    if (!d?.ok) { anota(d?.erro ?? "não rodou", "erro"); setRodando(false); return; }
+    anota(`Contato: ${d.como}`);
+    anota(d.resultado?.lista ? "Entrou na lista do produto" : "Produto sem lista configurada",
+          d.resultado?.lista ? "ok" : "info");
+    anota(d.resultado?.turma ? `Tag de turma aqui: ${d.resultado.turma}` : "Sem tag de turma",
+          d.resultado?.turma ? "ok" : "info");
+    anota(d.resultado?.manychat
+            ? `Mandado ao ManyChat: ${d.resultado.manychat}`
+            : "Produto sem tag do ManyChat — configure em Vendas",
+          d.resultado?.manychat ? "ok" : "erro");
 
     // 3. como ficou
     await new Promise((r) => setTimeout(r, 2500));   // o ManyChat leva um instante
@@ -227,23 +213,23 @@ export default function ManyChat() {
   async function marcar(tag: string, remover: boolean) {
     if (!assinante) return;
     setRodando(true);
-    setMensagemContato(null);
+    setMensagemTagUsuario(null);
     try {
       const d = await chamar(remover
         ? { acao: "desmarcar", manychat_id: String(assinante.id), tag }
         : { manychat_id: String(assinante.id), tag, criar: false });
       if (!d.ok) {
-        setMensagemContato({ texto: d.erro ?? d.motivo ?? "A operação não foi concluída.", estado: "erro" });
+        setMensagemTagUsuario({ texto: d.erro ?? d.motivo ?? "A operação não foi concluída.", estado: "erro" });
         return;
       }
       await new Promise((r) => setTimeout(r, 1200));
       await procurar();
-      setMensagemContato({
+      setMensagemTagUsuario({
         texto: remover ? `Tag “${tag}” removida desse usuário.` : `Tag “${tag}” aplicada nesse usuário.`,
         estado: "ok",
       });
     } catch {
-      setMensagemContato({ texto: "Não deu para concluir a operação no ManyChat.", estado: "erro" });
+      setMensagemTagUsuario({ texto: "Não deu para concluir a operação no ManyChat.", estado: "erro" });
     } finally {
       setRodando(false);
     }
@@ -357,13 +343,10 @@ export default function ManyChat() {
             {mensagemContato.texto}
           </div>
         )}
-      </div>
 
-      {/* ---------------- quem é essa pessoa ---------------- */}
-      {procurou && (
-        <div className="caixa">
-          <h2>Resultado da busca</h2>
-
+        {procurou && (
+          <div style={{ marginTop: 20, paddingTop: 18, borderTop: "1px solid var(--borda)" }}>
+            <h3 style={{ margin: "0 0 12px" }}>Resultado da busca</h3>
           <div style={{ display: "grid", gap: 16,
                         gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
             <div>
@@ -371,15 +354,7 @@ export default function ManyChat() {
               {naRessoa ? (
                 <div style={{ marginTop: 6 }}>
                   <div>{naRessoa.nome || <i>sem nome</i>}</div>
-                  <div className="sub" style={{ margin: "2px 0 8px" }}>{naRessoa.whatsapp}</div>
-                  {naRessoa.listas.map((l) => (
-                    <span key={l} className="etiqueta" style={{ marginRight: 5 }}>{l}</span>
-                  ))}
-                  <div style={{ marginTop: 6 }}>
-                    {naRessoa.tags.slice(0, 8).map((t) => (
-                      <span key={t} className="etiqueta et-roxa" style={{ marginRight: 5 }}>{t}</span>
-                    ))}
-                  </div>
+                  <div className="sub" style={{ marginTop: 2 }}>{naRessoa.whatsapp}</div>
                 </div>
               ) : <div className="sub" style={{ marginTop: 6 }}>não existe aqui ainda</div>}
             </div>
@@ -392,96 +367,48 @@ export default function ManyChat() {
                   <div className="sub" style={{ margin: "2px 0 8px" }}>
                     assinante {assinante.id} · {assinante.status}
                   </div>
-                  {assinante.tags.length
-                    ? assinante.tags.map((t) => (
-                        <span key={t} className="etiqueta et-roxa"
-                          style={{ marginRight: 5, marginBottom: 5, display: "inline-block" }}>
-                          {t}
-                          <button title="remover esta tag lá" disabled={rodando}
-                            onClick={() => marcar(t, true)}
-                            style={{
-                              marginLeft: 6, padding: 0, width: 15, height: 15, borderRadius: "50%",
-                              border: "none", background: "rgba(0,0,0,.25)", color: "inherit",
-                              cursor: "pointer", fontSize: 10, lineHeight: "13px",
-                            }}>×</button>
-                        </span>
-                      ))
-                    : <span className="sub">nenhuma tag</span>}
                 </div>
               ) : <div className="sub" style={{ marginTop: 6 }}>não existe lá ainda</div>}
             </div>
           </div>
+          </div>
+        )}
+      </div>
 
-          {assinante && (
-            <div className="linha" style={{ marginTop: 16 }}>
-              <select value={tagAvulsa} style={{ flex: 2 }}
-                onChange={(e) => setTagAvulsa(e.target.value)}>
-                <option value="">— escolher a tag —</option>
-                {tags.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-              </select>
-              <button style={{ flex: "0 0 auto" }} disabled={!tagAvulsa || rodando}
-                onClick={() => marcar(tagAvulsa, false)}>Aplicar</button>
-              <button style={{ flex: "0 0 auto" }} disabled={!tagAvulsa || rodando}
-                onClick={() => marcar(tagAvulsa, true)}>Remover</button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ---------------- automação e aplicação de tag ---------------- */}
+      {/* ---------------- automação ---------------- */}
       <div className="caixa">
-        <h2>Aplicar tag ou testar automação
+        <h2>Testar automação de produto
           <Ajuda>
-            Usa o WhatsApp informado acima. “Tag específica” aplica somente a tag escolhida.
-            Ela não cria usuário automaticamente. “Regra do produto” percorre o mesmo caminho
-            de uma compra, inclusive lista e turma.
+            Usa o WhatsApp informado acima e percorre o mesmo caminho de uma compra,
+            inclusive lista, turma e tag configurada no produto.
           </Ajuda>
         </h2>
         <div className="sub" style={{ marginBottom: 12 }}>
           WhatsApp usado: <b>{fone.trim() || "informe o número no bloco Pessoas"}</b>
         </div>
 
-        <label>O que executar</label>
-        <div className="linha">
-          <button style={{ flex: "0 0 auto" }} className={alvo === "produto" ? "primario" : ""}
-            onClick={() => setAlvo("produto")}>Regra do produto</button>
-          <button style={{ flex: "0 0 auto" }} className={alvo === "tag" ? "primario" : ""}
-            onClick={() => setAlvo("tag")}>Tag específica</button>
-        </div>
-
-        {alvo === "produto" ? (
-          <>
-            <select value={produto} onChange={(e) => setProduto(e.target.value)}
-              style={{ marginTop: 10 }}>
-              <option value="">— escolher o produto —</option>
-              {produtos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.apelido}{p.tag_manychat
-                    ? ` → ${p.tag_manychat}`
-                    : p.tag_manychat_turma
-                      ? " → tag semanal da turma"
-                      : " (sem tag configurada)"}
-                </option>
-              ))}
-            </select>
-            {produto && !produtoTemTag() && (
-              <div className="aviso" style={{ marginTop: 8 }}>
-                Este produto não tem tag do ManyChat. Configure em <b>Vendas</b>, na regra dele.
-              </div>
-            )}
-          </>
-        ) : (
-          <select value={tagAvulsa} onChange={(e) => setTagAvulsa(e.target.value)}
-            style={{ marginTop: 10 }}>
-            <option value="">— escolher a tag —</option>
-            {tags.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-          </select>
+        <select value={produto} onChange={(e) => setProduto(e.target.value)}>
+          <option value="">— escolher o produto —</option>
+          {produtos.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.apelido}{p.tag_manychat
+                ? ` → ${p.tag_manychat}`
+                : p.tag_manychat_turma
+                  ? " → tag semanal da turma"
+                  : " (sem tag configurada)"}
+            </option>
+          ))}
+        </select>
+        {produto && !produtoTemTag() && (
+          <div className="aviso" style={{ marginTop: 8 }}>
+            Este produto não tem tag do ManyChat. Configure em <b>Vendas</b>, na regra dele.
+          </div>
         )}
 
         <div style={{ marginTop: 16 }}>
           <button className="primario" onClick={rodarFluxo}
-            disabled={rodando || !fone.trim() || (alvo === "produto" ? !produto : !tagAvulsa)}>
-            {rodando ? "executando…" : alvo === "produto" ? "Testar regra do produto" : "Aplicar tag"}
+            disabled={rodando || !fone.trim() || !produto}>
+            {rodando ? "executando…" : "Testar regra do produto"}
           </button>
         </div>
 
@@ -496,16 +423,70 @@ export default function ManyChat() {
         )}
       </div>
 
-      {/* ---------------- tags da conta ---------------- */}
+      {/* ---------------- todas as tags ---------------- */}
       <div className="caixa">
+        <h2 style={{ marginTop: 0 }}>Tags</h2>
+
+        <div>
+          <h3 style={{ margin: "0 0 6px" }}>Tags do usuário encontrado</h3>
+          {!procurou && (
+            <div className="sub">Busque um usuário pelo WhatsApp para aplicar ou remover tags.</div>
+          )}
+          {procurou && !assinante && (
+            <div className="sub">Esse WhatsApp ainda não possui usuário no ManyChat.</div>
+          )}
+          {assinante && (
+            <>
+              <div className="sub" style={{ marginBottom: 10 }}>
+                <b>{assinante.nome || "sem nome"}</b> · {fone}
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                {assinante.tags.length
+                  ? assinante.tags.map((t) => (
+                      <span key={t} className="etiqueta et-roxa"
+                        style={{ marginRight: 5, marginBottom: 5, display: "inline-block" }}>
+                        {t}
+                        <button title="remover esta tag" disabled={rodando}
+                          onClick={() => marcar(t, true)}
+                          style={{
+                            marginLeft: 6, padding: 0, width: 15, height: 15, borderRadius: "50%",
+                            border: "none", background: "rgba(0,0,0,.25)", color: "inherit",
+                            cursor: "pointer", fontSize: 10, lineHeight: "13px",
+                          }}>×</button>
+                      </span>
+                    ))
+                  : <span className="sub">Esse usuário ainda não possui tags.</span>}
+              </div>
+              <div className="linha">
+                <select value={tagAvulsa} style={{ flex: 2 }}
+                  onChange={(e) => setTagAvulsa(e.target.value)}>
+                  <option value="">— escolher a tag —</option>
+                  {tags.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+                </select>
+                <button style={{ flex: "0 0 auto" }} disabled={!tagAvulsa || rodando}
+                  onClick={() => marcar(tagAvulsa, false)}>Aplicar</button>
+                <button style={{ flex: "0 0 auto" }} disabled={!tagAvulsa || rodando}
+                  onClick={() => marcar(tagAvulsa, true)}>Remover</button>
+              </div>
+            </>
+          )}
+          {mensagemTagUsuario && (
+            <div className="aviso" style={{ marginTop: 12, color: cor(mensagemTagUsuario.estado) }}>
+              {mensagemTagUsuario.texto}
+            </div>
+          )}
+        </div>
+
+        <div style={{ margin: "22px 0 18px", borderTop: "1px solid var(--borda)" }} />
+
         <div className="linha" style={{ alignItems: "center" }}>
-          <h2 style={{ margin: 0, flex: 1 }}>
+          <h3 style={{ margin: 0, flex: 1 }}>
             Tags da conta <span className="contagem">({tags.length})</span>
             <Ajuda>
               São as tags do ManyChat, não as da Ressoa. É por elas que os fluxos de lá
               disparam — por isso a tag precisa existir lá antes de a automação usá-la.
             </Ajuda>
-          </h2>
+          </h3>
           <button style={{ flex: "0 0 auto" }} onClick={() => setVerTags((v) => !v)}>
             {verTags ? "Esconder lista" : "Gerenciar tags"}
           </button>
