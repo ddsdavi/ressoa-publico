@@ -8,6 +8,10 @@ Uso:
   python scripts/importar_vendas_hotmart_csv.py relatorio.csv \
     --saida import.sql --preflight-saida preflight.sql
 
+Relatórios grandes podem ser divididos sem criar CSVs intermediários:
+  python scripts/importar_vendas_hotmart_csv.py relatorio.csv \
+    --inicio 0 --limite 500 --saida import-001.sql
+
 O SQL gerado contém dados pessoais e deve ficar fora do repositório.
 """
 
@@ -178,9 +182,27 @@ def main() -> int:
     parser.add_argument("--saida", type=Path, required=True)
     parser.add_argument("--preflight-saida", type=Path)
     parser.add_argument("--dry-run-saida", type=Path)
+    parser.add_argument("--inicio", type=int, default=0,
+                        help="primeira linha de dados do lote, começando em zero")
+    parser.add_argument("--limite", type=int,
+                        help="quantidade máxima de vendas a incluir no lote")
     args = parser.parse_args()
 
     vendas, status, menor_data, maior_data = ler_vendas(args.csv)
+    total_linhas_arquivo = len(vendas)
+    if args.inicio < 0:
+        raise ValueError("--inicio não pode ser negativo")
+    fim = None if args.limite is None else args.inicio + args.limite
+    if args.limite is not None and args.limite <= 0:
+        raise ValueError("--limite precisa ser positivo")
+    vendas = vendas[args.inicio:fim]
+    if not vendas:
+        raise ValueError("lote não contém vendas")
+    if args.inicio or args.limite is not None:
+        status = Counter(str(v["status"]) for v in vendas)
+        datas_lote = [datetime.fromisoformat(str(v["data"])) for v in vendas]
+        menor_data = min(datas_lote)
+        maior_data = max(datas_lote)
     corpo = json.dumps(vendas, ensure_ascii=False, separators=(",", ":"))
     if "$vendas$" in corpo:
         raise ValueError("conteúdo incompatível com o delimitador SQL")
@@ -295,6 +317,8 @@ from conferidos;
 
     resumo = {
         "linhas": len(vendas),
+        "linhas_no_arquivo": total_linhas_arquivo,
+        "inicio_do_lote": args.inicio,
         "status": dict(status),
         "inicio": menor_data.isoformat(),
         "fim": maior_data.isoformat(),

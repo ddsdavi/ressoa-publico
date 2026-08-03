@@ -42,29 +42,27 @@ Configurações → E-mail. É uma decisão consciente, não um esquecimento.
    semanal `CASA_H_{AA}_{MM}_{DD} - COMPROU INGRESSO CASA_H`, com virada
    toda segunda-feira às 7h no horário de São Paulo. Os demais produtos
    ainda dependem de o Davi informar qual tag dispara o fluxo de cada um.
-2. **Lacuna no histórico da Hotmart.** Os dois relatórios já importados cobrem
-   02/08/2025 a 03/01/2026 e 04/07/2026 a 02/08/2026. Ainda falta exportar e
-   importar **04/01/2026 a 03/07/2026**.
-3. **`reply_to_padrao` vazio.** O subdomínio de envio não recebe: quem
+2. **`reply_to_padrao` vazio.** O subdomínio de envio não recebe: quem
    responder leva "endereço não encontrado". Precisa apontar para uma caixa
    que existe.
-4. **Sincronizar com o ActiveCampaign.** Toda vez que a diferença incomodar:
+3. **Sincronizar com o ActiveCampaign.** Toda vez que a diferença incomodar:
    exporte a base completa de lá e rode
    `python scripts/sincronizar_csv_ac.py "caminho/export.csv" --aplicar`.
    Ele cria quem falta e liga as tags. Não apaga nada.
 
 ## Importação histórica concluída
 
-Em 02/08/2026, dois relatórios da Hotmart foram importados diretamente no Supabase:
+Em 02/08/2026, os relatórios anuais definitivos da Hotmart foram conferidos e importados
+diretamente no Supabase. Eles contêm 10.178 transações únicas entre 02/08/2025 e
+02/08/2026. Destas, 2.600 já estavam no Ressoa; a carga acrescentou 7.578 vendas e criou
+183 leads. Uma transação válida de um relatório anterior, imediatamente anterior ao
+horário inicial do relatório anual, também foi preservada — por isso a origem `hotmart_csv`
+tem 10.179 transações.
 
-- 02/08/2025 a 03/01/2026: 1.391 transações novas e 510 leads criados;
-- 04/07/2026 a 02/08/2026: 1.158 transações novas, 52 existentes atualizadas e 60 leads
-  criados.
-
-São 2.601 transações distintas provenientes dos CSVs. O casamento foi feito por e-mail
-exato sem diferença entre maiúsculas e minúsculas; telefone conflitante foi descartado em
-vez de juntar pessoas diferentes. Nenhuma automação nem e-mail foi disparado. Os CSVs e os
-SQLs com dados pessoais ficaram fora do repositório.
+Todas as 10.178 transações dos arquivos foram reconferidas depois da carga: faltando zero.
+O casamento foi feito por e-mail exato sem diferença entre maiúsculas e minúsculas;
+telefone conflitante foi descartado em vez de juntar pessoas diferentes. Nenhuma automação
+nem e-mail foi disparado. Os CSVs e os SQLs com dados pessoais ficaram fora do repositório.
 
 ---
 
