@@ -71,13 +71,19 @@ A página **Automações → ManyChat** separa as operações para não haver ef
 colateral escondido:
 
 - pessoa é procurada **somente pelo WhatsApp completo**;
-- “Criar usuário” não aplica tag nem roda regra de produto e impede duplicar um
+- quando a busca não encontra a pessoa, a própria tela oferece a criação do
+  usuário; criar não aplica tag nem roda regra de produto e impede duplicar um
   WhatsApp que já existe no campo configurado;
 - “Criar tag” só cria a tag na conta;
 - “Excluir” remove a tag da conta e de todos os assinantes, exige confirmação e
   só é aceito pelo servidor para um admin autenticado;
 - aplicar uma tag específica não cria usuário por conta própria: primeiro é
   preciso buscar ou criar a pessoa.
+
+Na página **Leads**, cada linha e o detalhe do lead têm a ação “ManyChat”. A
+gaveta procura automaticamente pelo WhatsApp da Ressoa, oferece a criação se o
+usuário não existir e, quando encontra, permite aplicar ou remover tags. Leads
+sem WhatsApp precisam receber o número na Ressoa antes dessas operações.
 
 ---
 

@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import Ajuda from "../components/Ajuda";
+import {
+  chamarManyChat as chamar,
+  type ManyChatAssinante as Assinante,
+  type ManyChatTag as Tag,
+} from "../lib/manychat";
 
 // Banco de testes do ManyChat.
 //
@@ -15,30 +20,6 @@ import Ajuda from "../components/Ajuda";
 // pedido, e cada passo aparece — para dar para ver ONDE parou quando
 // parar, em vez de só descobrir que não funcionou.
 
-const FUNCOES = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manychat`;
-const CHAVE = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
-
-async function chamar(corpo: Record<string, unknown>) {
-  const { data: sessao } = await supabase.auth.getSession();
-  const r = await fetch(FUNCOES, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: CHAVE,
-      Authorization: `Bearer ${sessao.session?.access_token ?? ""}`,
-    },
-    body: JSON.stringify(corpo),
-  });
-  const texto = await r.text();
-  let dados: Record<string, any> = {};
-  try { dados = JSON.parse(texto); }
-  catch { dados = { ok: false, erro: texto || `erro ${r.status}` }; }
-  if (!r.ok && dados.ok !== false) dados.ok = false;
-  return dados;
-}
-
-type Tag = { id: number; name: string };
-type Assinante = { id: number; nome: string; status: string; whatsapp: string; tags: string[] };
 type NaRessoa = {
   lead_id: string; nome: string | null; whatsapp: string | null;
   manychat_id: string | null; tags: string[]; listas: string[];
@@ -68,6 +49,7 @@ export default function ManyChat() {
   const [assinante, setAssinante] = useState<Assinante | null>(null);
   const [naRessoa, setNaRessoa] = useState<NaRessoa | null>(null);
   const [procurou, setProcurou] = useState(false);
+  const [consultaManyChatOk, setConsultaManyChatOk] = useState(false);
 
   // tags da conta
   const [novaTag, setNovaTag] = useState("");
@@ -105,6 +87,10 @@ export default function ManyChat() {
     ]);
     setAssinante(mc.existe ? mc.assinante : null);
     setNaRessoa((rs as NaRessoa) ?? null);
+    setConsultaManyChatOk(mc.ok === true);
+    if (!mc.existe && (rs as NaRessoa | null)?.nome && !nome.trim()) {
+      setNome((rs as NaRessoa).nome ?? "");
+    }
     setProcurou(true);
     return mc;
   }
@@ -302,8 +288,8 @@ export default function ManyChat() {
           </Ajuda>
         </h2>
 
-        <div className="linha" style={{ marginTop: 12 }}>
-          <div style={{ flex: 2 }}>
+        <div style={{ marginTop: 12 }}>
+          <div>
             <label>WhatsApp
               <Ajuda>
                 DDI + DDD (sem o zero) + número, tudo junto: <b>5551999990000</b>.
@@ -312,18 +298,15 @@ export default function ManyChat() {
               </Ajuda>
             </label>
             <input value={fone} placeholder="5551999990000"
-              onChange={(e) => setFone(e.target.value)}
+              onChange={(e) => {
+                setFone(e.target.value);
+                setProcurou(false);
+                setConsultaManyChatOk(false);
+                setAssinante(null);
+                setNaRessoa(null);
+                setMensagemContato(null);
+              }}
               onKeyDown={(e) => e.key === "Enter" && buscarUsuario()} />
-          </div>
-          <div style={{ flex: 2 }}>
-            <label>Nome <span className="sub">(somente para criar)</span>
-              <Ajuda>
-                Preencha o nome e o WhatsApp para criar um usuário. Para buscar alguém,
-                basta informar o WhatsApp.
-              </Ajuda>
-            </label>
-            <input value={nome} placeholder="Maria Silva"
-              onChange={(e) => setNome(e.target.value)} />
           </div>
         </div>
 
@@ -331,10 +314,6 @@ export default function ManyChat() {
           <button className="primario" style={{ flex: "0 0 auto" }}
             onClick={buscarUsuario} disabled={acaoContato || !fone.trim()}>
             {acaoContato ? "aguarde…" : "Buscar por WhatsApp"}
-          </button>
-          <button style={{ flex: "0 0 auto" }} onClick={criarUsuario}
-            disabled={acaoContato || !fone.trim() || !nome.trim()}>
-            Criar usuário
           </button>
         </div>
 
@@ -368,9 +347,30 @@ export default function ManyChat() {
                     assinante {assinante.id} · {assinante.status}
                   </div>
                 </div>
-              ) : <div className="sub" style={{ marginTop: 6 }}>não existe lá ainda</div>}
+              ) : (
+                <div className="sub" style={{ marginTop: 6 }}>
+                  {consultaManyChatOk ? "não existe lá ainda" : "consulta não concluída"}
+                </div>
+              )}
             </div>
           </div>
+
+            {consultaManyChatOk && !assinante && (
+              <div className="aviso" style={{ margin: "18px 0 0", borderColor: "var(--ac-ambar)" }}>
+                <h3 style={{ margin: "0 0 5px" }}>Criar este usuário no ManyChat</h3>
+                <div className="sub" style={{ marginBottom: 10 }}>
+                  O WhatsApp não foi encontrado. Confirme o nome e crie o usuário agora.
+                </div>
+                <div className="linha">
+                  <input value={nome} placeholder="Nome do usuário"
+                    onChange={(e) => setNome(e.target.value)} />
+                  <button className="primario" style={{ flex: "0 0 auto" }} onClick={criarUsuario}
+                    disabled={acaoContato || !fone.trim() || !nome.trim()}>
+                    {acaoContato ? "Criando…" : "Criar usuário no ManyChat"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -432,7 +432,7 @@ export default function ManyChat() {
           {!procurou && (
             <div className="sub">Busque um usuário pelo WhatsApp para aplicar ou remover tags.</div>
           )}
-          {procurou && !assinante && (
+          {procurou && consultaManyChatOk && !assinante && (
             <div className="sub">Esse WhatsApp ainda não possui usuário no ManyChat.</div>
           )}
           {assinante && (

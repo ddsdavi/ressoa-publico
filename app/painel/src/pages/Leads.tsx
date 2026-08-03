@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { parseCsv, adivinharColuna } from "../lib/csv";
 import { useSessao } from "../lib/sessao";
 import { useSearchParams } from "react-router-dom";
+import ManyChatLeadDrawer, { type LeadParaManyChat } from "../components/ManyChatLeadDrawer";
 
 type Lead = {
   lead_pontuacao?: { pontos: number } | { pontos: number }[] | null;
@@ -70,7 +71,7 @@ const CAMPOS_COND: [string, string][] = [
 
 
 export default function Leads() {
-  const { podeOperar, podePreparar } = useSessao();
+  const { ehAdmin, podeOperar, podePreparar } = useSessao();
   const [params, setParams] = useSearchParams();
   const [busca, setBusca] = useState("");
   const [fLista, setFLista] = useState("");
@@ -97,6 +98,7 @@ export default function Leads() {
   const [novo, setNovo] = useState({ nome: "", email: "", whatsapp: "" });
   const [ocupado, setOcupado] = useState(false);
   const [acaoMassa, setAcaoMassa] = useState("");
+  const [manyChatLead, setManyChatLead] = useState<LeadParaManyChat | null>(null);
 
   // construtor de segmento avançado
   const [construtor, setConstrutor] = useState(false);
@@ -739,6 +741,7 @@ export default function Leads() {
               </th>
             )}
             <th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Pontos</th><th>Entrou em</th>
+            {podeOperar && <th style={{ width: 104 }}>ManyChat</th>}
           </tr></thead>
           <tbody>
             {leads.map((l) => (
@@ -762,6 +765,13 @@ export default function Leads() {
                   return <span className={`etiqueta ${cor}`}>{n}</span>;
                 })()}</td>
                 <td>{new Date(l.created_at).toLocaleDateString("pt-BR")}</td>
+                {podeOperar && (
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <button className="botao-manychat" onClick={() => setManyChatLead(l)}>
+                      ManyChat
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -950,6 +960,14 @@ export default function Leads() {
           <button className="fechar" onClick={() => setSel(null)}>✕</button>
           <h2>{sel.nome || sel.email}</h2>
           <div className="sub">{sel.email} · {sel.whatsapp || "sem WhatsApp"}</div>
+          {podeOperar && (
+            <button className="botao-manychat" style={{ marginBottom: 16 }} onClick={() => {
+              setManyChatLead(sel);
+              setSel(null);
+            }}>
+              Abrir no ManyChat
+            </button>
+          )}
           {det?.suprimido && <div className="aviso">E-mail na lista de supressão — nunca receberá disparos.</div>}
           {!det && <div className="sub">carregando…</div>}
           {det && (
@@ -1059,6 +1077,9 @@ export default function Leads() {
           )}
         </div>
       )}
+
+      <ManyChatLeadDrawer lead={manyChatLead} ehAdmin={ehAdmin}
+        onClose={() => setManyChatLead(null)} />
     </div>
   );
 }

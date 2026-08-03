@@ -187,6 +187,32 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .gaveta h2 { font-size: calc(18px * var(--escala-texto)); font-weight: 600; margin-bottom: 2px; }
 .fechar { position: absolute; top: 14px; right: 16px; border: 0; background: none; font-size: calc(18px * var(--escala-texto)); color: var(--ac-texto2); cursor: pointer; height: auto; }
 
+/* Ponte Ressoa → ManyChat nas listas de leads */
+.botao-manychat {
+  height: 30px; padding: 5px 10px; border-radius: 999px;
+  border-color: color-mix(in srgb, var(--ac-azul) 42%, var(--ac-borda));
+  color: var(--ac-azul); background: var(--marca-fraca); font-size: calc(12px * var(--escala-texto));
+  white-space: nowrap;
+}
+.botao-manychat:hover { border-color: var(--ac-azul); background: var(--acento2); }
+.mc-cabecalho { display: flex; align-items: center; gap: 12px; padding-right: 36px; margin-bottom: 22px; }
+.mc-cabecalho h2 { margin: 0; }
+.mc-cabecalho .sub { margin: 2px 0 0; }
+.mc-sinal {
+  width: 10px; height: 42px; flex: 0 0 auto; border-radius: 999px;
+  background: linear-gradient(180deg, #C77FD6, var(--ac-azul));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--ac-azul) 35%, transparent);
+}
+.mc-estado { border-left: 3px solid var(--ac-azul); }
+.mc-estado > h2 { margin: 8px 0 3px; }
+.mc-ausente { border-left-color: var(--ac-ambar); }
+.mc-tags-atuais { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; }
+
+@media (max-width: 640px) {
+  .gaveta { top: 56px; left: 0; width: 100% !important; padding: 20px 16px; }
+  .botao-manychat { padding: 5px 8px; }
+}
+
 .paginacao { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 12px; font-size: calc(14px * var(--escala-texto)); color: var(--ac-texto2); }
 .paginacao button { height: 34px; }
 
