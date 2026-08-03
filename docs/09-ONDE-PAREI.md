@@ -42,21 +42,29 @@ Configurações → E-mail. É uma decisão consciente, não um esquecimento.
    semanal `CASA_H_{AA}_{MM}_{DD} - COMPROU INGRESSO CASA_H`, com virada
    toda segunda-feira às 7h no horário de São Paulo. Os demais produtos
    ainda dependem de o Davi informar qual tag dispara o fluxo de cada um.
-2. **`reply_to_padrao` vazio.** O subdomínio de envio não recebe: quem
+2. **Lacuna no histórico da Hotmart.** Os dois relatórios já importados cobrem
+   02/08/2025 a 03/01/2026 e 04/07/2026 a 02/08/2026. Ainda falta exportar e
+   importar **04/01/2026 a 03/07/2026**.
+3. **`reply_to_padrao` vazio.** O subdomínio de envio não recebe: quem
    responder leva "endereço não encontrado". Precisa apontar para uma caixa
    que existe.
-3. **Sincronizar com o ActiveCampaign.** Toda vez que a diferença incomodar:
+4. **Sincronizar com o ActiveCampaign.** Toda vez que a diferença incomodar:
    exporte a base completa de lá e rode
    `python scripts/sincronizar_csv_ac.py "caminho/export.csv" --aplicar`.
    Ele cria quem falta e liga as tags. Não apaga nada.
 
 ## Importação histórica concluída
 
-Em 02/08/2026, o relatório anual da Hotmart foi importado diretamente no Supabase:
-1.391 transações completas, todas novas, e 510 leads criados. O casamento foi feito por
-e-mail exato sem diferença entre maiúsculas e minúsculas; telefone conflitante foi
-descartado em vez de juntar pessoas diferentes. O CSV e o SQL com dados pessoais ficaram
-fora do repositório.
+Em 02/08/2026, dois relatórios da Hotmart foram importados diretamente no Supabase:
+
+- 02/08/2025 a 03/01/2026: 1.391 transações novas e 510 leads criados;
+- 04/07/2026 a 02/08/2026: 1.158 transações novas, 52 existentes atualizadas e 60 leads
+  criados.
+
+São 2.601 transações distintas provenientes dos CSVs. O casamento foi feito por e-mail
+exato sem diferença entre maiúsculas e minúsculas; telefone conflitante foi descartado em
+vez de juntar pessoas diferentes. Nenhuma automação nem e-mail foi disparado. Os CSVs e os
+SQLs com dados pessoais ficaram fora do repositório.
 
 ---
 
