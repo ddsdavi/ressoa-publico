@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import Ajuda from "../components/Ajuda";
 import {
   chamarManyChat as chamar,
+  descreverStatusManyChat,
   type ManyChatAssinante as Assinante,
   type ManyChatTag as Tag,
 } from "../lib/manychat";
@@ -344,7 +345,7 @@ export default function ManyChat() {
                 <div style={{ marginTop: 6 }}>
                   <div>{assinante.nome || <i>sem nome</i>}</div>
                   <div className="sub" style={{ margin: "2px 0 8px" }}>
-                    assinante {assinante.id} · {assinante.status}
+                    ID do contato no ManyChat: {assinante.id} · {descreverStatusManyChat(assinante.status)}
                   </div>
                 </div>
               ) : (

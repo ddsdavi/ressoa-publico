@@ -13,6 +13,19 @@ export type ManyChatAssinante = {
   tags: string[];
 };
 
+export function descreverStatusManyChat(status: string): string {
+  switch (status.trim().toLowerCase()) {
+    case "active":
+      return "usuário ativo no ManyChat";
+    case "inactive":
+      return "usuário inativo no ManyChat";
+    default:
+      return status.trim()
+        ? `status no ManyChat: ${status.trim()}`
+        : "status no ManyChat não informado";
+  }
+}
+
 export async function chamarManyChat(corpo: Record<string, unknown>) {
   const { data: sessao } = await supabase.auth.getSession();
   const resposta = await fetch(FUNCAO_MANYCHAT, {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   chamarManyChat,
+  descreverStatusManyChat,
   type ManyChatAssinante,
   type ManyChatTag,
 } from "../lib/manychat";
@@ -185,7 +186,9 @@ export default function ManyChatLeadDrawer({ lead, ehAdmin, onClose }: Props) {
           <div className="caixa mc-estado">
             <span className="etiqueta et-verde">Encontrado</span>
             <h2>{assinante.nome || lead.nome || "Usuário sem nome"}</h2>
-            <div className="sub">assinante {assinante.id} · {assinante.status}</div>
+            <div className="sub">
+              ID do contato no ManyChat: {assinante.id} · {descreverStatusManyChat(assinante.status)}
+            </div>
           </div>
 
           <div className="caixa">
