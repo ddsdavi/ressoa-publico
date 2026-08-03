@@ -99,6 +99,11 @@ export default function Leads() {
   const [ocupado, setOcupado] = useState(false);
   const [acaoMassa, setAcaoMassa] = useState("");
   const [manyChatLead, setManyChatLead] = useState<LeadParaManyChat | null>(null);
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [textoExclusao, setTextoExclusao] = useState("");
+  const [excluindoLead, setExcluindoLead] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState("");
+  const [mensagemPagina, setMensagemPagina] = useState("");
 
   // construtor de segmento avançado
   const [construtor, setConstrutor] = useState(false);
@@ -589,6 +594,7 @@ export default function Leads() {
 
   async function abrir(l: Lead) {
     setTempo([]); setNotas([]); setNovaNota("");
+    setConfirmandoExclusao(false); setTextoExclusao(""); setErroExclusao("");
     supabase.rpc("linha_do_tempo", { p_lead: l.lead_id, p_limite: 120 })
       .then(({ data }) => setTempo(((data as never) ?? []) as Evento[]));
     recarregarNotas(l.lead_id);
@@ -616,12 +622,58 @@ export default function Leads() {
     });
   }
 
+  function fecharDetalhe() {
+    setSel(null);
+    setDet(null);
+    setConfirmandoExclusao(false);
+    setTextoExclusao("");
+    setErroExclusao("");
+  }
+
+  async function excluirLeadSelecionado() {
+    if (!sel || textoExclusao !== "EXCLUIR" || excluindoLead) return;
+
+    const leadExcluido = sel;
+    setExcluindoLead(true);
+    setErroExclusao("");
+    const { error } = await supabase.rpc("excluir_lead_ressoa", {
+      p_lead_id: leadExcluido.lead_id,
+    });
+    setExcluindoLead(false);
+
+    if (error) {
+      setErroExclusao(error.message);
+      return;
+    }
+
+    setLeads((atuais) => atuais.filter((lead) => lead.lead_id !== leadExcluido.lead_id));
+    setMarcados((atuais) => {
+      const proximos = new Set(atuais);
+      proximos.delete(leadExcluido.lead_id);
+      return proximos;
+    });
+    setSegAvancado((atual) => atual
+      ? { ...atual, ids: atual.ids.filter((id) => id !== leadExcluido.lead_id) }
+      : null);
+    if (pagina > 0 && leads.length === 1) setPagina(pagina - 1);
+    setMensagemPagina(`Lead ${leadExcluido.nome || leadExcluido.email || leadExcluido.whatsapp || "sem nome"} excluído da Ressoa.`);
+    fecharDetalhe();
+    setRecarga((valor) => valor + 1);
+  }
+
   const paginas = Math.ceil(total / POR_PAGINA);
 
   return (
     <div>
       <h1>Leads</h1>
       <div className="sub">{total.toLocaleString("pt-BR")} leads no filtro atual</div>
+
+      {mensagemPagina && (
+        <div className="aviso sucesso" role="status">
+          {mensagemPagina}
+          <button onClick={() => setMensagemPagina("")}>fechar</button>
+        </div>
+      )}
 
       {segAvancado && (
         <div className="aviso">
@@ -957,13 +1009,13 @@ export default function Leads() {
 
       {sel && !importando && !construtor && (
         <div className="gaveta">
-          <button className="fechar" onClick={() => setSel(null)}>✕</button>
+          <button className="fechar" onClick={fecharDetalhe}>✕</button>
           <h2>{sel.nome || sel.email}</h2>
           <div className="sub">{sel.email} · {sel.whatsapp || "sem WhatsApp"}</div>
           {podeOperar && (
             <button className="botao-manychat" style={{ marginBottom: 16 }} onClick={() => {
               setManyChatLead(sel);
-              setSel(null);
+              fecharDetalhe();
             }}>
               Abrir no ManyChat
             </button>
@@ -1071,6 +1123,55 @@ export default function Leads() {
                   {Object.entries(det.atributos).map(([k, v]) => (
                     <div key={k} style={{ padding: "3px 0", fontSize: "calc(13px * var(--escala-texto))" }}><b>{k}:</b> {String(v)}</div>
                   ))}
+                </div>
+              )}
+              {ehAdmin && (
+                <div className="caixa zona-perigo-lead">
+                  <h2>Excluir lead da Ressoa</h2>
+                  {!confirmandoExclusao ? (
+                    <>
+                      <div className="sub">
+                        Disponível apenas para administradores. A exclusão não remove a pessoa do ManyChat.
+                      </div>
+                      <button className="perigo" onClick={() => {
+                        setConfirmandoExclusao(true);
+                        setTextoExclusao("");
+                        setErroExclusao("");
+                      }}>
+                        Excluir este lead
+                      </button>
+                    </>
+                  ) : (
+                    <div className="confirmacao-exclusao-lead">
+                      <div className="aviso">
+                        Esta ação apaga o cadastro e os vínculos internos da Ressoa: listas, tags,
+                        notas, compras, automações e histórico. O bloqueio de e-mail é preservado
+                        para impedir novos envios. A pessoa no ManyChat não será apagada.
+                      </div>
+                      <label htmlFor="confirmar-exclusao-lead">
+                        Digite <b>EXCLUIR</b> para confirmar
+                      </label>
+                      <input id="confirmar-exclusao-lead" autoComplete="off"
+                        value={textoExclusao}
+                        onChange={(e) => setTextoExclusao(e.target.value.toUpperCase())}
+                        disabled={excluindoLead} />
+                      {erroExclusao && <div className="aviso" role="alert">{erroExclusao}</div>}
+                      <div className="acoes-exclusao-lead">
+                        <button onClick={() => {
+                          setConfirmandoExclusao(false);
+                          setTextoExclusao("");
+                          setErroExclusao("");
+                        }} disabled={excluindoLead}>
+                          Cancelar
+                        </button>
+                        <button className="perigo-solido"
+                          disabled={textoExclusao !== "EXCLUIR" || excluindoLead}
+                          onClick={excluirLeadSelecionado}>
+                          {excluindoLead ? "Excluindo…" : "Excluir definitivamente"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </>

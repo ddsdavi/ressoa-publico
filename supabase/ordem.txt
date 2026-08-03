@@ -77,3 +77,4 @@ supabase/telefone_v1.sql
 supabase/telefone_v2_fixo.sql
 supabase/corrige_produtos_vistos.sql
 supabase/turmas_v2_ano_curto.sql
+supabase/exclusao_lead_v1.sql
