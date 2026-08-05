@@ -22,7 +22,7 @@ reconstituir a conversa.
 - `executar_webhooks` foi **ligado em 05/08/2026** por decisão do Davi: os
   POSTs para n8n/Boost.space herdados das automações do AC voltam a sair
   quando os gatilhos (listas/tags de lançamento) receberem gente.
-- 37 armadilhas conhecidas estão em [06-PROBLEMAS-CONHECIDOS.md](06-PROBLEMAS-CONHECIDOS.md).
+- 38 armadilhas conhecidas estão em [06-PROBLEMAS-CONHECIDOS.md](06-PROBLEMAS-CONHECIDOS.md).
   Vale ler antes de mexer em qualquer coisa; várias custaram horas.
 
 ---
@@ -67,8 +67,9 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
   Livro Físico da Formação, Ímã da Prosperidade, Black Ressonante,
   Desintoxicação e Desparasitação, Alinhamento de Chakras. Cada um: lista
   "Compradores …" + tag `COMPROU_*`, reembolso/cancelamento no padrão das
-  outras, ManyChat de fora. Vale para compras novas — e só produz efeito
-  quando o mapa de produto voltar a rodar (pendência abaixo).
+  outras, ManyChat de fora. Vale para compras novas — e o mapa de produto
+  voltou a rodar na noite de 05/08 (armadilha 38; o represado do período
+  mudo é a pendência 5).
 - **Captação por API fechada com chave.** O POST em `/formulario` **sem**
   `form_slug` — o que escolhe `lista_id`/`tag_id` no corpo — passou a exigir a
   chave `formulario_api_key` (cofre `public.segredos`), no cabeçalho
@@ -100,14 +101,28 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
 4. **Página das lives semanais sem destino.** Com o AC desligado, a inscrição
    das lives está postando para um sistema morto. As peças para ela apontar
    para cá já existem e estão testadas — ver a seção logo abaixo.
-5. **Mapa de produto mudo desde 02/08 à tarde.** Compras aprovadas continuam
-   chegando e sendo marcadas como processadas, mas a última entrada em lista
-   de comprador + tag de turma vinda de compra real foi 02/08 16h24
-   (Brasília); o que aparece depois (madrugada de 03/08) foi o ensaio pela
-   tela. A tag `CASA_H_2026_08_10` nem chegou a ser criada, e o
-   `manychat_log` está parado desde então. Coincide com a reforma dos
-   estados da Hotmart — diagnosticar `venda` → `aplicar_mapa_produto` antes
-   de confiar em qualquer regra nova de produto.
+5. **Reprocessar as 227 compras aprovadas que ficaram mudas (02–05/08) —
+   SÓ com o aval do Davi.** O mapa de produto ficou mudo de 02/08 16h24 a
+   05/08 à noite (armadilha 38: três assinaturas de `aplicar_mapa_produto`
+   conviviam; o PostgREST respondia `PGRST203` e a `venda` engolia o erro e
+   carimbava processado). O conserto entrou em 05/08 à noite
+   (`hotmart_v4_um_mapa_so.sql` + `venda` lendo `error`): compra nova volta
+   a entrar em lista, ganhar tag e turma sozinha — e a marcar ManyChat
+   onde a regra manda (hoje, só a turma do Desafio). O que NÃO foi feito,
+   de propósito: reprocessar o represado — 118 compras do Desafio,
+   52 da Formação, 22 do Curso energia, 13 do Livro, 8 do Manual, 5 do Ímã,
+   4 da Black, 2 da Desintoxicação, 1 de Origem, 1 de Chakras, 1 do
+   Acompanhamento (todas gravadas em `tabela_4_alunos`; os corpos crus
+   estão em `hotmart_eventos`). Reprocessar não é neutro: os 118 do
+   Desafio seriam marcados no ManyChat de uma vez (tag de turma, criando
+   contato quando faltar — fluxo de WhatsApp), as listas antigas (17, 21,
+   22, 23, 24, 25) podem ter automação pendurada e `executar_webhooks`
+   está ligado — decisão do Davi, não de sessão. Os compradores do período
+   mudo dos 5 produtos novos são um subconjunto do retroativo da pendência
+   2 — as duas decisões conversam. Detalhe técnico:
+   `reprocessar_evento_hotmart` calcula a turma com `now()`, então
+   reprocessar antes de segunda 10/08 7h põe todo mundo na turma
+   `CASA_H_2026_08_10`; depois disso, na seguinte.
 
 ---
 

@@ -82,3 +82,4 @@ supabase/vendas_v2_importacao_segura.sql
 supabase/hotmart_v3_estados_pedido.sql
 supabase/moeda_relatorios_v1.sql
 supabase/formulario_api_v1.sql
+supabase/hotmart_v4_um_mapa_so.sql

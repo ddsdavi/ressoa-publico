@@ -712,3 +712,43 @@ curl -s -X POST "$SUPABASE_URL/functions/v1/formulario" \
 ```
 
 Tem que responder recusa (401). Se inscrever, pare tudo e conserte.
+
+---
+
+## 38. `create or replace` com assinatura nova não substitui — sobrecarrega
+
+**Sintoma:** de 02/08/2026 à tarde a 05/08 à noite, toda compra aprovada foi gravada
+normalmente (`hotmart_eventos` com `processado=true`, linha em `tabela_4_alunos`), mas
+ninguém entrou em lista de comprador, nenhuma tag de turma nasceu (`CASA_H_2026_08_10`
+nunca foi criada) e o `manychat_log` parou. Nenhum log de erro em lugar algum.
+
+**Causa (duas camadas):**
+
+1. `aplicar_mapa_produto` tinha **três assinaturas convivendo** — (uuid,text,text) de
+   `hotmart_v1.sql`, (uuid,text,text,text) de `hotmart_v1_1.sql` e a completa de cinco
+   parâmetros de `turmas_v1.sql`. Em Postgres, `create or replace function` só substitui
+   quando a assinatura é IGUAL; mudou parâmetro, nasce uma sobrecarga ao lado da antiga.
+   A Edge Function `venda` chama via PostgREST com 4 argumentos nomeados — conjunto que
+   serve tanto à versão de 4 (exata) quanto à de 5 (`p_quando` tem default). O PostgREST
+   se recusa a escolher: HTTP 300, `PGRST203 Could not choose the best candidate
+   function`. Em SQL puro a dupla também quebrava `reprocessar_evento_hotmart`
+   (4 argumentos posicionais → `function ... is not unique`, 42725).
+2. A `venda` lia só `data` do retorno do `rpc()`: `const { data: mapa } = await
+   supabase.rpc(...)`. O supabase-js **não lança exceção** — devolve `{ data, error }` —
+   então o 300 morreu num campo que ninguém olhava e o evento ganhou o carimbo de
+   processado como se tudo tivesse dado certo.
+
+O recurso de turma-por-compra **nasceu quebrado**: a sobrecarga de 5 parâmetros entrou
+em produção na mesma tarde (02/08), e a partir dela a chamada da `venda` nunca mais
+resolveu. As tags `CASA_H_*` existentes vieram da importação de 01/08 e do ensaio pela
+tela (que chama a função por SQL com 5 argumentos posicionais — sem ambiguidade; por
+isso o ensaio funcionava e o webhook não).
+
+**Correção:** `hotmart_v4_um_mapa_so.sql` derruba as duas assinaturas velhas e trava a
+instalação se um dia existir mais de uma; a `venda` passou a olhar o `error` do rpc — se
+o mapa falhar, o evento fica **sem** `processado`, com o erro escrito, visível em
+`hotmart_pendentes()` para reprocesso.
+
+**Regra que fica:** função nova com parâmetro novo = `drop function` da assinatura velha
+no mesmo arquivo. E toda chamada `supabase.rpc(...)` cujo resultado importa precisa ler
+`error`, não só `data`.

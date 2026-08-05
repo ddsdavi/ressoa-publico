@@ -348,20 +348,27 @@ Deno.serve(async (req) => {
   // 5) o mapa de produtos: "comprou o Desafio" vira, sozinho, "entra na
   // lista de compradores do Desafio e ganha a tag". Produto novo é uma
   // linha na tela, não uma alteração de código.
-  const { data: mapa } = await supabase.rpc("aplicar_mapa_produto", {
+  const { data: mapa, error: mapaErro } = await supabase.rpc("aplicar_mapa_produto", {
     p_lead: leadId, p_produto: v.produto, p_status: v.status, p_ucode: v.ucode,
   });
 
+  // A venda já está gravada; o webhook responde ok. Mas se o mapa falhou,
+  // o evento NÃO pode ganhar o carimbo de processado: sem o erro à vista
+  // em hotmart_pendentes(), a esteira cala sem sujar log nenhum — três
+  // dias de compras ficaram sem lista, turma e ManyChat em 08/2026 assim.
   if (registro) {
     await supabase.from("hotmart_eventos")
-      .update({ processado: true, situacao: "processado",
-                processado_em: new Date().toISOString() })
+      .update(mapaErro
+        ? { situacao: "erro", processado_em: new Date().toISOString(),
+            erro: "venda gravada, mas aplicar_mapa_produto falhou: " + mapaErro.message }
+        : { processado: true, situacao: "processado",
+            processado_em: new Date().toISOString() })
       .eq("evento_id", registro);
   }
 
   return new Response(JSON.stringify({
     ok: true, lead_id: leadId, lead_novo: novo,
     produto: v.produto, status: v.status, transacao,
-    mapa: mapa ?? { mapeado: false },
+    mapa: mapa ?? { mapeado: false, ...(mapaErro ? { erro: mapaErro.message } : {}) },
   }), { headers: { ...cors, "Content-Type": "application/json" } });
 });
