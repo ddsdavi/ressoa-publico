@@ -46,15 +46,17 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
 
 ## Decisões do Davi em 05/08/2026
 
-- **Tags do ManyChat por produto: espelhamento.** "Pessoa caiu no Ressoa,
-  Ressoa marca a tag da pessoa no ManyChat." As 5 regras sem tag ganharam
-  `tag_manychat` com o MESMO nome da tag interna (COMPROU_MANUAL_DECORACAO,
-  COMPROU_CURSO_ENERGIA_DA_CASA, COMPROU_FORMACAO_BIORRESSONANCIA,
-  COMPROU_ACOMPANHAMENTO_RESSONANTE, COMPROU_ORIGEM_DAS_DOENCAS). Tag nova
-  no ManyChat não tem automação pendurada — os fluxos de WhatsApp são
-  pendurados lá depois, em cima dessas tags. O Desafio segue com a tag
-  semanal de turma (`CASA_H_{AA}_{MM}_{DD} - COMPROU INGRESSO CASA_H`,
-  virada segunda 7h São Paulo).
+- **Marcação no ManyChat é POR PRODUTO, e a maioria NÃO marca.** Correção
+  do mesmo dia: a primeira leitura ("espelhar tag de todo produto") estava
+  ERRADA e foi revertida — "não é pra mandar assim todos os leads pro
+  manychat; só os leads que teremos fluxo de onboarding da api oficial do
+  whatsapp". A regra que vale: cada produto tem o campo `tag_manychat`
+  (Produtos → regra do produto) — vazio = a compra não toca o ManyChat;
+  preenchido = marca. E "marcar" significa sempre as duas possibilidades
+  (`manychat_aplicar` com `criar=true`): acha o contato e aplica a tag, ou
+  **cria o contato e aplica** quando ele não existe lá. Hoje só o Desafio
+  marca (tag semanal de turma `CASA_H_{AA}_{MM}_{DD} - COMPROU INGRESSO
+  CASA_H`, virada segunda 7h São Paulo).
 - **Webhooks ligados** (`executar_webhooks = true`).
 - **Imersão Terapêutica não ganha regra**: o produto não é mais vendido
   ativamente (1 venda residual nos últimos 7 dias; as 2.303 são históricas).
@@ -69,13 +71,16 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
    webhooks ligados, o risco voltou a ser real — pendência viva.
 2. **Produtos que vendem sem regra.** Nos últimos 7 dias: Livro Físico da
    Formação (8 vendas), Ímã da prosperidade (5), Black Ressonante (3),
-   Desintoxicação (3), Chakras (1). Sem regra, a compra registra a venda mas
-   não entra em lista nem marca ManyChat. Configura-se em Produtos →
-   Produtos e vendas, quando o Davi disser onde cada um entra.
+   Desintoxicação (3), Chakras (1). Sem regra, a venda é registrada mas o
+   comprador não é organizado em lista/tag nenhuma. A pergunta concreta ao
+   Davi é binária, produto a produto: "quem compra X entra numa lista
+   própria (padrão: lista LIVRO_FISICO_FORMACAO + tag COMPROU_LIVRO_FISICO)
+   — sim ou não?" ManyChat fica de fora por padrão (decisão acima).
 3. **Verificar o primeiro disparo real de webhook.** Os gatilhos das
-   automações com webhook são listas/tags de lançamento, hoje sem tráfego —
-   o primeiro POST real deve acontecer no próximo lançamento. Conferir em
-   Automações quando houver.
+   automações com webhook (que moram AQUI na Ressoa e chamam n8n/Boost)
+   são listas/tags de lançamento, hoje sem tráfego — o primeiro POST real
+   deve acontecer no próximo lançamento. Nada a fazer; só conferir quando
+   houver.
 4. **Página das lives semanais sem destino.** Com o AC desligado, a inscrição
    das lives está postando para um sistema morto. As peças para ela apontar
    para cá já existem e estão testadas — ver a seção logo abaixo.
