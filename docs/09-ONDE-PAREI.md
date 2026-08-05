@@ -19,8 +19,9 @@ reconstituir a conversa.
 - O **histórico completo de vendas** está dentro: 10.178 transações
   (ago/2025–ago/2026) conferidas uma a uma. Faturamento em reais:
   R$ 1.770.234,87 em compras aprovadas.
-- `executar_webhooks` continua **desligado**: os POSTs para n8n/Boost.space
-  herdados das automações do AC só devem ligar depois de revisar cada destino.
+- `executar_webhooks` foi **ligado em 05/08/2026** por decisão do Davi: os
+  POSTs para n8n/Boost.space herdados das automações do AC voltam a sair
+  quando os gatilhos (listas/tags de lançamento) receberem gente.
 - 36 armadilhas conhecidas estão em [06-PROBLEMAS-CONHECIDOS.md](06-PROBLEMAS-CONHECIDOS.md).
   Vale ler antes de mexer em qualquer coisa; várias custaram horas.
 
@@ -32,7 +33,7 @@ reconstituir a conversa.
 |---|---|---|
 | `envio_so_para` | **vazio** | O envio está DESTRAVADO. Campanha disparada vai para a base real. Para testar, coloque seu e-mail aí antes — e tire depois. |
 | `envio_pausado` | desligado | A fila escoa normalmente, a 100 por minuto. |
-| `executar_webhooks` | desligado | Automações com passo de webhook não chamam n8n/Boost.space até isso ligar. |
+| `executar_webhooks` | **ligado** | Automações com passo de webhook chamam n8n/Boost.space de verdade. |
 | `reply_to_padrao` | contato@drapatriciadomingos.com.br | Quem responder um e-mail cai numa caixa real. |
 | `provedor_email` | resend | Remetente: contato@mkt.drapatriciadomingos.com.br. |
 
@@ -43,31 +44,38 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
 
 ---
 
+## Decisões do Davi em 05/08/2026
+
+- **Tags do ManyChat por produto: espelhamento.** "Pessoa caiu no Ressoa,
+  Ressoa marca a tag da pessoa no ManyChat." As 5 regras sem tag ganharam
+  `tag_manychat` com o MESMO nome da tag interna (COMPROU_MANUAL_DECORACAO,
+  COMPROU_CURSO_ENERGIA_DA_CASA, COMPROU_FORMACAO_BIORRESSONANCIA,
+  COMPROU_ACOMPANHAMENTO_RESSONANTE, COMPROU_ORIGEM_DAS_DOENCAS). Tag nova
+  no ManyChat não tem automação pendurada — os fluxos de WhatsApp são
+  pendurados lá depois, em cima dessas tags. O Desafio segue com a tag
+  semanal de turma (`CASA_H_{AA}_{MM}_{DD} - COMPROU INGRESSO CASA_H`,
+  virada segunda 7h São Paulo).
+- **Webhooks ligados** (`executar_webhooks = true`).
+- **Imersão Terapêutica não ganha regra**: o produto não é mais vendido
+  ativamente (1 venda residual nos últimos 7 dias; as 2.303 são históricas).
+- **Sem sincronização final do AC**: "já subi todos os leads; se perdeu
+  alguém, perdeu."
+
 ## O que está pendente
 
-1. **Tag do ManyChat por produto.** O Desafio Casa Harmonizada usa a tag
-   semanal `CASA_H_{AA}_{MM}_{DD} - COMPROU INGRESSO CASA_H`, com virada
-   toda segunda-feira às 7h no horário de São Paulo. Os demais produtos
-   ainda dependem de o Davi informar qual tag dispara o fluxo de cada um.
-2. **Produtos sem regra.** 14 produtos já venderam e não têm regra em
-   Produtos → Produtos e vendas — entre eles **Imersão Terapêutica (2.303
-   vendas)**, Black Ressonante Infinita (303) e Curso de Alinhamento de
-   Chakras (168). Sem regra, a compra não entra em lista nem ganha tag.
-   Para a Imersão, a lista 12 (`LP_COMPROU_INGRESSO_IMER_TERAP`) e a tag 42
-   (`ALUNO_IMERSÃO_TERAPÊUTICA`) já existem — mas a automação ativa da
-   lista 12 envia e-mail, então criar a regra liga esse e-mail para todo
-   comprador novo. Decisão do Davi.
-3. **`executar_webhooks` desligado.** As automações réplicas chamam
-   Boost.space (1 URL) e n8n (livessemanais/inscrito, ht/inscrito, LSHT).
-   Antes de ligar, confirmar com o Davi o que cada destino faz hoje — o AC
-   morreu, e alguns desses fluxos podem apontar para ele.
-4. **Nó "Formatar telefone" do n8n** (workflows `ySkiGv6PY1l3TPRu` e
+1. **Nó "Formatar telefone" do n8n** (workflows `ySkiGv6PY1l3TPRu` e
    `d9ZmqxI1vbj80GHb`) ainda tem a regra antiga que inventa nono dígito em
-   telefone fixo. A Ressoa já foi corrigida; o n8n é do Davi e depende de
-   acesso/autorização dele.
-5. **Última fotografia do AC.** O AC foi desligado; leads que entraram lá
-   entre a migração e o desligamento podem não existir aqui. Se houver um
-   export final: `python scripts/sincronizar_csv_ac.py "export.csv" --aplicar`.
+   telefone fixo. A Ressoa já foi corrigida; o n8n é do Davi. Com os
+   webhooks ligados, o risco voltou a ser real — pendência viva.
+2. **Produtos que vendem sem regra.** Nos últimos 7 dias: Livro Físico da
+   Formação (8 vendas), Ímã da prosperidade (5), Black Ressonante (3),
+   Desintoxicação (3), Chakras (1). Sem regra, a compra registra a venda mas
+   não entra em lista nem marca ManyChat. Configura-se em Produtos →
+   Produtos e vendas, quando o Davi disser onde cada um entra.
+3. **Verificar o primeiro disparo real de webhook.** Os gatilhos das
+   automações com webhook são listas/tags de lançamento, hoje sem tráfego —
+   o primeiro POST real deve acontecer no próximo lançamento. Conferir em
+   Automações quando houver.
 6. **Página das lives semanais sem destino.** Com o AC desligado, a inscrição
    das lives está postando para um sistema morto. As peças para ela apontar
    para cá já existem e estão testadas — ver a seção logo abaixo.
