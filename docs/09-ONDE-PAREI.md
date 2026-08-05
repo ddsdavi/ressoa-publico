@@ -62,6 +62,13 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
   ativamente (1 venda residual nos últimos 7 dias; as 2.303 são históricas).
 - **Sem sincronização final do AC**: "já subi todos os leads; se perdeu
   alguém, perdeu."
+- **"Cria lista Compradores produto tal"**: os cinco produtos que vendiam
+  sem regra ganharam regra completa (`operacao/regras_produtos_2.sql`) —
+  Livro Físico da Formação, Ímã da Prosperidade, Black Ressonante,
+  Desintoxicação e Desparasitação, Alinhamento de Chakras. Cada um: lista
+  "Compradores …" + tag `COMPROU_*`, reembolso/cancelamento no padrão das
+  outras, ManyChat de fora. Vale para compras novas — e só produz efeito
+  quando o mapa de produto voltar a rodar (pendência abaixo).
 
 ## O que está pendente
 
@@ -69,13 +76,12 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
    `d9ZmqxI1vbj80GHb`) ainda tem a regra antiga que inventa nono dígito em
    telefone fixo. A Ressoa já foi corrigida; o n8n é do Davi. Com os
    webhooks ligados, o risco voltou a ser real — pendência viva.
-2. **Produtos que vendem sem regra.** Nos últimos 7 dias: Livro Físico da
-   Formação (8 vendas), Ímã da prosperidade (5), Black Ressonante (3),
-   Desintoxicação (3), Chakras (1). Sem regra, a venda é registrada mas o
-   comprador não é organizado em lista/tag nenhuma. A pergunta concreta ao
-   Davi é binária, produto a produto: "quem compra X entra numa lista
-   própria (padrão: lista LIVRO_FISICO_FORMACAO + tag COMPROU_LIVRO_FISICO)
-   — sim ou não?" ManyChat fica de fora por padrão (decisão acima).
+2. **Povoar as listas "Compradores …" com quem já comprou?** As regras
+   novas valem para compras futuras; os compradores históricos (Livro
+   Físico 181, Chakras 166, Black 163, Desintoxicação 106, Ímã 5 — ~620
+   pessoas) ficam fora das listas até o Davi decidir. Inserir retroativo é
+   seguro: lista recém-criada não tem automação pendurada, nenhum e-mail
+   nem webhook sai.
 3. **Verificar o primeiro disparo real de webhook.** Os gatilhos das
    automações com webhook (que moram AQUI na Ressoa e chamam n8n/Boost)
    são listas/tags de lançamento, hoje sem tráfego — o primeiro POST real
