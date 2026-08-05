@@ -4,35 +4,42 @@ Documento de passagem. Serve para quem pegar este projeto do zero — outra
 sessão, outra conta, outra pessoa — saber em que pé está sem ter que
 reconstituir a conversa.
 
-Última atualização: 02/08/2026.
+Última atualização: 05/08/2026.
 
 ---
 
 ## O essencial em cinco linhas
 
-- A Ressoa está **no ar e operando sozinha**: sete tarefas agendadas dentro do
-  próprio Postgres, quatro delas rodando a cada minuto. Não depende de ninguém
-  estar com o computador ligado.
-- Os pedidos da Hotmart chegam por webhook em tempo real. Só estado aprovado vira compra,
-  entra em lista, ganha tag de turma e pode marcar a pessoa no ManyChat.
-- O envio de e-mail está **travado** para dois endereços de teste (veja abaixo).
-- A migração do ActiveCampaign foi uma fotografia: a base de lá continua
-  recebendo gente, e a daqui só atualiza quando alguém roda o sincronizador.
+- **O ActiveCampaign foi desligado e a Ressoa entrou em operação real**: o
+  envio de e-mail foi destravado em 05/08/2026, por decisão explícita do dono.
+- O motor roda sozinho: sete tarefas agendadas dentro do próprio Postgres,
+  quatro delas a cada minuto. Os pedidos da Hotmart chegam por webhook em
+  tempo real; só estado aprovado vira compra, entra em lista, ganha tag de
+  turma e pode marcar a pessoa no ManyChat.
+- O **histórico completo de vendas** está dentro: 10.178 transações
+  (ago/2025–ago/2026) conferidas uma a uma. Faturamento em reais:
+  R$ 1.770.234,87 em compras aprovadas.
+- `executar_webhooks` continua **desligado**: os POSTs para n8n/Boost.space
+  herdados das automações do AC só devem ligar depois de revisar cada destino.
 - 36 armadilhas conhecidas estão em [06-PROBLEMAS-CONHECIDOS.md](06-PROBLEMAS-CONHECIDOS.md).
   Vale ler antes de mexer em qualquer coisa; várias custaram horas.
 
 ---
 
-## Travas ligadas agora
+## Travas e configurações agora
 
 | Onde | Estado | O que significa |
 |---|---|---|
-| `envio_so_para` | dois endereços de teste | Campanha disparada agora **só chega neles**. Qualquer outro destinatário fica com o envio marcado como `retido`. |
+| `envio_so_para` | **vazio** | O envio está DESTRAVADO. Campanha disparada vai para a base real. Para testar, coloque seu e-mail aí antes — e tire depois. |
 | `envio_pausado` | desligado | A fila escoa normalmente, a 100 por minuto. |
-| `executar_webhooks` | desligado | Enquanto o ActiveCampaign ainda dispara, ligar isso faria a pessoa receber tudo em dobro. |
+| `executar_webhooks` | desligado | Automações com passo de webhook não chamam n8n/Boost.space até isso ligar. |
+| `reply_to_padrao` | contato@drapatriciadomingos.com.br | Quem responder um e-mail cai numa caixa real. |
+| `provedor_email` | resend | Remetente: contato@mkt.drapatriciadomingos.com.br. |
 
-**Para começar a operar de verdade:** esvazie `envio_so_para` em
-Configurações → E-mail. É uma decisão consciente, não um esquecimento.
+**Atenção redobrada em teste:** com o envio destravado, QUALQUER linha
+`queued` na tabela `envios` sai em até 60 segundos. Antes de testar
+qualquer coisa que toque a fila, preencha `envio_so_para` com o seu
+endereço (armadilha 28) — e esvazie de novo ao terminar.
 
 ---
 
@@ -42,34 +49,60 @@ Configurações → E-mail. É uma decisão consciente, não um esquecimento.
    semanal `CASA_H_{AA}_{MM}_{DD} - COMPROU INGRESSO CASA_H`, com virada
    toda segunda-feira às 7h no horário de São Paulo. Os demais produtos
    ainda dependem de o Davi informar qual tag dispara o fluxo de cada um.
-2. **`reply_to_padrao` vazio.** O subdomínio de envio não recebe: quem
-   responder leva "endereço não encontrado". Precisa apontar para uma caixa
-   que existe.
-3. **Sincronizar com o ActiveCampaign.** Toda vez que a diferença incomodar:
-   exporte a base completa de lá e rode
-   `python scripts/sincronizar_csv_ac.py "caminho/export.csv" --aplicar`.
-   Ele cria quem falta e liga as tags. Não apaga nada.
+2. **Produtos sem regra.** 14 produtos já venderam e não têm regra em
+   Produtos → Produtos e vendas — entre eles **Imersão Terapêutica (2.303
+   vendas)**, Black Ressonante Infinita (303) e Curso de Alinhamento de
+   Chakras (168). Sem regra, a compra não entra em lista nem ganha tag.
+   Para a Imersão, a lista 12 (`LP_COMPROU_INGRESSO_IMER_TERAP`) e a tag 42
+   (`ALUNO_IMERSÃO_TERAPÊUTICA`) já existem — mas a automação ativa da
+   lista 12 envia e-mail, então criar a regra liga esse e-mail para todo
+   comprador novo. Decisão do Davi.
+3. **`executar_webhooks` desligado.** As automações réplicas chamam
+   Boost.space (1 URL) e n8n (livessemanais/inscrito, ht/inscrito, LSHT).
+   Antes de ligar, confirmar com o Davi o que cada destino faz hoje — o AC
+   morreu, e alguns desses fluxos podem apontar para ele.
+4. **Nó "Formatar telefone" do n8n** (workflows `ySkiGv6PY1l3TPRu` e
+   `d9ZmqxI1vbj80GHb`) ainda tem a regra antiga que inventa nono dígito em
+   telefone fixo. A Ressoa já foi corrigida; o n8n é do Davi e depende de
+   acesso/autorização dele.
+5. **Última fotografia do AC.** O AC foi desligado; leads que entraram lá
+   entre a migração e o desligamento podem não existir aqui. Se houver um
+   export final: `python scripts/sincronizar_csv_ac.py "export.csv" --aplicar`.
+
+---
 
 ## Importação histórica concluída
 
-Em 02/08/2026, os relatórios anuais definitivos da Hotmart foram conferidos e importados
-diretamente no Supabase. Eles contêm 10.178 transações únicas entre 02/08/2025 e
-02/08/2026. Destas, 2.600 já estavam no Ressoa; a carga acrescentou 7.578 vendas e criou
-183 leads. Uma transação válida de um relatório anterior, imediatamente anterior ao
-horário inicial do relatório anual, também foi preservada — por isso a origem `hotmart_csv`
-tem 10.179 transações.
+Em 02–03/08/2026, os relatórios anuais definitivos da Hotmart foram conferidos
+e importados diretamente no Supabase (`scripts/importar_vendas_hotmart_csv.py`).
+Eles contêm 10.178 transações únicas entre 02/08/2025 e 02/08/2026. Destas,
+2.600 já estavam no Ressoa; a carga acrescentou 7.578 vendas e criou 183 leads.
+Uma transação válida de um relatório anterior, imediatamente anterior ao horário
+inicial do relatório anual, também foi preservada — por isso a origem
+`hotmart_csv` tem 10.179 transações.
 
-Todas as 10.178 transações dos arquivos foram reconferidas depois da carga: faltando zero.
-O casamento foi feito por e-mail exato sem diferença entre maiúsculas e minúsculas;
-telefone conflitante foi descartado em vez de juntar pessoas diferentes. Nenhuma automação
-nem e-mail foi disparado. Os CSVs e os SQLs com dados pessoais ficaram fora do repositório.
+Todas as 10.178 transações dos arquivos foram reconferidas depois da carga
+(em 03/08 e de novo em 05/08): faltando zero, todas com lead vinculado.
+O casamento foi feito por e-mail exato sem diferença entre maiúsculas e
+minúsculas; telefone conflitante foi descartado em vez de juntar pessoas
+diferentes. Nenhuma automação nem e-mail foi disparado. Os CSVs e os SQLs
+com dados pessoais ficaram fora do repositório.
+
+**Moedas (corrigido em 05/08/2026):** 59 vendas foram pagas em moeda
+estrangeira (CLP, COP, MXN, EUR, GBP, CHF, USD, AUD) e ficam registradas
+**na moeda original** — a carga havia gravado a moeda de recebimento no
+lugar da moeda da compra, o que fazia 68.304 pesos chilenos valerem
+R$ 68.304. A regra de relatório (`moeda_relatorios_v1.sql`): contagem de
+compras e compradores considera todo mundo; soma de dinheiro considera
+só BRL.
 
 ---
 
 ## Como testar sem estragar nada
 
-**E-mail:** já está travado. Adicione o seu endereço em `envio_so_para` e
-dispare à vontade.
+**E-mail:** o envio está DESTRAVADO. Antes de qualquer teste, coloque seu
+endereço em `envio_so_para` (Configurações → E-mail) e confira com
+`select public.cfg('envio_so_para')`. Ao terminar, esvazie de novo.
 
 **ManyChat:** não há modo simulação, de propósito — o objetivo do teste é ver
 a pessoa aparecendo na conta. A precaução é outra: **crie uma tag nova para
@@ -85,13 +118,13 @@ colateral escondido:
 - quando a busca não encontra a pessoa, a própria tela oferece a criação do
   usuário; criar não aplica tag nem roda regra de produto e impede duplicar um
   WhatsApp que já existe no campo configurado;
-- “Criar tag” só cria a tag na conta;
-- “Excluir” remove a tag da conta e de todos os assinantes, exige confirmação e
+- "Criar tag" só cria a tag na conta;
+- "Excluir" remove a tag da conta e de todos os assinantes, exige confirmação e
   só é aceito pelo servidor para um admin autenticado;
 - aplicar uma tag específica não cria usuário por conta própria: primeiro é
   preciso buscar ou criar a pessoa.
 
-Na página **Leads**, cada linha e o detalhe do lead têm a ação “ManyChat”. A
+Na página **Leads**, cada linha e o detalhe do lead têm a ação "ManyChat". A
 gaveta procura automaticamente pelo WhatsApp da Ressoa, oferece a criação se o
 usuário não existir e, quando encontra, permite aplicar ou remover tags. Leads
 sem WhatsApp precisam receber o número na Ressoa antes dessas operações.
@@ -148,8 +181,8 @@ pg_cron (todo minuto) ──────────────┴─► proces
 
 ## Regras de trabalho que valem sempre
 
-1. **A conta do ActiveCampaign é somente leitura.** Nunca apague nem altere
-   nada lá.
+1. **A conta do ActiveCampaign foi desligada e continua intocável.** O que
+   sobrou de acesso é somente leitura — os dados de lá são o backup histórico.
 2. **Nada de dado pessoal no GitHub.** Sem `.env`, sem chave, sem `.csv`, sem
    telefone ou e-mail de gente real — nem em exemplo de documentação. O
    repositório é público.
@@ -158,7 +191,7 @@ pg_cron (todo minuto) ──────────────┴─► proces
 4. **Não teste com leads reais.** Foi assim que quatro pessoas receberam um
    e-mail cujo corpo era a letra "a" (armadilha 28). O cron escoa a fila em
    até 60 segundos — menos do que o intervalo entre rodar o teste e ler o
-   resultado.
+   resultado. Com o envio destravado, isso vale em dobro.
 5. **Tela que salva não prova que o motor executa.** Dois passos de automação
    estavam quebrados justamente porque só a tela tinha sido conferida
    (armadilha 33).

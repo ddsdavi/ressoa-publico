@@ -80,3 +80,4 @@ supabase/turmas_v2_ano_curto.sql
 supabase/exclusao_lead_v1.sql
 supabase/vendas_v2_importacao_segura.sql
 supabase/hotmart_v3_estados_pedido.sql
+supabase/moeda_relatorios_v1.sql

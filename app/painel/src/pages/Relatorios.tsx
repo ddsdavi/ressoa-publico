@@ -191,7 +191,9 @@ export default function Relatorios() {
             <div className="sub">
               O Meta mostra cliques. Isto mostra <b>dinheiro</b> — que ele não sabe, porque a
               venda acontece fora dele. Só compra aprovada entra: reembolso somando como receita
-              faria anúncio ruim parecer bom, e isso leva a investir no lugar errado.
+              faria anúncio ruim parecer bom, e isso leva a investir no lugar errado. A receita
+              soma só o que foi pago em reais — venda em moeda estrangeira conta como compra,
+              mas não vira R$ na marra.
             </div>
             <div className="linha" style={{ marginTop: 10 }}>
               <select style={{ maxWidth: 300 }} value={dimensao}
