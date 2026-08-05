@@ -66,7 +66,9 @@ export default function Automacoes() {
         return `Enviar e-mail: ${m ? m.nome : (c.mensagem ?? "?")}`;
       }
       case "webhook": return `Webhook → ${c.url}`;
-      case "google_sheets": return `Google Sheets (${c.nota ?? "add row"})`;
+      case "google_sheets": return c.planilha_id
+        ? `Planilha: ${c.planilha_nome ?? "Google"} · ${c.aba ?? "?"}`
+        : `Google Sheets (${c.nota ?? "via n8n"})`;
       case "esperar": return `Esperar ${c.duracao ?? "?"}`;
       case "aplicar_tag": return `Aplicar tag "${mapTags[Number(c.tag_id)] ?? c.tag_id}"`;
       case "remover_tag": return `Remover tag "${mapTags[Number(c.tag_id)] ?? c.tag_id}"`;

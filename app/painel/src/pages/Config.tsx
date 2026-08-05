@@ -33,9 +33,29 @@ const ABAS = [
     sub: "Provedor, remetente, aparência das mensagens e as travas de envio." },
   { id: "manychat", icone: "💬", rotulo: "ManyChat",
     sub: "A ponte com o WhatsApp e o Instagram." },
+  { id: "planilhas", icone: "📗", rotulo: "Planilhas",
+    sub: "A conta Google que as automações usam para escrever em planilhas." },
   { id: "api", icone: "⌨", rotulo: "API e webhooks",
     sub: "Endereços de entrada e saída, e a chave de acesso aos dados." },
 ];
+
+// O painel fala com a Edge Function google-sheets levando a sessão do
+// usuário — o servidor confere se é admin, não a tela.
+async function chamarPlanilhas(acao: string, corpo: Record<string, unknown> = {}) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-sheets`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "",
+      Authorization: `Bearer ${session?.access_token ?? ""}`,
+    },
+    body: JSON.stringify({ acao, ...corpo }),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.erro ?? "não deu para falar com o Google agora");
+  return d;
+}
 
 export default function Config() {
   const [cfg, setCfg] = useState<Record<string, string>>({});
@@ -48,6 +68,13 @@ export default function Config() {
   const [capResposta, setCapResposta] = useState("");
   const [aba, setAba] = useState("email");
   const [naFila, setNaFila] = useState(0);
+  const [gsId, setGsId] = useState("");
+  const [gsSegredo, setGsSegredo] = useState("");
+  const [gsStatus, setGsStatus] = useState<{
+    app_configurado?: boolean; conectada?: boolean;
+    conta?: string | null; url_retorno?: string;
+  }>({});
+  const [gsResposta, setGsResposta] = useState("");
 
   async function carregar() {
     const { data } = await supabase.from("app_config").select("chave, valor");
@@ -64,6 +91,44 @@ export default function Config() {
     setNaFila(count ?? 0);
   }
   useEffect(() => { carregar(); }, []);
+
+  async function carregarGoogle() {
+    try { setGsStatus(await chamarPlanilhas("status")); }
+    catch (e) { setGsResposta((e as Error).message); }
+  }
+  useEffect(() => { if (aba === "planilhas") carregarGoogle(); }, [aba]);
+
+  async function guardarChavesGoogle() {
+    try {
+      if (gsId.trim()) {
+        await supabase.rpc("guardar_segredo",
+          { p_chave: "google_client_id", p_valor: gsId.trim() });
+      }
+      if (gsSegredo.trim()) {
+        await supabase.rpc("guardar_segredo",
+          { p_chave: "google_client_secret", p_valor: gsSegredo.trim() });
+      }
+      setGsId(""); setGsSegredo("");
+      setGsResposta("✓ Chaves guardadas. Agora clique em Conectar conta Google.");
+      await carregarGoogle();
+    } catch (e) { setGsResposta("Não deu para guardar: " + (e as Error).message); }
+  }
+
+  async function conectarGoogle() {
+    try {
+      const d = await chamarPlanilhas("conectar");
+      window.open(d.url, "_blank");
+      setGsResposta("Autorize na aba que abriu. Quando terminar, volte aqui e clique em Atualizar.");
+    } catch (e) { setGsResposta((e as Error).message); }
+  }
+
+  async function desconectarGoogle() {
+    try {
+      await chamarPlanilhas("desconectar");
+      setGsResposta("Conta desconectada.");
+      await carregarGoogle();
+    } catch (e) { setGsResposta((e as Error).message); }
+  }
 
   async function salvarManyChat() {
     const { error } = await supabase.rpc("guardar_segredo", {
@@ -452,6 +517,87 @@ export default function Config() {
         {mcResposta && (
           <div className={mcResposta.startsWith("✓") ? "sub" : "aviso"} style={{ marginTop: 10 }}>
             {mcResposta}
+          </div>
+        )}
+      </div>
+      )}
+
+      {aba === "planilhas" && (
+      <div className="caixa">
+        <h2>Planilhas do Google</h2>
+        <div className="sub" style={{ marginTop: 4 }}>
+          Conecte uma conta Google uma vez. Depois, em qualquer automação, o passo{" "}
+          <b>Planilha do Google</b> deixa colar o link de uma planilha, escolher a aba
+          e mapear o que entra em cada coluna — e o Ressoa escreve as linhas sozinho,
+          sem n8n no caminho.
+        </div>
+
+        <h3 style={{ marginTop: 18 }}>1 · O app no Google (uma única vez)</h3>
+        <div className="sub">
+          O Google exige que integrações tenham um cadastro próprio — o ManyChat tem o
+          dele; este é o do Ressoa.
+          <Ajuda>
+            Em <b>console.cloud.google.com</b>: crie um projeto → APIs e serviços →
+            ative a <b>Google Sheets API</b> → Tela de consentimento (público{" "}
+            <b>Externo</b>, e depois <b>Publicar o app</b> — parado "Em teste", a
+            conexão morre a cada 7 dias) → Credenciais → Criar credenciais →{" "}
+            <b>ID do cliente OAuth</b>, tipo <b>Aplicativo da Web</b>, com o URI de
+            redirecionamento abaixo. Copie o Client ID e o Client Secret para cá.
+          </Ajuda>
+        </div>
+        {gsStatus.url_retorno && (
+          <div className="sub" style={{ marginTop: 6 }}>
+            URI de redirecionamento para registrar lá:{" "}
+            <code style={{ userSelect: "all" }}>{gsStatus.url_retorno}</code>
+          </div>
+        )}
+        <label style={{ marginTop: 10 }}>
+          Client ID
+          {gsStatus.app_configurado && <span style={{ color: "var(--marca)" }}> · configurado ✓</span>}
+        </label>
+        <input type="password" value={gsId}
+          placeholder={gsStatus.app_configurado ? "••••••••  (digite para trocar)" : "termina em .apps.googleusercontent.com"}
+          onChange={(e) => setGsId(e.target.value)} />
+        <label style={{ marginTop: 10 }}>Client Secret</label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input type="password" value={gsSegredo} style={{ flex: 1 }}
+            placeholder={gsStatus.app_configurado ? "••••••••  (digite para trocar)" : "começa com GOCSPX-"}
+            onChange={(e) => setGsSegredo(e.target.value)} />
+          <button onClick={guardarChavesGoogle}
+            disabled={!gsId.trim() && !gsSegredo.trim()}>Guardar</button>
+        </div>
+        <div className="sub" style={{ marginTop: 6 }}>
+          Depois de guardadas, elas não aparecem mais aqui — ficam num lugar do banco
+          que o navegador não lê.
+        </div>
+
+        <h3 style={{ marginTop: 22 }}>2 · A conta conectada</h3>
+        {gsStatus.conectada ? (
+          <div className="sub">
+            Conectada{gsStatus.conta ? <> como <b>{gsStatus.conta}</b></> : null}. As
+            automações escrevem nas planilhas que essa conta pode editar.
+          </div>
+        ) : (
+          <div className="sub">Nenhuma conta conectada ainda.</div>
+        )}
+        <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+          <button className="primario" onClick={conectarGoogle}
+            disabled={!gsStatus.app_configurado}>
+            {gsStatus.conectada ? "Trocar a conta" : "Conectar conta Google"}
+          </button>
+          <button onClick={carregarGoogle}>Atualizar</button>
+          {gsStatus.conectada && (
+            <button onClick={desconectarGoogle}>Desconectar</button>
+          )}
+        </div>
+        <div className="sub" style={{ marginTop: 8 }}>
+          Na tela do Google pode aparecer o aviso de app não verificado — é o seu
+          próprio app: <b>Avançado → Acessar</b>, uma vez só.
+        </div>
+
+        {gsResposta && (
+          <div className={gsResposta.startsWith("✓") ? "sub" : "aviso"} style={{ marginTop: 10 }}>
+            {gsResposta}
           </div>
         )}
       </div>

@@ -157,24 +157,26 @@ ligado e a decisão do Davi de manter a planilha como segurança):
    público e qualquer construtor de página faz. Ao entrar na lista 6, a
    automação réplica "Lives Semanais" (ativa) manda o e-mail "Inscrição
    confirmada" — envio real, no lugar do que o AC mandava.
-2. **Adaptar o fluxo das lives no n8n para virar só a planilha.** Com
-   `executar_webhooks` ligado, a réplica "Automação 19" já chama
-   `livessemanais/inscrito` a cada entrada na lista 6 — mas com o payload da
-   Ressoa, que o fluxo não entende. A troca: gatilho continua o mesmo
-   webhook; os campos viram `contato.email`, `contato.nome`,
-   `contato.whatsapp` (já normalizado — o nó "Formatar telefone" de lá, que
-   ainda tem a regra velha do nono dígito, sai do caminho); os nós de
-   ManyChat saem (quem marca é a Ressoa — ver "Decisões do Davi em 05/08");
-   fica webhook → linha na planilha. Até essa adaptação, cada inscrição gera uma
-   execução quebrada no n8n — sem efeito além do ruído, porque a busca com
-   telefone vazio falha e o fluxo para.
+2. **Planilha sem n8n (mudou em 05/08 à noite).** A pedido do Davi, o passo
+   "Planilha do Google" ficou NATIVO: conta Google conectada em Configurações
+   → Planilhas (setup único do app OAuth descrito lá), e o passo guarda
+   planilha + aba + mapeamento coluna ↔ campo — quem escreve é a Edge
+   Function `google-sheets` (log em `google_sheets_log`). Para as lives:
+   acrescentar esse passo na automação "[RESSOA] Lives Semanais", apontando
+   para a planilha "Lives semanais - inscritos". O modo antigo (URL de n8n)
+   continua aceito nos passos que já existiam. Enquanto a réplica
+   "Automação 19" (webhook para `livessemanais/inscrito`) estiver ativa com
+   `executar_webhooks` ligado, cada inscrição gera uma execução quebrada no
+   n8n — sem efeito além do ruído; desativar essa réplica quando o passo de
+   planilha assumir.
 3. **Ativar a automação "[RESSOA] Lives Semanais — tag no ManyChat"** com um
    teste controlado antes (armadilha 33: tela que salva não prova que o motor
-   executa — nenhum passo `manychat_tag` rodou pelo motor em produção ainda).
-   Aplicar a tag 85 num lead próprio, esperar o minuto do cron e conferir o
-   `manychat_log`.
-4. **Nada de arquivar o n8n**: decisão do Davi em 05/08 — a planilha é a
-   segurança e continua viva, alimentada agora pela Ressoa (passo 2).
+   executa — nenhum passo `manychat_tag` nem `google_sheets` nativo rodou
+   pelo motor em produção ainda). Aplicar a tag 85 num lead próprio, esperar
+   o minuto do cron e conferir `manychat_log` e `google_sheets_log`.
+4. **Nada de arquivar o n8n**: decisão do Davi em 05/08 — os fluxos ficam
+   como reserva. A planilha das lives passa a ser alimentada pela própria
+   Ressoa (passo 2), e o registro-mestre é a base (Leads → tag 85).
 
 Correção do mesmo dia: a nota anterior dizia que a tabela `segredos` estava
 vazia — era um erro de leitura (consulta com `limit=0`, que devolve vazio por
@@ -285,7 +287,9 @@ pg_cron (todo minuto) ──────────────┴─► proces
 
 - **Motor:** `supabase/motor_v*.sql`. A ordem de aplicação está em
   `supabase/ordem.txt` — é a fonte única, lida pelos dois instaladores.
-- **Funções públicas:** `app/functions/`, dez delas.
+- **Funções públicas:** `app/functions/`, onze delas. Função nova precisa da
+  entrada `[functions.nome]` com `entrypoint` em `supabase/config.toml` — sem
+  ela o deploy falha com "Entrypoint path does not exist".
 - **Painel:** `app/painel/`, React + Vite, publicado no Cloudflare Pages.
 
 ---

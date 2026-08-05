@@ -1,3 +1,6 @@
+# Cada função pública declarada com o entrypoint apontando para app/functions.
+# Sem a entrada aqui, o CLI procura supabase/functions/<nome> (que não existe
+# neste repositório) e o deploy falha com "Entrypoint path does not exist".
 [functions.venda]
 verify_jwt = false
 entrypoint = "../app/functions/venda/index.ts"
@@ -5,3 +8,39 @@ entrypoint = "../app/functions/venda/index.ts"
 [functions.formulario]
 verify_jwt = false
 entrypoint = "../app/functions/formulario/index.ts"
+
+[functions.google-sheets]
+verify_jwt = false
+entrypoint = "../app/functions/google-sheets/index.ts"
+
+[functions.conta-email]
+verify_jwt = false
+entrypoint = "../app/functions/conta-email/index.ts"
+
+[functions.contador]
+verify_jwt = false
+entrypoint = "../app/functions/contador/index.ts"
+
+[functions.descadastro]
+verify_jwt = false
+entrypoint = "../app/functions/descadastro/index.ts"
+
+[functions.enviar-ses]
+verify_jwt = false
+entrypoint = "../app/functions/enviar-ses/index.ts"
+
+[functions.manychat]
+verify_jwt = false
+entrypoint = "../app/functions/manychat/index.ts"
+
+[functions.postback-resend]
+verify_jwt = false
+entrypoint = "../app/functions/postback-resend/index.ts"
+
+[functions.postback-ses]
+verify_jwt = false
+entrypoint = "../app/functions/postback-ses/index.ts"
+
+[functions.rastreio]
+verify_jwt = false
+entrypoint = "../app/functions/rastreio/index.ts"

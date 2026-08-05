@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
 
 // Quadro visual da automação — a mesma leitura do ActiveCampaign: o gatilho
 // no topo, os passos descendo ligados por uma linha, e o "+" entre eles.
@@ -44,8 +45,8 @@ const ACOES: Item[] = [
   { id: "remover_tag", rotulo: "Remove uma tag", icone: "🏷", categoria: "Contato", disponivel: true },
   { id: "inscrever_lista", rotulo: "Inscreve em uma lista", icone: "📋", categoria: "Contato", disponivel: true },
   { id: "desinscrever_lista", rotulo: "Descadastra de uma lista", icone: "📤", categoria: "Contato", disponivel: true },
-  { id: "google_sheets", rotulo: "Google Sheets", icone: "📗", categoria: "Integrações", disponivel: true,
-    ajuda: "Manda o contato para o seu n8n, que escreve a linha na planilha." },
+  { id: "google_sheets", rotulo: "Planilha do Google", icone: "📗", categoria: "Integrações", disponivel: true,
+    ajuda: "Escreve a linha direto na planilha, pela conta Google conectada em Configurações. Você cola o link, escolhe a aba e mapeia as colunas." },
   { id: "google_drive", rotulo: "Google Drive", icone: "📁", categoria: "Integrações", disponivel: true,
     ajuda: "Manda o contato para o seu n8n, que cria ou atualiza o arquivo." },
   { id: "webhook", rotulo: "Webhook (qualquer sistema)", icone: "⚡", categoria: "Integrações", disponivel: true },
@@ -76,6 +77,163 @@ type Ref = {
   mensagens: { mensagem_id: string; nome: string; subject: string }[];
   camposData?: string[];
 };
+
+// ---------- Planilha do Google: o passo nativo ----------
+// O painel fala com a Edge Function google-sheets usando a sessão do
+// usuário — só admin passa. O que fica salvo no passo: planilha, aba, a
+// lista de colunas do cabeçalho e o mapeamento coluna → campo.
+async function chamarGoogleSheets(acao: string, corpo: Record<string, unknown> = {}) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-sheets`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "",
+      Authorization: `Bearer ${session?.access_token ?? ""}`,
+    },
+    body: JSON.stringify({ acao, ...corpo }),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.erro ?? "não deu para falar com o Google agora");
+  return d;
+}
+
+const CAMPOS_PLANILHA: [string, string][] = [
+  ["", "— não preencher —"],
+  ["nome", "Nome"],
+  ["email", "E-mail"],
+  ["whatsapp", "WhatsApp"],
+  ["lead_id", "ID do lead"],
+  ["data_hora", "Data e hora (São Paulo)"],
+  ["__atributo", "Um campo personalizado…"],
+];
+
+function EditorPlanilha({ config, aoMudar }: {
+  config: Record<string, any>;
+  aoMudar: (c: Record<string, any>) => void;
+}) {
+  const [link, setLink] = useState("");
+  const [abas, setAbas] = useState<string[]>([]);
+  const [msg, setMsg] = useState("");
+  const [ocupado, setOcupado] = useState(false);
+
+  const colunas: string[] = config.colunas ?? [];
+  const mapa: Record<string, string> = config.mapeamento ?? {};
+
+  // pré-adivinha o campo pelo título da coluna — a pessoa só confere
+  const adivinhar = (coluna: string): string => {
+    const t = coluna.toLowerCase();
+    if (t.includes("mail")) return "email";
+    if (t.includes("whats") || t.includes("telefone") || t.includes("fone") || t.includes("celular")) return "whatsapp";
+    if (t.includes("nome")) return "nome";
+    if (t.includes("id")) return "lead_id";
+    if (t.includes("data") || t.includes("quando")) return "data_hora";
+    return "";
+  };
+
+  async function carregarAbas() {
+    setOcupado(true); setMsg("Lendo a planilha…");
+    try {
+      const d = await chamarGoogleSheets("abas", { link });
+      setAbas(d.abas ?? []);
+      aoMudar({ planilha_id: d.planilha_id, planilha_nome: d.titulo });
+      setMsg(d.abas?.length ? "Agora escolha a aba." : "A planilha não tem abas?");
+    } catch (e) { setMsg((e as Error).message); }
+    setOcupado(false);
+  }
+
+  async function escolherAba(aba: string) {
+    setOcupado(true); setMsg("Lendo o cabeçalho…");
+    try {
+      const d = await chamarGoogleSheets("cabecalhos",
+        { planilha_id: config.planilha_id, aba });
+      const cols: string[] = d.colunas ?? [];
+      const mapeamento: Record<string, string> = {};
+      for (const c of cols) mapeamento[c] = adivinhar(c);
+      aoMudar({ ...config, aba, colunas: cols, mapeamento });
+      setMsg(cols.length
+        ? "Confira o mapeamento abaixo — o que ficar em branco não é preenchido."
+        : "A primeira linha da aba está vazia. Escreva os títulos das colunas lá e carregue de novo.");
+    } catch (e) { setMsg((e as Error).message); }
+    setOcupado(false);
+  }
+
+  function mudarCampo(coluna: string, valor: string) {
+    aoMudar({ ...config, mapeamento: { ...mapa, [coluna]: valor } });
+  }
+
+  return (
+    <>
+      {!config.planilha_id && (
+        <>
+          <label>Link da planilha</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input style={{ flex: 1 }} value={link}
+              placeholder="https://docs.google.com/spreadsheets/d/…"
+              onChange={(e) => setLink(e.target.value)} />
+            <button onClick={carregarAbas} disabled={ocupado || !link.trim()}>Carregar</button>
+          </div>
+          <div className="sub" style={{ marginTop: 6 }}>
+            A conta Google conectada em <b>Configurações → Planilhas</b> precisa
+            ter acesso de edição a esta planilha.
+          </div>
+        </>
+      )}
+
+      {config.planilha_id && (
+        <>
+          <div className="sub" style={{ marginBottom: 8 }}>
+            Planilha: <b>{config.planilha_nome || config.planilha_id}</b>{" "}
+            <button className="mini" onClick={() => { setAbas([]); setLink("");
+              aoMudar({}); }}>trocar</button>
+          </div>
+
+          <label>Aba</label>
+          <select value={config.aba ?? ""} disabled={ocupado}
+            onChange={(e) => escolherAba(e.target.value)}>
+            <option value="">— escolher —</option>
+            {(abas.length ? abas : (config.aba ? [config.aba] : [])).map(
+              (a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+          {!abas.length && config.aba && (
+            <div className="sub" style={{ marginTop: 4 }}>
+              Para ver as outras abas de novo, clique em "trocar" e recarregue a planilha.
+            </div>
+          )}
+
+          {config.aba && colunas.length > 0 && (
+            <>
+              <label style={{ marginTop: 12 }}>O que entra em cada coluna</label>
+              {colunas.map((c) => {
+                const v = mapa[c] ?? "";
+                const ehAtributo = v.startsWith("atributo:") || v === "__atributo";
+                return (
+                  <div key={c} style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
+                    <div style={{ flex: 1, fontWeight: 600 }}>{c}</div>
+                    <select style={{ flex: 1 }}
+                      value={ehAtributo ? "__atributo" : v}
+                      onChange={(e) => mudarCampo(c,
+                        e.target.value === "__atributo" ? "atributo:" : e.target.value)}>
+                      {CAMPOS_PLANILHA.map(([valor, rotulo]) =>
+                        <option key={valor} value={valor}>{rotulo}</option>)}
+                    </select>
+                    {ehAtributo && (
+                      <input style={{ flex: 1 }} placeholder="nome do campo, ex.: cidade"
+                        value={v.startsWith("atributo:") ? v.slice("atributo:".length) : ""}
+                        onChange={(e) => mudarCampo(c, "atributo:" + e.target.value)} />
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </>
+      )}
+
+      {msg && <div className="sub" style={{ marginTop: 10 }}>{msg}</div>}
+    </>
+  );
+}
 
 // ---------- janela de escolha, no formato do AC ----------
 function Seletor({ titulo, itens, onEscolher, onFechar }: {
@@ -339,7 +497,9 @@ export default function FluxoAutomacao({
         return cd.tipo ? `Se ${rot.toLowerCase()}${alvo}` : "Se / então — falta escolher a condição";
       }
       case "webhook": return c.url ? `Envia os dados para ${c.url}` : "Chama um webhook — falta a URL";
-      case "google_sheets": return c.url ? "Escreve uma linha no Google Sheets" : "Google Sheets — falta a URL do n8n";
+      case "google_sheets": return c.planilha_id
+        ? `Escreve na planilha ${c.planilha_nome || "do Google"} · aba ${c.aba || "?"}`
+        : c.url ? "Escreve no Google Sheets pelo n8n" : "Planilha do Google — falta configurar";
       case "google_drive": return c.url ? "Envia para o Google Drive" : "Google Drive — falta a URL do n8n";
       default: return p.tipo;
     }
@@ -351,7 +511,8 @@ export default function FluxoAutomacao({
     if (p.tipo === "esperar") return !!c.duracao;
     if (p.tipo === "aplicar_tag" || p.tipo === "remover_tag") return !!c.tag_id;
     if (p.tipo === "inscrever_lista" || p.tipo === "desinscrever_lista") return !!c.lista_id;
-    if (p.tipo === "webhook" || p.tipo === "google_sheets" || p.tipo === "google_drive") return !!c.url;
+    if (p.tipo === "webhook" || p.tipo === "google_drive") return !!c.url;
+    if (p.tipo === "google_sheets") return !!(c.url || (c.planilha_id && c.aba && c.colunas?.length));
     if (p.tipo === "manychat_tag") return !!c.tag;
     if (p.tipo === "condicao") return !!c.condicao?.tipo;
     return true;
@@ -362,7 +523,6 @@ export default function FluxoAutomacao({
     (SEM_ALVO.includes(gatilho.tipo) || !!gatilho.lista_id || !!gatilho.tag_id);
 
   const iconeDe = (tipo: string) => ACOES.find((a) => a.id === tipo)?.icone ?? "•";
-  const ehGoogle = (t: string) => t === "google_sheets" || t === "google_drive";
 
   function inserirAcao(id: string, posicao: number) {
     const novos = [...passos];
@@ -800,7 +960,34 @@ export default function FluxoAutomacao({
                     </>
                   );
                 })()}
-                {ehGoogle(passos[editando].tipo) && (
+                {passos[editando].tipo === "google_sheets" && (
+                  <>
+                    {passos[editando].config.url && !passos[editando].config.planilha_id ? (
+                      <>
+                        <label>URL do fluxo no n8n (modo antigo)</label>
+                        <input placeholder="https://seu-n8n.com.br/webhook/…"
+                          value={passos[editando].config.url ?? ""}
+                          onChange={(e) => mudarPasso(editando as number, { url: e.target.value })} />
+                        <div className="sub" style={{ marginTop: 8 }}>
+                          Este passo ainda envia para o n8n (e obedece à chave-geral dos
+                          webhooks). Para escrever direto na planilha,{" "}
+                          <button className="mini" onClick={() =>
+                            mudarPasso(editando as number, {})}>trocar para o modo direto</button>.
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <EditorPlanilha config={passos[editando].config}
+                          aoMudar={(c) => mudarPasso(editando as number, c)} />
+                        <div className="sub" style={{ marginTop: 10 }}>
+                          Escreve direto, pela conta conectada em <b>Configurações → Planilhas</b>
+                          — não passa pelo n8n nem pela chave-geral dos webhooks.
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+                {passos[editando].tipo === "google_drive" && (
                   <>
                     <label>URL do fluxo no n8n</label>
                     <input placeholder="https://seu-n8n.com.br/webhook/…"
@@ -808,17 +995,12 @@ export default function FluxoAutomacao({
                       onChange={(e) => mudarPasso(editando as number, { url: e.target.value })} />
                     <div className="aviso" style={{ marginTop: 10 }}>
                       <b>Como funciona:</b> o Ressoa manda o contato completo para o seu n8n, e o
-                      n8n escreve {passos[editando].tipo === "google_sheets" ? "na planilha" : "no Drive"}.
-                      É exatamente o caminho que a sua automação do ActiveCampaign já usa hoje —
-                      lá também é o n8n que escreve, não o AC.
-                      <br /><br />
-                      No n8n: um nó <b>Webhook</b> recebendo POST, ligado a um nó{" "}
-                      <b>{passos[editando].tipo === "google_sheets" ? "Google Sheets → Append Row" : "Google Drive"}</b>.
-                      Os campos do contato chegam em <code>contato</code>.
+                      n8n escreve no Drive. No n8n: um nó <b>Webhook</b> recebendo POST, ligado a
+                      um nó <b>Google Drive</b>. Os campos do contato chegam em <code>contato</code>.
                     </div>
                     <div className="sub" style={{ marginTop: 8 }}>
                       A chave-geral dos webhooks fica em <b>Configurações</b>. Com ela desligada,
-                      nenhum POST sai — é a trava contra disparo duplicado com o AC.
+                      nenhum POST sai — é a trava contra disparo duplicado.
                     </div>
                   </>
                 )}

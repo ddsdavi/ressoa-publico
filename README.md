@@ -24,6 +24,7 @@ Foi construída para operar a base da Nome do Remetente — 12 mil leads de sua 
 | **Relatórios** | base, campanhas, tags, campos e de onde vem o dinheiro |
 | **Acesso** | três níveis de usuário, com as regras dentro do banco |
 | **WhatsApp** | marca a pessoa no ManyChat quando ela compra, e é a tag que dispara a mensagem lá |
+| **Planilhas** | conta Google conectada uma vez; automações escrevem linhas com as colunas mapeadas |
 
 O WhatsApp não sai daqui: quem manda é o ManyChat. A Ressoa decide **quem** e **quando**.
 
@@ -59,7 +60,7 @@ cp .env.example .env      # preencha as chaves — cada linha diz onde achar
 No Windows, o último comando é `.\instalar.ps1`.
 
 **Um comando faz tudo:** cria as tabelas, instala as funções do banco, agenda as tarefas
-automáticas, publica as 10 funções públicas e sobe o painel. No fim ele imprime o endereço
+automáticas, publica as 11 funções públicas e sobe o painel. No fim ele imprime o endereço
 e o que fazer em seguida.
 
 Rodar de novo é seguro — todo arquivo usa `create ... if not exists` ou
@@ -106,7 +107,7 @@ ressoa/
 │  └─ …                         pontuação, formulários, relatórios
 │
 ├─ app/
-│  ├─ functions/                10 funções públicas (Deno)
+│  ├─ functions/                11 funções públicas (Deno)
 │  │  ├─ formulario/            captação de lead
 │  │  ├─ venda/                 webhook da Hotmart
 │  │  ├─ rastreio/              pixel de abertura e clique
