@@ -76,9 +76,17 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
    automações com webhook são listas/tags de lançamento, hoje sem tráfego —
    o primeiro POST real deve acontecer no próximo lançamento. Conferir em
    Automações quando houver.
-6. **Página das lives semanais sem destino.** Com o AC desligado, a inscrição
+4. **Página das lives semanais sem destino.** Com o AC desligado, a inscrição
    das lives está postando para um sistema morto. As peças para ela apontar
    para cá já existem e estão testadas — ver a seção logo abaixo.
+5. **Mapa de produto mudo desde 02/08 à tarde.** Compras aprovadas continuam
+   chegando e sendo marcadas como processadas, mas a última entrada em lista
+   de comprador + tag de turma vinda de compra real foi 02/08 16h24
+   (Brasília); o que aparece depois (madrugada de 03/08) foi o ensaio pela
+   tela. A tag `CASA_H_2026_08_10` nem chegou a ser criada, e o
+   `manychat_log` está parado desde então. Coincide com a reforma dos
+   estados da Hotmart — diagnosticar `venda` → `aplicar_mapa_produto` antes
+   de confiar em qualquer regra nova de produto.
 
 ---
 
@@ -106,24 +114,35 @@ O teste de 05/08: GET da página do formulário, POST no formato acima com um
 lead real — achado pelo WhatsApp sem criar duplicata, tag aplicada, nenhuma
 lista alterada, nenhum e-mail disparado.
 
-A ordem para concluir:
+A ordem para concluir (revista em 05/08 à noite, com `executar_webhooks`
+ligado e a decisão do Davi de manter a planilha como segurança):
 
 1. **Apontar a página de inscrição para cá.** De preferência direto: o POST é
-   público e qualquer construtor de página faz. Se a ferramenta não fizer
-   POST, um webhook novo no n8n pode receber e repassar o mesmo corpo. Ao
-   entrar na lista 6, a automação réplica "Lives Semanais" (ativa) manda o
-   e-mail "Inscrição confirmada" — envio real, no lugar do que o AC mandava.
-2. **Recadastrar a chave do ManyChat** em Configurações. A tabela `segredos`
-   está **vazia** (nem `manychat_api_key` nem `service_key`): hoje nenhuma
-   marcação no ManyChat sai daqui — nem esta, nem a da turma do Desafio, que
-   segue viva só porque os fluxos de comprador do n8n ainda a fazem.
-3. **Ativar a automação nova** — só depois do passo 2, e só quando o fluxo de
-   lives do n8n não estiver mais marcando: os dois juntos podem criar o
-   assinante em duplicidade no ManyChat.
-4. **Arquivar o fluxo das lives no n8n.** A réplica "Automação 19" (passo de
-   webhook para `livessemanais/inscrito`) fica obsoleta junto — mais um motivo
-   para `executar_webhooks` seguir desligado. A planilha do Google para de
-   crescer; o registro passa a ser a base (Leads → tag 85 → Exportar CSV).
+   público e qualquer construtor de página faz. Ao entrar na lista 6, a
+   automação réplica "Lives Semanais" (ativa) manda o e-mail "Inscrição
+   confirmada" — envio real, no lugar do que o AC mandava.
+2. **Adaptar o fluxo das lives no n8n para virar só a planilha.** Com
+   `executar_webhooks` ligado, a réplica "Automação 19" já chama
+   `livessemanais/inscrito` a cada entrada na lista 6 — mas com o payload da
+   Ressoa, que o fluxo não entende. A troca: gatilho continua o mesmo
+   webhook; os campos viram `contato.email`, `contato.nome`,
+   `contato.whatsapp` (já normalizado — o nó "Formatar telefone" de lá, que
+   ainda tem a regra velha do nono dígito, sai do caminho); os nós de
+   ManyChat saem (quem marca é a Ressoa — ver "Decisões do Davi em 05/08");
+   fica webhook → linha na planilha. Até essa adaptação, cada inscrição gera uma
+   execução quebrada no n8n — sem efeito além do ruído, porque a busca com
+   telefone vazio falha e o fluxo para.
+3. **Ativar a automação "[RESSOA] Lives Semanais — tag no ManyChat"** com um
+   teste controlado antes (armadilha 33: tela que salva não prova que o motor
+   executa — nenhum passo `manychat_tag` rodou pelo motor em produção ainda).
+   Aplicar a tag 85 num lead próprio, esperar o minuto do cron e conferir o
+   `manychat_log`.
+4. **Nada de arquivar o n8n**: decisão do Davi em 05/08 — a planilha é a
+   segurança e continua viva, alimentada agora pela Ressoa (passo 2).
+
+Correção do mesmo dia: a nota anterior dizia que a tabela `segredos` estava
+vazia — era um erro de leitura (consulta com `limit=0`, que devolve vazio por
+definição). `manychat_api_key` e `service_key` estão lá desde 02/08.
 
 ---
 
