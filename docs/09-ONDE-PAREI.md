@@ -68,6 +68,54 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
 5. **Última fotografia do AC.** O AC foi desligado; leads que entraram lá
    entre a migração e o desligamento podem não existir aqui. Se houver um
    export final: `python scripts/sincronizar_csv_ac.py "export.csv" --aplicar`.
+6. **Página das lives semanais sem destino.** Com o AC desligado, a inscrição
+   das lives está postando para um sistema morto. As peças para ela apontar
+   para cá já existem e estão testadas — ver a seção logo abaixo.
+
+---
+
+## Lives semanais: as peças prontas para assumir do n8n
+
+Como era: página de inscrição → ActiveCampaign (lista "Lives Semanais") → uma
+automação de lá chamava um fluxo no n8n, que marcava a pessoa no ManyChat (tag
+`LIVES SEMANAIS - INSCRITOS`), criava o assinante quando faltava e somava uma
+linha numa planilha do Google. Com o AC desligado esse caminho parou de
+receber gente — a última execução do fluxo foi na madrugada de 05/08.
+
+O que já existe aqui (criado e testado em 05/08/2026):
+
+- **Tag 85 `LIVES SEMANAIS - INSCRITOS`** — o espelho, na base, da tag que o
+  n8n aplicava no ManyChat.
+- **Formulário publicado `lives-semanais`** — inscreve na lista 6 (Lives
+  Semanais) e aplica a tag 85. Tem página própria em
+  `/functions/v1/formulario?f=lives-semanais`, e aceita POST direto com
+  `form_slug=lives-semanais` + `nome`, `email`, `whatsapp`.
+- **Automação "[RESSOA] Lives Semanais — tag no ManyChat"** — gatilho: tag 85
+  adicionada; passo único: marcar `LIVES SEMANAIS - INSCRITOS` no ManyChat,
+  criando o assinante se não existir. Nasceu **desativada**, de propósito.
+
+O teste de 05/08: GET da página do formulário, POST no formato acima com um
+lead real — achado pelo WhatsApp sem criar duplicata, tag aplicada, nenhuma
+lista alterada, nenhum e-mail disparado.
+
+A ordem para concluir:
+
+1. **Apontar a página de inscrição para cá.** De preferência direto: o POST é
+   público e qualquer construtor de página faz. Se a ferramenta não fizer
+   POST, um webhook novo no n8n pode receber e repassar o mesmo corpo. Ao
+   entrar na lista 6, a automação réplica "Lives Semanais" (ativa) manda o
+   e-mail "Inscrição confirmada" — envio real, no lugar do que o AC mandava.
+2. **Recadastrar a chave do ManyChat** em Configurações. A tabela `segredos`
+   está **vazia** (nem `manychat_api_key` nem `service_key`): hoje nenhuma
+   marcação no ManyChat sai daqui — nem esta, nem a da turma do Desafio, que
+   segue viva só porque os fluxos de comprador do n8n ainda a fazem.
+3. **Ativar a automação nova** — só depois do passo 2, e só quando o fluxo de
+   lives do n8n não estiver mais marcando: os dois juntos podem criar o
+   assinante em duplicidade no ManyChat.
+4. **Arquivar o fluxo das lives no n8n.** A réplica "Automação 19" (passo de
+   webhook para `livessemanais/inscrito`) fica obsoleta junto — mais um motivo
+   para `executar_webhooks` seguir desligado. A planilha do Google para de
+   crescer; o registro passa a ser a base (Leads → tag 85 → Exportar CSV).
 
 ---
 
