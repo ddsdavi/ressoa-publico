@@ -684,3 +684,31 @@ mostrados como boleto, pagamento pendente/expirado, cancelamento, reembolso ou c
 **Limpeza aplicada:** foram removidos apenas eventos derivados `compra_realizada`
 comprovadamente falsos, sem apagar pedidos nem corpos brutos dos webhooks. Histórico de
 compra seguida de reembolso ou chargeback foi preservado.
+
+---
+
+## 37. Porta pública que aceita `lista_id` do corpo é disparo anônimo
+
+**Sintoma:** nenhum — como na 23, o furo não avisa.
+
+**Causa:** o POST em `/formulario` sem `form_slug` lia `lista_id` e `tag_id` do próprio
+corpo. Qualquer pessoa, sem chave nenhuma, podia inscrever qualquer e-mail em qualquer
+lista — e, com o envio real destravado, lista com automação dispara e-mail de verdade,
+em nome da casa, para quem nunca pediu. O comentário no topo da função descrevia o
+risco… e protegia só o caminho com slug.
+
+**Regra:** porta de entrada pública só aceita do corpo o que diz respeito à própria
+pessoa (nome, e-mail, WhatsApp). O **destino** (lista, tag) ou vem do banco
+(`form_slug`), ou exige chave. A chamada por API confere `formulario_api_key` — cofre
+`public.segredos`, cabeçalho `x-api-key` ou campo `api_key`, trocável em Configurações →
+API e webhooks. Sem chave guardada o caminho fica **fechado**: trava que falha aberta é
+enfeite (armadilha 28).
+
+**Como conferir:**
+
+```bash
+curl -s -X POST "$SUPABASE_URL/functions/v1/formulario" \
+  -H "Content-Type: application/json" -d '{"email":"x@y.com","lista_id":6}'
+```
+
+Tem que responder recusa (401). Se inscrever, pare tudo e conserte.

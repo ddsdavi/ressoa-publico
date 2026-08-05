@@ -136,15 +136,26 @@ export default function ApiWebhooks({ embutido }: { embutido?: boolean } = {}) {
 
       {sub === "entrada" && (
       <div className="caixa">
-        <h2>Endereços para colar<Ajuda>São públicos de propósito: quem chama é a Hotmart, um formulário ou o ManyChat, e nenhum deles tem como guardar uma senha sua.</Ajuda></h2>
+        <h2>Endereços para colar<Ajuda>Quase todos são públicos de propósito: quem chama é a Hotmart, um formulário ou o ManyChat, e nenhum deles tem como guardar uma senha sua. A exceção é a captação por API, que escolhe lista e tag no próprio corpo — essa exige a chave de captação.</Ajuda></h2>
         <div style={{ fontSize: "calc(13.5px * var(--escala-texto))", lineHeight: 1.7, marginBottom: 6 }}>
-          Não precisam de chave — são as portas de entrada do mundo pro seu Active.
+          As portas de entrada do mundo pro seu Active.
         </div>
-        <label>Captação de lead (substitui os formulários do AC — usar em landing page, ManyChat, n8n, checkout)</label>
+        <label>Captação com formulário (público — a lista e a tag vêm do cadastro do formulário, nunca do corpo)</label>
         <Codigo>{`curl -X POST "${BASE_FUNC}/formulario" \\
   -H "Content-Type: application/json" \\
+  -d '{"form_slug": "meu-formulario", "email": "lead@email.com",
+       "nome": "Fulana", "whatsapp": "61999998888"}'`}</Codigo>
+        <label>Captação por API, sem formulário (escolhe lista e tag no corpo — exige a chave de captação)</label>
+        <Codigo>{`curl -X POST "${BASE_FUNC}/formulario" \\
+  -H "Content-Type: application/json" -H "x-api-key: SUA_CHAVE_DE_CAPTACAO" \\
   -d '{"email": "lead@email.com", "nome": "Fulana", "whatsapp": "61999998888",
-       "lista_id": 17, "tag_id": 45, "form_slug": "casa-h-semana-32"}'`}</Codigo>
+       "lista_id": 17, "tag_id": 45}'`}</Codigo>
+        <div style={{ fontSize: "calc(13px * var(--escala-texto))", lineHeight: 1.7, margin: "6px 0 4px" }}>
+          A chave de captação se cria em <b>Configurações → API e webhooks</b>. Sem{" "}
+          <code>form_slug</code> e sem ela, o POST é recusado — senão qualquer um
+          inscreveria qualquer e-mail em qualquer lista, e lista com automação dispara
+          e-mail de verdade.
+        </div>
         <label>Venda (Hotmart e qualquer outro checkout)</label>
         <Codigo>{`${BASE_FUNC}/venda`}</Codigo>
         <div style={{ fontSize: "calc(13px * var(--escala-texto))", lineHeight: 1.7, margin: "6px 0 4px" }}>

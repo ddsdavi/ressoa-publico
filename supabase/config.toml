@@ -1,3 +1,7 @@
 [functions.venda]
 verify_jwt = false
 entrypoint = "../app/functions/venda/index.ts"
+
+[functions.formulario]
+verify_jwt = false
+entrypoint = "../app/functions/formulario/index.ts"

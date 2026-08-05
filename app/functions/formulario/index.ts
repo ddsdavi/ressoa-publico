@@ -4,10 +4,14 @@
 //                               usar como link ou dentro de um <iframe>
 //   POST /formulario          → recebe o cadastro
 //
-// Segurança: quando vem `form_slug`, a lista e a tag são lidas do BANCO,
-// nunca do que chegou na requisição. Sem isso, qualquer um poderia mandar
-// um POST inscrevendo gente em qualquer lista — inclusive numa que dispara
-// automação com envio de e-mail.
+// Segurança, em dois caminhos:
+//   - com `form_slug`, a lista e a tag são lidas do BANCO, nunca do que
+//     chegou na requisição — por isso esse caminho pode ser público;
+//   - sem `form_slug` (a chamada por API), lista_id e tag_id vêm do corpo:
+//     quem chama decide onde a pessoa entra, inclusive numa lista que
+//     dispara automação com e-mail real. Esse caminho exige a chave
+//     `formulario_api_key` do cofre (public.segredos), no cabeçalho
+//     `x-api-key` ou no campo `api_key` do corpo.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const supabase = createClient(
@@ -17,7 +21,7 @@ const supabase = createClient(
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Allow-Headers": "content-type, x-api-key",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
@@ -166,6 +170,22 @@ Deno.serve(async (req) => {
     tagId = f.tag_fk;
     redirect = f.redirecionar ?? null;
     await supabase.rpc("incrementar_envios_formulario", { p_slug: slug }).then(() => {}, () => {});
+  } else {
+    // Chamada por API: só passa com a chave do cofre — trocável na tela de
+    // Configurações, sem redeploy. Sem chave guardada, o caminho fica
+    // fechado de propósito: trava que falha aberta é enfeite.
+    const { data: seg } = await supabase.from("segredos")
+      .select("valor").eq("chave", "formulario_api_key").maybeSingle();
+    const esperada = (seg?.valor ?? "").trim();
+    const recebida = (req.headers.get("x-api-key") ?? String(body.api_key ?? "")).trim();
+    if (!esperada) {
+      return new Response(JSON.stringify({ erro: "chamada por API desligada: nenhuma chave configurada" }),
+        { status: 503, headers: cors });
+    }
+    if (recebida !== esperada) {
+      return new Response(JSON.stringify({ erro: "chave da API ausente ou incorreta" }),
+        { status: 401, headers: cors });
+    }
   }
 
   // 1) localiza por whatsapp, depois por e-mail

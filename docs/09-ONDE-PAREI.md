@@ -22,7 +22,7 @@ reconstituir a conversa.
 - `executar_webhooks` foi **ligado em 05/08/2026** por decisão do Davi: os
   POSTs para n8n/Boost.space herdados das automações do AC voltam a sair
   quando os gatilhos (listas/tags de lançamento) receberem gente.
-- 36 armadilhas conhecidas estão em [06-PROBLEMAS-CONHECIDOS.md](06-PROBLEMAS-CONHECIDOS.md).
+- 37 armadilhas conhecidas estão em [06-PROBLEMAS-CONHECIDOS.md](06-PROBLEMAS-CONHECIDOS.md).
   Vale ler antes de mexer em qualquer coisa; várias custaram horas.
 
 ---
@@ -69,6 +69,16 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
   "Compradores …" + tag `COMPROU_*`, reembolso/cancelamento no padrão das
   outras, ManyChat de fora. Vale para compras novas — e só produz efeito
   quando o mapa de produto voltar a rodar (pendência abaixo).
+- **Captação por API fechada com chave.** O POST em `/formulario` **sem**
+  `form_slug` — o que escolhe `lista_id`/`tag_id` no corpo — passou a exigir a
+  chave `formulario_api_key` (cofre `public.segredos`), no cabeçalho
+  `x-api-key` ou no campo `api_key`. Antes, qualquer anônimo inscrevia
+  qualquer e-mail em qualquer lista, e com o envio destravado isso disparava
+  e-mail real (armadilha 37). Formulários publicados (com `form_slug`)
+  continuam públicos. A chave se troca em Configurações → API e webhooks; o
+  valor atual está no `.env` local (`FORMULARIO_API_KEY`), fora do
+  repositório. Ninguém usava o caminho sem slug (zero `source = form:api` na
+  base) — nada quebrou.
 
 ## O que está pendente
 

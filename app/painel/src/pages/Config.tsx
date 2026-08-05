@@ -43,6 +43,9 @@ export default function Config() {
   const [mcChave, setMcChave] = useState("");
   const [mcConfigurado, setMcConfigurado] = useState(false);
   const [mcResposta, setMcResposta] = useState("");
+  const [capChave, setCapChave] = useState("");
+  const [capConfigurada, setCapConfigurada] = useState(false);
+  const [capResposta, setCapResposta] = useState("");
   const [aba, setAba] = useState("email");
   const [naFila, setNaFila] = useState(0);
 
@@ -53,6 +56,7 @@ export default function Config() {
     // pergunta se a chave existe, não qual é — a função devolve só o fato
     const { data: seg } = await supabase.rpc("segredos_configurados");
     setMcConfigurado(!!(seg as Record<string, unknown>)?.manychat_api_key);
+    setCapConfigurada(!!(seg as Record<string, unknown>)?.formulario_api_key);
 
     // quanto está represado agora — é o número que dá sentido ao "pausar"
     const { count } = await supabase.from("envios")
@@ -69,6 +73,16 @@ export default function Config() {
     setMcChave("");
     setMcConfigurado(true);
     setMcResposta("✓ Chave guardada. Clique em Testar para confirmar que o ManyChat aceita.");
+  }
+
+  async function salvarChaveCaptacao() {
+    const { error } = await supabase.rpc("guardar_segredo", {
+      p_chave: "formulario_api_key", p_valor: capChave.trim(),
+    });
+    if (error) { setCapResposta("Não deu para guardar: " + error.message); return; }
+    setCapChave("");
+    setCapConfigurada(true);
+    setCapResposta("✓ Chave guardada. Atualize quem chama a captação por API — a antiga parou de valer.");
   }
 
   async function testarManyChat() {
@@ -350,6 +364,44 @@ export default function Config() {
         <div style={{ marginTop: 14 }}>
           <button className="primario" onClick={salvar}>{salvo ? "Salvo ✓" : "Salvar"}</button>
         </div>
+      </div>
+      )}
+
+      {aba === "api" && (
+      <div className="caixa">
+        <h2>Chave da API de captação</h2>
+
+        <label style={{ marginTop: 10 }}>
+          Chave
+          {capConfigurada && <span style={{ color: "var(--marca)" }}> · configurada ✓</span>}
+          <Ajuda>
+            Protege a captação por API — o POST em <b>/formulario</b> sem{" "}
+            <b>form_slug</b>, que escolhe lista e tag no próprio corpo. Sem ela no
+            cabeçalho <b>x-api-key</b>, esse POST é recusado; os formulários
+            publicados continuam públicos, porque neles a lista vem do banco.
+            Depois de guardada ela não aparece mais aqui — fica num lugar do banco
+            que o navegador não lê. Para trocar, digite a nova por cima.
+          </Ajuda>
+        </label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input type="password" value={capChave} style={{ flex: 1 }}
+            placeholder={capConfigurada ? "••••••••  (digite para trocar)" : "cole aqui uma chave longa e aleatória"}
+            onChange={(e) => setCapChave(e.target.value)} />
+          <button onClick={salvarChaveCaptacao} disabled={!capChave.trim()}>Guardar</button>
+        </div>
+
+        {!capConfigurada && (
+          <div className="aviso" style={{ marginTop: 10 }}>
+            Sem chave guardada, a captação por API fica fechada. Os formulários
+            publicados não dependem dela.
+          </div>
+        )}
+
+        {capResposta && (
+          <div className={capResposta.startsWith("✓") ? "sub" : "aviso"} style={{ marginTop: 10 }}>
+            {capResposta}
+          </div>
+        )}
       </div>
       )}
 

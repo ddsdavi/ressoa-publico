@@ -99,14 +99,26 @@ curl -X POST "$SUPABASE_URL/rest/v1/lead_tags" \
   -d '{"lead_fk":"UUID","tag_fk":65}'
 ```
 
-**Captação sem chave** (landing page, ManyChat, n8n) — cria o lead, inscreve na lista e
-aplica a tag numa tacada:
+**Captação com formulário** (landing page, construtor de página) — pública; a lista e a
+tag vêm do cadastro do formulário, nunca do corpo:
 
 ```bash
 curl -X POST "$SUPABASE_URL/functions/v1/formulario" \
   -H "Content-Type: application/json" \
+  -d '{"form_slug":"meu-formulario","email":"lead@email.com",
+       "nome":"Fulana","whatsapp":"61999998888"}'
+```
+
+**Captação por API** (ManyChat, n8n, checkout próprio) — escolhe `lista_id`/`tag_id` no
+corpo, por isso exige a **chave de captação** (Configurações → API e webhooks) no
+cabeçalho `x-api-key` ou no campo `api_key`. Sem `form_slug` e sem a chave, o POST é
+recusado (armadilha 37):
+
+```bash
+curl -X POST "$SUPABASE_URL/functions/v1/formulario" \
+  -H "Content-Type: application/json" -H "x-api-key: $CHAVE_CAPTACAO" \
   -d '{"email":"lead@email.com","nome":"Fulana","whatsapp":"61999998888",
-       "lista_id":17,"tag_id":45,"form_slug":"casa-h-semana-32"}'
+       "lista_id":17,"tag_id":45}'
 ```
 
 **Webhooks de saída:** cadastre a URL do seu n8n em **API & Webhooks** e escolha os eventos
