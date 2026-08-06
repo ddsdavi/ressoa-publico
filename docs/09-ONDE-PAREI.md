@@ -264,7 +264,7 @@ ligado e a decisão do Davi de manter a planilha como segurança):
    mandava. Falta só a prova com uma pessoa NOVA (não feita de propósito:
    exigiria inventar um telefone, e número inventado pode ser de terceiro real).
 2. ~~**Planilha sem n8n.**~~ **FEITO E PROVADO em 06/08 (madrugada).** A conta
-   Google (dds.davi@gmail.com) foi conectada em Configurações → Planilhas —
+   Google (a conta pessoal do Davi) foi conectada em Configurações → Planilhas —
    agora é um botão só; o app OAuth ("Ressoa", projeto Google Cloud
    `ressoa-504702`, consentimento Em produção) mora nos secrets da função
    (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`), não na tela. O passo
