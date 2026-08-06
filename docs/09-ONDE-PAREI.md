@@ -147,20 +147,35 @@ confirmação**, e nada no painel denunciava isso (o passo aparecia montado).
 Agora aponta para a mensagem `20d3fec7…` ("✅ Inscrição confirmada", que já
 estava na biblioteca, vinda do AC).
 
-**A varredura foi feita, e o buraco é maior.** Estas automações **ativas** têm
-passo de e-mail sem `mensagem_id` — ou seja, **estão no ar sem enviar nada**:
+**A varredura achou mais cinco no mesmo estado — todas ligadas em 06/08** a
+pedido do Davi, casando pelo assunto que estava guardado no config:
 
-| Automação ativa | O e-mail que não sai |
-|---|---|
-| **Hotmart Purchase Confirmation Email** | confirmação de compra |
-| 16LC_CADASTRADOS | boas-vindas do lançamento |
-| 18LC_NOV25_BLACK - Inscritos | boas-vindas da Black |
-| LP_COMPROU_INGRESSO_IMER_TERAP | confirmação de ingresso |
-| LSHT_DEZ25 | boas-vindas |
+| Automação ativa | Dispara quando | Agora envia |
+|---|---|---|
+| Hotmart Purchase Confirmation Email | ganha a tag `ALUNO_IMERSÃO_TERAPÊUTICA` | 🎉 Sua vaga na Imersão Terapêutica está confirmada! |
+| LP_COMPROU_INGRESSO_IMER_TERAP | entra na lista de comprador do ingresso | Boas-vindas à Imersão Terapêutica |
+| 16LC_CADASTRADOS | entra na lista `16LC_SET25` | Confirme a sua inscrição |
+| 18LC_NOV25_BLACK - Inscritos | entra na lista `18LC_NOV25_BLACK` | Finalize a sua inscrição |
+| LSHT_DEZ25 | entra na lista `LSHT_DEZ25` | Confirme a sua inscrição na live exclusiva |
 
-(Também `DESAFIO_CASA_HARMONIZADA` e `LP_2026_01_03_COMPRADORES_INGRESSO`, as
-duas desligadas.) Consertar exige escolher **qual mensagem da biblioteca vai em
-cada uma** — decisão de conteúdo, do Davi. A consulta que acha:
+Seguem mudas, de propósito, as duas **desligadas**: `DESAFIO_CASA_HARMONIZADA`
+e `LP_2026_01_03_COMPRADORES_INGRESSO`.
+
+> **⚠️ Texto vencido em duas delas — revisar antes que recebam tráfego.**
+> As mensagens vieram do AC como estavam:
+> - **Confirmação de Compra (Imersão):** diz "Data de Início: **Sábado
+>   28/03/2026 09:00**" — data que já passou. É a mais urgente: o gatilho é
+>   uma compra, que pode acontecer a qualquer momento.
+> - **16LC_CADASTRADOS:** diz "aulas nos dias **08, 10 e 12 de Setembro, às
+>   08:00**" — datas de setembro/2025.
+> - **18LC_NOV25_BLACK:** manda entrar num grupo de WhatsApp com link direto
+>   (`chat.whatsapp.com/HPL5…`), de novembro/2025 — pode estar cheio ou morto.
+>
+> As outras duas envelhecem bem: **AC #95** (Imersão) e **AC #71** (live
+> exclusiva) não citam data e usam links permanentes
+> (`links.drapatriciadomingos.com.br/grupo`).
+
+A consulta que encontra passos mudos:
 
 ```sql
 select a.nome, a.ativa from automacao_passos p
