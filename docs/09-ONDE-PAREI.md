@@ -143,12 +143,15 @@ mesclagem de tag deixando gatilho órfão. Provado em produção: automação de
 teste com lista 6 + tag 85 salvou como array, o motor leu os dois, e as 13
 ativas continuaram legíveis.
 
-**Arrastar as caixinhas.** Os passos do quadro têm alça (⠿) e se reordenam
+**Arrastar as caixinhas — passos E gatilhos.** Os dois têm alça (⠿) e se reordenam
 por arrasto, com linha roxa mostrando onde a caixinha vai cair; as setas
 ↑/↓ da gaveta continuam para quem prefere clique. Detalhe de implementação
 que importa: a posição de origem viaja no `dataTransfer` do próprio evento,
 não no estado do React — entre o "peguei" e o "soltei" pode não haver
-re-render, e ler o estado ali derrubava a solta.
+re-render, e ler o estado ali derrubava a solta. Gatilhos e passos são
+zonas separadas, cada arrasto viaja com um tipo próprio
+(`application/x-ressoa-gatilho` / `-passo`) e o navegador recusa a solta na
+zona errada — testado: gatilho não cai no meio dos passos.
 
 ---
 

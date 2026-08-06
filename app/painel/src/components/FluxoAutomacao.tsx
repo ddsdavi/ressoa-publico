@@ -408,9 +408,16 @@ export default function FluxoAutomacao({
   // número = passo; {g: n} = o gatilho de índice n
   const [editando, setEditando] = useState<number | { g: number } | null>(null);
   const [zoom, setZoom] = useState(100);
-  // arrastar as caixinhas: qual está sendo levada e onde ela cairia
+  // arrastar as caixinhas: qual está sendo levada e onde ela cairia.
+  // Passos e gatilhos são zonas separadas — o "tipo" do arrasto viaja no
+  // dataTransfer (application/x-ressoa-*), e cada zona só aceita o seu:
+  // soltar um gatilho no meio dos passos é recusado pelo próprio navegador.
+  const TIPO_PASSO = "application/x-ressoa-passo";
+  const TIPO_GATILHO = "application/x-ressoa-gatilho";
   const [arrastando, setArrastando] = useState<number | null>(null);
   const [alvoSolta, setAlvoSolta] = useState<number | null>(null);
+  const [arrastandoG, setArrastandoG] = useState<number | null>(null);
+  const [alvoG, setAlvoG] = useState<number | null>(null);
 
   // ---- um gatilho ou vários, sempre lidos como lista ----
   const gats: Record<string, any>[] = Array.isArray(gatilho)
@@ -583,6 +590,22 @@ export default function FluxoAutomacao({
     setEditando(null);
   }
 
+  // o mesmo, para os gatilhos
+  function soltarGatilhoEm(destino: number, origemDoEvento?: string) {
+    const origem = origemDoEvento !== undefined && origemDoEvento !== ""
+      ? Number(origemDoEvento)
+      : arrastandoG;
+    setArrastandoG(null);
+    setAlvoG(null);
+    if (origem === null || Number.isNaN(origem) || origem === destino) return;
+    if (origem < 0 || origem >= gats.length) return;
+    const c = [...gats];
+    const [levado] = c.splice(origem, 1);
+    c.splice(destino, 0, levado);
+    salvarGatilhos(c);
+    setEditando(null);
+  }
+
   function mover(i: number, dir: -1 | 1) {
     const alvo = i + dir;
     if (alvo < 0 || alvo >= passos.length) return;
@@ -692,7 +715,22 @@ export default function FluxoAutomacao({
           )}
 
           {gats.map((g, i) => (
-            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
+              onDragOver={(ev) => {
+                // só aceita arrasto de GATILHO — passo solto aqui é recusado
+                if (!ev.dataTransfer.types.includes(TIPO_GATILHO)) return;
+                ev.preventDefault();
+                if (alvoG !== i) setAlvoG(i);
+              }}
+              onDrop={(ev) => {
+                if (!ev.dataTransfer.types.includes(TIPO_GATILHO)) return;
+                ev.preventDefault();
+                soltarGatilhoEm(i, ev.dataTransfer.getData(TIPO_GATILHO));
+              }}>
+              {alvoG === i && arrastandoG !== null && arrastandoG !== i && (
+                <div style={{ width: 420, maxWidth: "100%", height: 3, borderRadius: 3,
+                              background: "var(--marca)", margin: "6px 0" }} />
+              )}
               {i > 0 && (
                 <div style={{
                   margin: "8px 0", padding: "2px 12px", borderRadius: 999,
@@ -700,7 +738,26 @@ export default function FluxoAutomacao({
                   fontSize: "calc(11.5px * var(--escala-texto))", fontWeight: 700,
                 }}>OU</div>
               )}
-              <div style={cartao(gatilhoOk(g))} onClick={() => setEditando({ g: i })}>
+              <div draggable={gats.length > 1}
+                onDragStart={(ev) => {
+                  setArrastandoG(i);
+                  ev.dataTransfer.effectAllowed = "move";
+                  ev.dataTransfer.setData(TIPO_GATILHO, String(i));
+                  ev.dataTransfer.setData("text/plain", String(i)); // Firefox exige algo aqui
+                }}
+                onDragEnd={() => { setArrastandoG(null); setAlvoG(null); }}
+                style={{
+                  ...cartao(gatilhoOk(g)),
+                  opacity: arrastandoG === i ? .4 : 1,
+                }}
+                onClick={() => setEditando({ g: i })}>
+                {gats.length > 1 && (
+                  <span title="arraste para mudar a ordem"
+                    style={{ flex: "0 0 auto", cursor: "grab", color: "var(--texto2)",
+                             fontSize: "calc(15px * var(--escala-texto))", lineHeight: 1,
+                             letterSpacing: -2, userSelect: "none" }}
+                    onClick={(ev) => ev.stopPropagation()}>⠿</span>
+                )}
                 <div style={{
                   width: 38, height: 38, borderRadius: "50%", flex: "0 0 auto",
                   background: "rgba(107,78,168,.12)", display: "flex",
@@ -740,12 +797,15 @@ export default function FluxoAutomacao({
           {passos.map((p, i) => (
             <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
               onDragOver={(ev) => {
+                // só aceita arrasto de PASSO — gatilho solto aqui é recusado
+                if (!ev.dataTransfer.types.includes(TIPO_PASSO)) return;
                 ev.preventDefault();          // sem isto o navegador recusa a solta
                 if (alvoSolta !== i) setAlvoSolta(i);
               }}
               onDrop={(ev) => {
+                if (!ev.dataTransfer.types.includes(TIPO_PASSO)) return;
                 ev.preventDefault();
-                soltarEm(i, ev.dataTransfer.getData("text/plain"));
+                soltarEm(i, ev.dataTransfer.getData(TIPO_PASSO));
               }}>
               {/* linha que mostra onde a caixinha vai cair */}
               {alvoSolta === i && arrastando !== null && arrastando !== i && (
@@ -756,8 +816,8 @@ export default function FluxoAutomacao({
                 onDragStart={(ev) => {
                   setArrastando(i);
                   ev.dataTransfer.effectAllowed = "move";
-                  // o Firefox só inicia o arrasto se algo for escrito aqui
-                  ev.dataTransfer.setData("text/plain", String(i));
+                  ev.dataTransfer.setData(TIPO_PASSO, String(i));
+                  ev.dataTransfer.setData("text/plain", String(i)); // Firefox exige algo aqui
                 }}
                 onDragEnd={() => { setArrastando(null); setAlvoSolta(null); }}
                 style={{
