@@ -105,9 +105,17 @@ Deno.serve(async (req) => {
     return p?.[0]?.papel === "admin" && p?.[0]?.status === "aprovado";
   };
 
-  const ehMotor = () => {
+  // Projetos novos do Supabase têm dois jogos de chave: o env desta função
+  // recebe o formato novo (sb_secret_…), mas o motor manda a service key
+  // guardada em segredos — que pode ser o JWT antigo. Os dois valem; recusar
+  // o do motor é quebrar o passo de planilha em produção, em silêncio.
+  const ehMotor = async () => {
     const auth = req.headers.get("Authorization") ?? "";
-    return auth.replace(/^Bearer\s+/i, "").trim() === chave;
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    if (!token) return false;
+    if (token === chave) return true;
+    const s = await segredos(["service_key"]);
+    return !!s.service_key && token === s.service_key;
   };
 
   // ---------- access token válido, renovando quando preciso ----------
@@ -226,7 +234,7 @@ Deno.serve(async (req) => {
   try {
     // ---- o motor escrevendo a linha (chega com a service key) ----
     if (acao === "acrescentar") {
-      if (!ehMotor()) return erro("só o motor chama esta ação", 403);
+      if (!(await ehMotor())) return erro("só o motor chama esta ação", 403);
       const planilha = String(corpo.planilha_id ?? "");
       const aba = String(corpo.aba ?? "");
       const colunas = (corpo.colunas as string[]) ?? [];
