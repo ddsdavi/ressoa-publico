@@ -128,7 +128,7 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
 
 ## Lives semanais: a planilha fecha o ciclo (06/08/2026)
 
-Conta Google conectada (`dds.davi@gmail.com`, projeto Cloud "Ressoa") e o
+Conta Google conectada (a conta pessoal do Davi, projeto Cloud "Ressoa") e o
 passo de planilha plantado na automação das lives, apontando para
 "[PATRÍCIA DOMINGOS] Lives semanais - inscritos". Uma inscrição real
 percorreu: lista → tag → ManyChat (01:10) → **linha na planilha (01:11)**.
