@@ -47,7 +47,8 @@ export default function Escolher({
   style?: React.CSSProperties;
 }) {
   const [aberto, setAberto] = useState(false);
-  // null = ainda não digitou: o campo mostra o que está escolhido e a lista vem inteira
+  // null = fechado, e o campo mostra o nome do que está escolhido. Aberto, é
+  // sempre texto (começa em "") — o campo passa a ser a caixa de busca.
   const [busca, setBusca] = useState<string | null>(null);
   const [destaque, setDestaque] = useState(0);
   const [pos, setPos] = useState<{
@@ -74,12 +75,22 @@ export default function Escolher({
     return palavras.every((p) => alvo.includes(p));
   });
 
+  // Abrir limpa o campo: ele vira a caixa de busca, vazia, esperando o que
+  // você vai digitar. O nome antigo continuar ali era estranho — parecia que
+  // o campo já tinha texto a apagar, e digitar em cima dele colava as duas
+  // coisas ("16LC_SET25black"). Quem estava escolhido segue marcado com ✓ na
+  // lista, e volta sozinho ao campo se você fechar sem escolher outro.
   function abrir() {
     if (desabilitado || aberto) return;
-    setBusca(null);
+    setBusca("");
     const i = todas.findIndex((o) => String(o.valor) === atual);
     setDestaque(i < 0 ? 0 : i);
     setAberto(true);
+  }
+  function digitou(texto: string) {
+    setBusca(texto);
+    setDestaque(0);
+    if (!aberto) setAberto(true);
   }
   function fechar() {
     setAberto(false);
@@ -100,8 +111,13 @@ export default function Escolher({
       const el = caixaRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      const folgaAbaixo = window.innerHeight - r.bottom - 10;
-      const folgaAcima = r.top - 10;
+      // no celular o teclado sobe por cima da página sem encolhê-la: quem sabe
+      // o que ainda dá para ver é a janela visual, não a altura da página
+      const vv = window.visualViewport;
+      const tetoVisivel = vv ? vv.offsetTop : 0;
+      const chaoVisivel = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      const folgaAbaixo = chaoVisivel - r.bottom - 10;
+      const folgaAcima = r.top - tetoVisivel - 10;
       const paraCima = folgaAbaixo < 190 && folgaAcima > folgaAbaixo;
       // campo estreito (os de "por página") não pode espremer o nome das opções
       const largura = Math.max(r.width, 200);
@@ -171,13 +187,9 @@ export default function Escolher({
         title={titulo}
         disabled={desabilitado}
         value={busca ?? escolhida?.rotulo ?? ""}
-        placeholder={escolhida ? "" : dica}
+        placeholder={aberto ? "digite para buscar…" : (escolhida ? "" : dica)}
         onMouseDown={abrir}
-        onChange={(e) => {
-          setBusca(e.target.value);
-          setDestaque(0);
-          if (!aberto) setAberto(true);
-        }}
+        onChange={(e) => digitou(e.target.value)}
         onKeyDown={tecla}
         onBlur={fechar}
       />

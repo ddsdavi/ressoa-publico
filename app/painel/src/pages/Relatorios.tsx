@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import Escolher from "../components/Escolher";
 
 // Relatórios. Tudo chega somado do banco: somar linha a linha no navegador
 // é a armadilha nº 1 deste projeto — a API corta em 1.000 registros e a
@@ -196,10 +197,8 @@ export default function Relatorios() {
               mas não vira R$ na marra.
             </div>
             <div className="linha" style={{ marginTop: 10 }}>
-              <select style={{ maxWidth: 300 }} value={dimensao}
-                onChange={(e) => setDimensao(e.target.value)}>
-                {DIMENSOES.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
-              </select>
+              <Escolher style={{ maxWidth: 300 }} valor={dimensao} aoMudar={setDimensao}
+                opcoes={DIMENSOES.map(([v, r]) => ({ valor: v, rotulo: r }))} />
             </div>
             <table style={{ marginTop: 12 }}>
               <thead><tr>
@@ -341,11 +340,9 @@ export default function Relatorios() {
         <div className="caixa">
           <h2>Análise de campo</h2>
           <div className="sub">Quais valores aparecem num campo próprio e com que frequência.</div>
-          <select style={{ marginTop: 10, maxWidth: 380 }} value={campoSel}
-            onChange={(e) => setCampoSel(e.target.value)}>
-            <option value="">— escolher o campo —</option>
-            {campos.map((c) => <option key={c.chave} value={c.chave}>{c.rotulo}</option>)}
-          </select>
+          <Escolher style={{ marginTop: 10, maxWidth: 380 }} valor={campoSel}
+            aoMudar={setCampoSel} vazio="— escolher o campo —"
+            opcoes={campos.map((c) => ({ valor: c.chave, rotulo: c.rotulo }))} />
 
           {campoSel && (
             <table style={{ marginTop: 12 }}>

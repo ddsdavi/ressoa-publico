@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import Escolher from "../components/Escolher";
 
 type Envio = {
   envio_id: string; status: string; provider: string | null;
@@ -240,10 +241,9 @@ export default function Envios() {
             {totalSup === 0 ? "nenhum" :
               `${pagina * porPagina + 1}–${Math.min((pagina + 1) * porPagina, totalSup)} de ${totalSup}`}
           </span>
-          <select style={{ flex: "0 0 auto", width: "auto" }} value={porPagina}
-            onChange={(e) => setPorPagina(Number(e.target.value))}>
-            {[10, 25, 50, 75, 100].map((n) => <option key={n} value={n}>{n} por página</option>)}
-          </select>
+          <Escolher style={{ flex: "0 0 auto", width: 150 }} valor={porPagina}
+            aoMudar={(v) => setPorPagina(Number(v))}
+            opcoes={[10, 25, 50, 75, 100].map((n) => ({ valor: n, rotulo: `${n} por página` }))} />
           <button style={{ flex: "0 0 auto" }} disabled={pagina === 0}
             onClick={() => setPagina((p) => p - 1)}>← anterior</button>
           <button style={{ flex: "0 0 auto" }} disabled={(pagina + 1) * porPagina >= totalSup}

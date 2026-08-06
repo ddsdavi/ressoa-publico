@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { useSessao } from "../lib/sessao";
 import EditorEmail from "../components/EditorEmail";
 import { useNavigate } from "react-router-dom";
+import Escolher from "../components/Escolher";
 
 // Os tipos de campanha. Só entram aqui os que o motor executa de verdade —
 // dois deles não são campanha, são automação, e por isso levam para lá em
@@ -499,10 +500,9 @@ export default function Campanhas() {
                 ))}
               </div>
             ) : (
-              <select value={segSel} onChange={(e) => setSegSel(e.target.value)}>
-                <option value="">— escolher segmento (salve em Leads → 💾) —</option>
-                {segmentos.map((s) => <option key={s.segmento_id} value={s.segmento_id}>{s.nome}</option>)}
-              </select>
+              <Escolher valor={segSel} aoMudar={setSegSel}
+                vazio="— escolher segmento (salve em Leads → 💾) —"
+                opcoes={segmentos.map((s) => ({ valor: s.segmento_id, rotulo: s.nome }))} />
             )}
 
             <div style={{

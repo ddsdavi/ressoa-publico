@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSessao } from "../lib/sessao";
 import { useNavigate } from "react-router-dom";
+import Escolher from "../components/Escolher";
 
 type Lista = { lista_id: number; nome: string; descricao: string | null };
 type Contagem = { ativos: number; descadastrados: number; bounces: number; total: number };
@@ -157,10 +158,9 @@ export default function Listas() {
         </table>
         <div className="paginacao">
           <span>Linhas:</span>
-          <select style={{ width: 90 }} value={porPagina}
-            onChange={(e) => { setPorPagina(Number(e.target.value)); setPagina(0); }}>
-            {[10, 25, 50, 75, 100].map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+          <Escolher style={{ width: 90, flex: "0 0 auto" }} valor={porPagina}
+            aoMudar={(v) => { setPorPagina(Number(v)); setPagina(0); }}
+            opcoes={[10, 25, 50, 75, 100].map((n) => ({ valor: n, rotulo: String(n) }))} />
           <span>{todas.length.toLocaleString("pt-BR")} listas</span>
           <button disabled={pagina === 0} onClick={() => setPagina(pagina - 1)}>‹</button>
           <span>página {pagina + 1} de {paginas}</span>

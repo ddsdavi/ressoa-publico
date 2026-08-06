@@ -4,6 +4,7 @@ import { parseCsv, adivinharColuna } from "../lib/csv";
 import { useSessao } from "../lib/sessao";
 import { useSearchParams } from "react-router-dom";
 import ManyChatLeadDrawer, { type LeadParaManyChat } from "../components/ManyChatLeadDrawer";
+import Escolher from "../components/Escolher";
 
 type Lead = {
   lead_pontuacao?: { pontos: number } | { pontos: number }[] | null;
@@ -700,69 +701,55 @@ export default function Leads() {
           </div>
         )}
         <div className="linha" style={{ marginTop: 10 }}>
-          <select value={fLista} onChange={(e) => { setFLista(e.target.value); setSegAvancado(null); setPagina(0); }}>
-            <option value="">Lista: todas</option>
-            {listas.map((l) => <option key={l.lista_id} value={l.lista_id}>{l.nome}</option>)}
-          </select>
-          <select value={fStatusLista} disabled={!fLista}
-            onChange={(e) => { setFStatusLista(e.target.value); setPagina(0); }}>
-            <option value="">Status na lista: qualquer</option>
-            <option value="1">ativo</option>
-            <option value="2">descadastrado</option>
-            <option value="3">bounce</option>
-            <option value="0">não confirmado</option>
-          </select>
-          <select value={fTag} onChange={(e) => { setFTag(e.target.value); setSegAvancado(null); setPagina(0); }}>
-            <option value="">Tag: todas</option>
-            {tags.map((t) => <option key={t.tag_id} value={t.tag_id}>{t.nome}</option>)}
-          </select>
-          <select value={fWhatsapp} onChange={(e) => { setFWhatsapp(e.target.value); setSegAvancado(null); setPagina(0); }}>
-            <option value="">WhatsApp: tanto faz</option>
-            <option value="com">com WhatsApp</option>
-            <option value="sem">sem WhatsApp</option>
-          </select>
+          <Escolher valor={fLista} vazio="Lista: todas"
+            aoMudar={(v) => { setFLista(v); setSegAvancado(null); setPagina(0); }}
+            opcoes={listas.map((l) => ({ valor: l.lista_id, rotulo: l.nome }))} />
+          <Escolher valor={fStatusLista} desabilitado={!fLista} vazio="Status na lista: qualquer"
+            aoMudar={(v) => { setFStatusLista(v); setPagina(0); }}
+            opcoes={[
+              { valor: "1", rotulo: "ativo" },
+              { valor: "2", rotulo: "descadastrado" },
+              { valor: "3", rotulo: "bounce" },
+              { valor: "0", rotulo: "não confirmado" },
+            ]} />
+          <Escolher valor={fTag} vazio="Tag: todas"
+            aoMudar={(v) => { setFTag(v); setSegAvancado(null); setPagina(0); }}
+            opcoes={tags.map((t) => ({ valor: t.tag_id, rotulo: t.nome }))} />
+          <Escolher valor={fWhatsapp} vazio="WhatsApp: tanto faz"
+            aoMudar={(v) => { setFWhatsapp(v); setSegAvancado(null); setPagina(0); }}
+            opcoes={[
+              { valor: "com", rotulo: "com WhatsApp" },
+              { valor: "sem", rotulo: "sem WhatsApp" },
+            ]} />
         </div>
         <div className="linha" style={{ marginTop: 10 }}>
-          <select onChange={(e) => { if (e.target.value) aplicarSegmento(e.target.value); e.target.value = ""; }}>
-            <option value="">Segmentos salvos…</option>
-            {segmentos.map((s) => (
-              <option key={s.segmento_id} value={s.segmento_id}>
-                {s.nome}{s.definicao?.condicoes ? " (avançado)" : ""}
-              </option>
-            ))}
-          </select>
+          <Escolher valor="" vazio="Segmentos salvos…"
+            aoMudar={(v) => { if (v) aplicarSegmento(v); }}
+            opcoes={segmentos.map((s) => ({
+              valor: s.segmento_id, rotulo: s.nome,
+              detalhe: s.definicao?.condicoes ? "avançado" : undefined,
+            }))} />
           <button style={{ flex: "0 0 auto" }} onClick={salvarSegmentoRapido}>💾 Salvar filtro</button>
           <button className="primario" style={{ flex: "0 0 auto" }}
             onClick={() => { setConstrutor(true); setPrevQtd(null); }}>🧩 Segmento avançado</button>
           {segmentos.length > 0 && (
-            <select style={{ flex: "0 0 auto", width: 170 }}
-              onChange={(e) => { if (e.target.value) excluirSegmento(e.target.value); e.target.value = ""; }}>
-              <option value="">excluir segmento…</option>
-              {segmentos.map((s) => <option key={s.segmento_id} value={s.segmento_id}>{s.nome}</option>)}
-            </select>
+            <Escolher style={{ flex: "0 0 auto", width: 170 }} valor="" vazio="excluir segmento…"
+              aoMudar={(v) => { if (v) excluirSegmento(v); }}
+              opcoes={segmentos.map((s) => ({ valor: s.segmento_id, rotulo: s.nome }))} />
           )}
         </div>
         {podeOperar && <div className="linha" style={{ marginTop: 10 }}>
-          <select value={acaoMassa} onChange={(e) => setAcaoMassa(e.target.value)}>
-            <option value="">{marcados.size > 0
+          <Escolher valor={acaoMassa} aoMudar={setAcaoMassa}
+            vazio={marcados.size > 0
               ? `Ação nos ${marcados.size} marcados…`
-              : "Ação em massa no filtro atual…"}</option>
-            <optgroup label="Aplicar tag">
-              {tags.map((t) => <option key={`t${t.tag_id}`} value={`tag:${t.tag_id}`}>+ tag: {t.nome}</option>)}
-            </optgroup>
-            <optgroup label="Remover tag">
-              {tags.map((t) => <option key={`dt${t.tag_id}`} value={`destag:${t.tag_id}`}>&minus; tag: {t.nome}</option>)}
-            </optgroup>
-            <optgroup label="Inscrever na lista">
-              {listas.map((l) => <option key={`l${l.lista_id}`} value={`lista:${l.lista_id}`}>+ lista: {l.nome}</option>)}
-            </optgroup>
-            <optgroup label="Descadastrar da lista">
-              {listas.map((l) => <option key={`dl${l.lista_id}`} value={`deslista:${l.lista_id}`}>&minus; lista: {l.nome}</option>)}
-            </optgroup>
-            <optgroup label="Bloquear envio">
-              <option value="suprimir:0">Nunca mais enviar para estes leads</option>
-            </optgroup>
-          </select>
+              : "Ação em massa no filtro atual…"}
+            opcoes={[
+              ...tags.map((t) => ({ valor: `tag:${t.tag_id}`, rotulo: `+ tag: ${t.nome}`, grupo: "Aplicar tag" })),
+              ...tags.map((t) => ({ valor: `destag:${t.tag_id}`, rotulo: `− tag: ${t.nome}`, grupo: "Remover tag" })),
+              ...listas.map((l) => ({ valor: `lista:${l.lista_id}`, rotulo: `+ lista: ${l.nome}`, grupo: "Inscrever na lista" })),
+              ...listas.map((l) => ({ valor: `deslista:${l.lista_id}`, rotulo: `− lista: ${l.nome}`, grupo: "Descadastrar da lista" })),
+              { valor: "suprimir:0", rotulo: "Nunca mais enviar para estes leads", grupo: "Bloquear envio" },
+            ]} />
           <button disabled={!acaoMassa || ocupado} onClick={executarAcaoMassa} style={{ flex: "0 0 auto" }}>
             {ocupado ? "Executando…" : "Executar"}
           </button>
@@ -830,10 +817,9 @@ export default function Leads() {
         </table>
         <div className="paginacao">
           <span>Linhas:</span>
-          <select style={{ width: 90 }} value={POR_PAGINA}
-            onChange={(e) => { setPorPagina(Number(e.target.value)); setPagina(0); }}>
-            {[10, 25, 50, 75, 100].map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+          <Escolher style={{ width: 90, flex: "0 0 auto" }} valor={POR_PAGINA}
+            aoMudar={(v) => { setPorPagina(Number(v)); setPagina(0); }}
+            opcoes={[10, 25, 50, 75, 100].map((n) => ({ valor: n, rotulo: String(n) }))} />
           <span>{total.toLocaleString("pt-BR")} leads</span>
           <button disabled={pagina === 0} onClick={() => setPagina(pagina - 1)}>‹ Anterior</button>
           <span>página {pagina + 1} de {paginas || 1}</span>
@@ -854,17 +840,17 @@ export default function Leads() {
           {conds.map((c, i) => (
             <div key={i} className="caixa" style={{ padding: 12, marginBottom: 10 }}>
               <div className="linha">
-                <select value={c.campo}
-                  onChange={(e) => setConds(conds.map((x, y) => (y === i ? { campo: e.target.value } : x)))}>
-                  {CAMPOS_COND.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
-                </select>
+                <Escolher valor={c.campo}
+                  aoMudar={(v) => setConds(conds.map((x, y) => (y === i ? { campo: v } : x)))}
+                  opcoes={CAMPOS_COND.map(([v, r]) => ({ valor: v, rotulo: r }))} />
                 {["lista", "tag", "participacao", "abriu_email", "clicou_email",
                   "comprou", "pediu_reembolso"].includes(c.campo) && (
-                  <select value={String(c.tem ?? "true")} style={{ flex: "0 0 130px" }}
-                    onChange={(e) => mudarCond(i, { tem: e.target.value === "true" })}>
-                    <option value="true">tem / sim</option>
-                    <option value="false">NÃO tem</option>
-                  </select>
+                  <Escolher valor={String(c.tem ?? "true")} style={{ flex: "0 0 130px" }}
+                    aoMudar={(v) => mudarCond(i, { tem: v === "true" })}
+                    opcoes={[
+                      { valor: "true", rotulo: "tem / sim" },
+                      { valor: "false", rotulo: "NÃO tem" },
+                    ]} />
                 )}
                 {c.campo === "comprou" && (
                   <input style={{ flex: 1 }} placeholder="parte do nome do produto (vazio = qualquer)"
@@ -872,11 +858,12 @@ export default function Leads() {
                 )}
                 {(c.campo === "qtd_compras" || c.campo === "total_gasto") && (
                   <>
-                    <select value={c.operador ?? "maior"} style={{ flex: "0 0 150px" }}
-                      onChange={(e) => mudarCond(i, { operador: e.target.value })}>
-                      <option value="maior">é maior ou igual a</option>
-                      <option value="menor">é menor ou igual a</option>
-                    </select>
+                    <Escolher valor={c.operador ?? "maior"} style={{ flex: "0 0 150px" }}
+                      aoMudar={(v) => mudarCond(i, { operador: v })}
+                      opcoes={[
+                        { valor: "maior", rotulo: "é maior ou igual a" },
+                        { valor: "menor", rotulo: "é menor ou igual a" },
+                      ]} />
                     <input type="number" style={{ flex: "0 0 120px" }}
                       placeholder={c.campo === "qtd_compras" ? "2" : "500"}
                       value={c.valor ?? ""} onChange={(e) => mudarCond(i, { valor: e.target.value })} />
@@ -884,21 +871,23 @@ export default function Leads() {
                 )}
                 {c.campo === "pontuacao" && (
                   <>
-                    <select value={c.operador ?? "maior"} style={{ flex: "0 0 150px" }}
-                      onChange={(e) => mudarCond(i, { operador: e.target.value })}>
-                      <option value="maior">é maior ou igual a</option>
-                      <option value="menor">é menor ou igual a</option>
-                    </select>
+                    <Escolher valor={c.operador ?? "maior"} style={{ flex: "0 0 150px" }}
+                      aoMudar={(v) => mudarCond(i, { operador: v })}
+                      opcoes={[
+                        { valor: "maior", rotulo: "é maior ou igual a" },
+                        { valor: "menor", rotulo: "é menor ou igual a" },
+                      ]} />
                     <input type="number" style={{ flex: "0 0 110px" }} placeholder="40"
                       value={c.valor ?? ""} onChange={(e) => mudarCond(i, { valor: e.target.value })} />
                   </>
                 )}
                 {c.campo === "whatsapp" && (
-                  <select value={String(c.tem ?? "true")} style={{ flex: "0 0 130px" }}
-                    onChange={(e) => mudarCond(i, { tem: e.target.value === "true" })}>
-                    <option value="true">tem</option>
-                    <option value="false">não tem</option>
-                  </select>
+                  <Escolher valor={String(c.tem ?? "true")} style={{ flex: "0 0 130px" }}
+                    aoMudar={(v) => mudarCond(i, { tem: v === "true" })}
+                    opcoes={[
+                      { valor: "true", rotulo: "tem" },
+                      { valor: "false", rotulo: "não tem" },
+                    ]} />
                 )}
                 <button className="perigo" style={{ flex: "0 0 auto" }}
                   onClick={() => setConds(conds.filter((_, y) => y !== i))}>remover</button>
@@ -906,23 +895,22 @@ export default function Leads() {
               <div className="linha" style={{ marginTop: 8 }}>
                 {c.campo === "lista" && (
                   <>
-                    <select value={c.lista_id ?? ""} onChange={(e) => mudarCond(i, { lista_id: Number(e.target.value) })}>
-                      <option value="">— lista —</option>
-                      {listas.map((l) => <option key={l.lista_id} value={l.lista_id}>{l.nome}</option>)}
-                    </select>
-                    <select value={c.status ?? ""} onChange={(e) => mudarCond(i, { status: e.target.value === "" ? undefined : Number(e.target.value) })}>
-                      <option value="">status: qualquer</option>
-                      <option value="1">ativo</option>
-                      <option value="2">descadastrado</option>
-                      <option value="3">bounce</option>
-                    </select>
+                    <Escolher valor={c.lista_id ?? ""} vazio="— lista —"
+                      aoMudar={(v) => mudarCond(i, { lista_id: Number(v) })}
+                      opcoes={listas.map((l) => ({ valor: l.lista_id, rotulo: l.nome }))} />
+                    <Escolher valor={c.status ?? ""} vazio="status: qualquer"
+                      aoMudar={(v) => mudarCond(i, { status: v === "" ? undefined : Number(v) })}
+                      opcoes={[
+                        { valor: "1", rotulo: "ativo" },
+                        { valor: "2", rotulo: "descadastrado" },
+                        { valor: "3", rotulo: "bounce" },
+                      ]} />
                   </>
                 )}
                 {c.campo === "tag" && (
-                  <select value={c.tag_id ?? ""} onChange={(e) => mudarCond(i, { tag_id: Number(e.target.value) })}>
-                    <option value="">— tag —</option>
-                    {tags.map((t) => <option key={t.tag_id} value={t.tag_id}>{t.nome}</option>)}
-                  </select>
+                  <Escolher valor={c.tag_id ?? ""} vazio="— tag —"
+                    aoMudar={(v) => mudarCond(i, { tag_id: Number(v) })}
+                    opcoes={tags.map((t) => ({ valor: t.tag_id, rotulo: t.nome }))} />
                 )}
                 {["busca", "email_dominio", "participacao"].includes(c.campo) && (
                   <input placeholder={c.campo === "email_dominio" ? "gmail.com" : c.campo === "participacao" ? "parte do nome do evento (ex.: CASA_H_2026)" : "texto"}
@@ -973,23 +961,20 @@ export default function Leads() {
               {(["email", "nome", "whatsapp", "cpf"] as const).map((campo) => (
                 <div key={campo} className="linha" style={{ marginTop: 6 }}>
                   <label style={{ flex: "0 0 90px", margin: 0 }}>{campo}</label>
-                  <select value={mapa[campo]}
-                    onChange={(e) => setMapa({ ...mapa, [campo]: Number(e.target.value) })}>
-                    <option value={-1}>— não importar —</option>
-                    {csv.cabecalho.map((h, i) => <option key={i} value={i}>{h}</option>)}
-                  </select>
+                  <Escolher valor={mapa[campo]}
+                    aoMudar={(v) => setMapa({ ...mapa, [campo]: Number(v) })}
+                    opcoes={[
+                      { valor: -1, rotulo: "— não importar —" },
+                      ...csv.cabecalho.map((h, i) => ({ valor: i, rotulo: h })),
+                    ]} />
                 </div>
               ))}
               <h2 style={{ marginTop: 14 }}>Aplicar a todos os importados (opcional)</h2>
               <div className="linha">
-                <select value={impLista} onChange={(e) => setImpLista(e.target.value)}>
-                  <option value="">Inscrever na lista: nenhuma</option>
-                  {listas.map((l) => <option key={l.lista_id} value={l.lista_id}>{l.nome}</option>)}
-                </select>
-                <select value={impTag} onChange={(e) => setImpTag(e.target.value)}>
-                  <option value="">Aplicar tag: nenhuma</option>
-                  {tags.map((t) => <option key={t.tag_id} value={t.tag_id}>{t.nome}</option>)}
-                </select>
+                <Escolher valor={impLista} aoMudar={setImpLista} vazio="Inscrever na lista: nenhuma"
+                  opcoes={listas.map((l) => ({ valor: l.lista_id, rotulo: l.nome }))} />
+                <Escolher valor={impTag} aoMudar={setImpTag} vazio="Aplicar tag: nenhuma"
+                  opcoes={tags.map((t) => ({ valor: t.tag_id, rotulo: t.nome }))} />
               </div>
               {(impLista || impTag) && (
                 <div className="aviso" style={{ marginTop: 10 }}>

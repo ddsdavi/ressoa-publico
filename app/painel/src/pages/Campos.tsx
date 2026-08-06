@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSessao } from "../lib/sessao";
+import Escolher from "../components/Escolher";
 
 // Campos próprios do contato.
 //
@@ -103,10 +104,8 @@ export default function Campos() {
 
       <div className="caixa linha">
         <input placeholder="Buscar campo…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-        <select style={{ flex: "0 0 190px" }} value={fTipo} onChange={(e) => setFTipo(e.target.value)}>
-          <option value="">Qualquer tipo</option>
-          {TIPOS.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
-        </select>
+        <Escolher style={{ flex: "0 0 190px" }} valor={fTipo} aoMudar={setFTipo} vazio="Qualquer tipo"
+          opcoes={TIPOS.map(([v, r]) => ({ valor: v, rotulo: r }))} />
         {podeOperar && (
           <button className="primario" style={{ flex: "0 0 auto" }} onClick={() => abrir(null)}>
             + Adicionar campo
@@ -191,9 +190,8 @@ export default function Campos() {
           )}
 
           <label>Tipo</label>
-          <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
-            {TIPOS.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
-          </select>
+          <Escolher valor={form.tipo} aoMudar={(v) => setForm({ ...form, tipo: v })}
+            opcoes={TIPOS.map(([v, r]) => ({ valor: v, rotulo: r }))} />
           {form.tipo === "oculto" && (
             <div className="sub" style={{ marginTop: 4 }}>
               Campo oculto não aparece em formulário — é para dado que o sistema preenche

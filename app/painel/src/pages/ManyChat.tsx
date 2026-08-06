@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import Ajuda from "../components/Ajuda";
+import Escolher from "../components/Escolher";
 import {
   chamarManyChat as chamar,
   descreverStatusManyChat,
@@ -388,18 +389,16 @@ export default function ManyChat() {
           WhatsApp usado: <b>{fone.trim() || "informe o número no bloco Pessoas"}</b>
         </div>
 
-        <select value={produto} onChange={(e) => setProduto(e.target.value)}>
-          <option value="">— escolher o produto —</option>
-          {produtos.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.apelido}{p.tag_manychat
-                ? ` → ${p.tag_manychat}`
-                : p.tag_manychat_turma
-                  ? " → tag semanal da turma"
-                  : " (sem tag configurada)"}
-            </option>
-          ))}
-        </select>
+        <Escolher valor={produto} aoMudar={setProduto} vazio="— escolher o produto —"
+          opcoes={produtos.map((p) => ({
+            valor: p.id,
+            rotulo: p.apelido,
+            detalhe: p.tag_manychat
+              ? `→ ${p.tag_manychat}`
+              : p.tag_manychat_turma
+                ? "→ tag semanal da turma"
+                : "(sem tag configurada)",
+          }))} />
         {produto && !produtoTemTag() && (
           <div className="aviso" style={{ marginTop: 8 }}>
             Este produto não tem tag do ManyChat. Configure em <b>Vendas</b>, na regra dele.
@@ -459,11 +458,9 @@ export default function ManyChat() {
                   : <span className="sub">Esse usuário ainda não possui tags.</span>}
               </div>
               <div className="linha">
-                <select value={tagAvulsa} style={{ flex: 2 }}
-                  onChange={(e) => setTagAvulsa(e.target.value)}>
-                  <option value="">— escolher a tag —</option>
-                  {tags.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-                </select>
+                <Escolher valor={tagAvulsa} style={{ flex: 2 }} vazio="— escolher a tag —"
+                  aoMudar={setTagAvulsa}
+                  opcoes={tags.map((t) => ({ valor: t.name, rotulo: t.name }))} />
                 <button style={{ flex: "0 0 auto" }} disabled={!tagAvulsa || rodando}
                   onClick={() => marcar(tagAvulsa, false)}>Aplicar</button>
                 <button style={{ flex: "0 0 auto" }} disabled={!tagAvulsa || rodando}

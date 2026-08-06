@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSessao, type Perfil } from "../lib/sessao";
 import { ROTULO_PAPEL, DESCRICAO_PAPEL, PODE } from "../lib/papeis";
+import Escolher from "../components/Escolher";
 
 const PAPEIS: Record<string, [string, string]> = Object.fromEntries(
   Object.keys(ROTULO_PAPEL).map((k) => [k, [ROTULO_PAPEL[k], DESCRICAO_PAPEL[k]]]),
@@ -76,9 +77,8 @@ export default function Usuarios() {
                   {u.admin_mestre ? (
                     <span className="etiqueta et-verde">Admin</span>
                   ) : (
-                    <select value={u.papel} onChange={(e) => mudar(u, "papel", e.target.value)}>
-                      {Object.entries(PAPEIS).map(([v, [rot]]) => <option key={v} value={v}>{rot}</option>)}
-                    </select>
+                    <Escolher valor={u.papel} aoMudar={(v) => mudar(u, "papel", v)}
+                      opcoes={Object.entries(PAPEIS).map(([v, [rot]]) => ({ valor: v, rotulo: rot }))} />
                   )}
                 </td>
                 <td><span className={`etiqueta ${STATUS[u.status]}`}>{u.status}</span></td>

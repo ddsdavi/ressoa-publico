@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSessao } from "../lib/sessao";
+import Escolher from "../components/Escolher";
 
 // Formulários de captação: monta aqui, publica num endereço próprio.
 //
@@ -446,17 +447,13 @@ Não altere nenhuma outra página, rota, dependência ou arquivo.`;
                   <div className="duas">
                     <div>
                       <label>Entra na lista</label>
-                      <select value={f.lista_fk} onChange={(e) => setF({ ...f, lista_fk: e.target.value })}>
-                        <option value="">nenhuma</option>
-                        {listas.map((l) => <option key={l.lista_id} value={l.lista_id}>{l.nome}</option>)}
-                      </select>
+                      <Escolher valor={f.lista_fk} aoMudar={(v) => setF({ ...f, lista_fk: v })} vazio="nenhuma"
+                        opcoes={listas.map((l) => ({ valor: l.lista_id, rotulo: l.nome }))} />
                     </div>
                     <div>
                       <label>Ganha a tag</label>
-                      <select value={f.tag_fk} onChange={(e) => setF({ ...f, tag_fk: e.target.value })}>
-                        <option value="">nenhuma</option>
-                        {tags.map((t) => <option key={t.tag_id} value={t.tag_id}>{t.nome}</option>)}
-                      </select>
+                      <Escolher valor={f.tag_fk} aoMudar={(v) => setF({ ...f, tag_fk: v })} vazio="nenhuma"
+                        opcoes={tags.map((t) => ({ valor: t.tag_id, rotulo: t.nome }))} />
                     </div>
                   </div>
                   <div className="aviso" style={{ margin: "12px 0 0" }}>
@@ -490,18 +487,17 @@ Não altere nenhuma outra página, rota, dependência ou arquivo.`;
                         onClick={() => setF({ ...f, campos: f.campos.filter((_, x) => x !== i) })}>−</button>
                     </div>
                   ))}
-                  <select value="" style={{ marginTop: 4 }} onChange={(e) => {
-                    if (!e.target.value) return;
-                    const [campo, rotulo] = e.target.value.split("|");
-                    if (f.campos.some((c) => c.campo === campo)) return;
-                    setF({ ...f, campos: [...f.campos, { campo, rotulo }] });
-                  }}>
-                    <option value="">+ adicionar campo…</option>
-                    <option value="whatsapp|WhatsApp">WhatsApp</option>
-                    {campos.map((c) => (
-                      <option key={c.chave} value={`${c.chave}|${c.rotulo}`}>{c.rotulo}</option>
-                    ))}
-                  </select>
+                  <Escolher valor="" style={{ marginTop: 4 }} vazio="+ adicionar campo…"
+                    aoMudar={(v) => {
+                      if (!v) return;
+                      const [campo, rotulo] = v.split("|");
+                      if (f.campos.some((c) => c.campo === campo)) return;
+                      setF({ ...f, campos: [...f.campos, { campo, rotulo }] });
+                    }}
+                    opcoes={[
+                      { valor: "whatsapp|WhatsApp", rotulo: "WhatsApp" },
+                      ...campos.map((c) => ({ valor: `${c.chave}|${c.rotulo}`, rotulo: c.rotulo })),
+                    ]} />
                 </div>
 
                 {/* 4 */}

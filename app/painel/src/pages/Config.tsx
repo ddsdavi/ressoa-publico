@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import ApiWebhooks from "./ApiWebhooks";
 import Ajuda from "../components/Ajuda";
 import CampoSegredo from "../components/CampoSegredo";
+import Escolher from "../components/Escolher";
 
 // Fontes que existem em Windows, Mac, Android e iOS. Fonte fora desta lista
 // não é arriscada: é loteria — o cliente cai para o padrão dele e o e-mail
@@ -340,23 +341,25 @@ export default function Config() {
       <div className="caixa">
         <h2>Envio de e-mail</h2>
         <label>Provedor</label>
-        <select value={cfg.provedor_email ?? "simulado"}
-          onChange={(e) => setCfg({ ...cfg, provedor_email: e.target.value })}>
-          <option value="simulado">simulado (nenhum e-mail real sai)</option>
-          <option value="resend">Resend</option>
-          <option value="ses">Amazon SES</option>
-        </select>
+        <Escolher valor={cfg.provedor_email ?? "simulado"}
+          aoMudar={(v) => setCfg({ ...cfg, provedor_email: v })}
+          opcoes={[
+            { valor: "simulado", rotulo: "simulado (nenhum e-mail real sai)" },
+            { valor: "resend", rotulo: "Resend" },
+            { valor: "ses", rotulo: "Amazon SES" },
+          ]} />
         <label>Webhooks das automações
           <Ajuda>
             Enquanto o ActiveCampaign ainda estiver rodando, deixe desligados: os dois
             sistemas disparando o mesmo n8n significa a pessoa recebendo tudo em dobro.
           </Ajuda>
         </label>
-        <select value={cfg.executar_webhooks ?? "false"}
-          onChange={(e) => setCfg({ ...cfg, executar_webhooks: e.target.value })}>
-          <option value="false">desligados</option>
-          <option value="true">ligados</option>
-        </select>
+        <Escolher valor={cfg.executar_webhooks ?? "false"}
+          aoMudar={(v) => setCfg({ ...cfg, executar_webhooks: v })}
+          opcoes={[
+            { valor: "false", rotulo: "desligados" },
+            { valor: "true", rotulo: "ligados" },
+          ]} />
         {cfg.provedor_email !== "ses" && (
           <>
             <label>Chave da API do Resend</label>
@@ -444,10 +447,9 @@ export default function Config() {
                 pessoa vê.
               </Ajuda>
             </label>
-            <select value={cfg.email_fonte ?? FONTES[0]}
-              onChange={(e) => setCfg({ ...cfg, email_fonte: e.target.value })}>
-              {FONTES.map((f) => <option key={f} value={f}>{f.split(",")[0]}</option>)}
-            </select>
+            <Escolher valor={cfg.email_fonte ?? FONTES[0]}
+              aoMudar={(v) => setCfg({ ...cfg, email_fonte: v })}
+              opcoes={FONTES.map((f) => ({ valor: f, rotulo: f.split(",")[0] }))} />
 
           </div>
           <div>

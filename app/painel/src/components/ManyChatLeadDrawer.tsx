@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import Escolher from "./Escolher";
 import {
   chamarManyChat,
   descreverStatusManyChat,
@@ -202,10 +203,8 @@ export default function ManyChatLeadDrawer({ lead, ehAdmin, onClose }: Props) {
             </div>
 
             <label>Alterar tag</label>
-            <select value={tag} onChange={(e) => setTag(e.target.value)}>
-              <option value="">— escolher uma tag —</option>
-              {tags.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
-            </select>
+            <Escolher valor={tag} aoMudar={setTag} vazio="— escolher uma tag —"
+              opcoes={tags.map((item) => ({ valor: item.name, rotulo: item.name }))} />
             <div className="linha" style={{ marginTop: 12 }}>
               <button className="primario" disabled={!tag || ocupado}
                 onClick={() => alterarTag(false)}>

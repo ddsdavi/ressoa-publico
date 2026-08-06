@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSessao } from "../lib/sessao";
 import { useNavigate } from "react-router-dom";
+import Escolher from "../components/Escolher";
 
 type Tag = { tag_id: number; nome: string; descricao: string | null };
 
@@ -172,10 +173,9 @@ export default function Tags() {
         </table>
         <div className="paginacao">
           <span>Linhas:</span>
-          <select style={{ width: 90 }} value={porPagina}
-            onChange={(e) => { setPorPagina(Number(e.target.value)); setPagina(0); }}>
-            {[10, 25, 50, 75, 100].map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+          <Escolher style={{ width: 90, flex: "0 0 auto" }} valor={porPagina}
+            aoMudar={(v) => { setPorPagina(Number(v)); setPagina(0); }}
+            opcoes={[10, 25, 50, 75, 100].map((n) => ({ valor: n, rotulo: String(n) }))} />
           <span>{todas.length.toLocaleString("pt-BR")} tags</span>
           <button disabled={pagina === 0} onClick={() => setPagina(pagina - 1)}>‹</button>
           <span>página {pagina + 1} de {paginas}</span>
@@ -230,14 +230,12 @@ export default function Tags() {
           </div>
 
           <label>Tag que fica</label>
-          <select value={mesclando.destino}
-            onChange={(e) => setMesclando({
-              ...mesclando, destino: e.target.value,
-              origens: mesclando.origens.filter((x) => String(x) !== e.target.value),
-            })}>
-            <option value="">— escolher —</option>
-            {tags.map((t) => <option key={t.tag_id} value={t.tag_id}>{t.nome}</option>)}
-          </select>
+          <Escolher valor={mesclando.destino} vazio="— escolher —"
+            aoMudar={(v) => setMesclando({
+              ...mesclando, destino: v,
+              origens: mesclando.origens.filter((x) => String(x) !== v),
+            })}
+            opcoes={tags.map((t) => ({ valor: t.tag_id, rotulo: t.nome }))} />
 
           <div className="linha" style={{ marginTop: 18 }}>
             <button className="primario" onClick={confirmarMesclagem}>Mesclar</button>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSessao } from "../lib/sessao";
 import Ajuda from "../components/Ajuda";
+import Escolher from "../components/Escolher";
 
 // Vendas: o que cada produto faz quando é comprado, e o que a Hotmart
 // mandou.
@@ -321,16 +322,12 @@ export default function Vendas() {
           </div>
 
           <label>Quando comprar, entra na lista</label>
-          <select value={f.lista_fk} onChange={(e) => setF({ ...f, lista_fk: e.target.value })}>
-            <option value="">nenhuma</option>
-            {listas.map((l) => <option key={l.lista_id} value={l.lista_id}>{l.nome}</option>)}
-          </select>
+          <Escolher valor={f.lista_fk} aoMudar={(v) => setF({ ...f, lista_fk: v })} vazio="nenhuma"
+            opcoes={listas.map((l) => ({ valor: l.lista_id, rotulo: l.nome }))} />
 
           <label>E ganha a tag</label>
-          <select value={f.tag_fk} onChange={(e) => setF({ ...f, tag_fk: e.target.value })}>
-            <option value="">nenhuma</option>
-            {tags.map((t) => <option key={t.tag_id} value={t.tag_id}>{t.nome}</option>)}
-          </select>
+          <Escolher valor={f.tag_fk} aoMudar={(v) => setF({ ...f, tag_fk: v })} vazio="nenhuma"
+            opcoes={tags.map((t) => ({ valor: t.tag_id, rotulo: t.nome }))} />
 
           <label>Tag de turma (opcional)</label>
           <input value={f.tag_turma_padrao} placeholder="CASA_H_{AAAA}_{MM}_{DD}"
@@ -347,19 +344,16 @@ export default function Vendas() {
               <div className="linha">
                 <div style={{ flex: 2 }}>
                   <label>A turma vira toda</label>
-                  <select value={f.turma_dia_semana}
-                    onChange={(e) => setF({ ...f, turma_dia_semana: e.target.value })}>
-                    {DIAS.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
-                  </select>
+                  <Escolher valor={f.turma_dia_semana}
+                    aoMudar={(v) => setF({ ...f, turma_dia_semana: v })}
+                    opcoes={DIAS.map(([v, r]) => ({ valor: v, rotulo: r }))} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label>às</label>
-                  <select value={f.turma_hora}
-                    onChange={(e) => setF({ ...f, turma_hora: e.target.value })}>
-                    {Array.from({ length: 24 }, (_, h) => (
-                      <option key={h} value={h}>{String(h).padStart(2, "0")}h</option>
-                    ))}
-                  </select>
+                  <Escolher valor={f.turma_hora}
+                    aoMudar={(v) => setF({ ...f, turma_hora: v })}
+                    opcoes={Array.from({ length: 24 }, (_, h) => (
+                      { valor: h, rotulo: `${String(h).padStart(2, "0")}h` }))} />
                 </div>
               </div>
               <div className="sub" style={{ marginTop: 4 }}>
@@ -417,10 +411,8 @@ export default function Vendas() {
           </div>
 
           <label style={{ marginTop: 18 }}>Se pedir reembolso, ganha a tag</label>
-          <select value={f.tag_reembolso} onChange={(e) => setF({ ...f, tag_reembolso: e.target.value })}>
-            <option value="">nenhuma</option>
-            {tags.map((t) => <option key={t.tag_id} value={t.tag_id}>{t.nome}</option>)}
-          </select>
+          <Escolher valor={f.tag_reembolso} aoMudar={(v) => setF({ ...f, tag_reembolso: v })} vazio="nenhuma"
+            opcoes={tags.map((t) => ({ valor: t.tag_id, rotulo: t.nome }))} />
           <div className="sub" style={{ marginTop: 4 }}>
             O reembolso <b>não apaga</b> a compra do histórico — ela fica registrada com o status
             trocado, e a pessoa sai sozinha dos segmentos de comprador. A tag serve para você
