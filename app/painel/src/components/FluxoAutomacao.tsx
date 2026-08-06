@@ -111,7 +111,8 @@ const CAMPOS_PLANILHA: [string, string][] = [
   ["nome", "Nome"],
   ["email", "E-mail"],
   ["whatsapp", "WhatsApp"],
-  ["lead_id", "ID do lead"],
+  ["lead_id", "ID do lead (aqui na Ressoa)"],
+  ["manychat_id", "ID no ManyChat"],
   ["data_hora", "Data e hora (São Paulo)"],
   ["__atributo", "Um campo personalizado…"],
 ];
@@ -134,6 +135,9 @@ function EditorPlanilha({ config, aoMudar }: {
     if (t.includes("mail")) return "email";
     if (t.includes("whats") || t.includes("telefone") || t.includes("fone") || t.includes("celular")) return "whatsapp";
     if (t.includes("nome")) return "nome";
+    // "ID do Contato" numa planilha alimentada por chatbot é o id de LÁ,
+    // não o daqui — foi assim que a planilha das lives sempre foi montada
+    if (t.includes("manychat") || t.includes("contato")) return "manychat_id";
     if (t.includes("id")) return "lead_id";
     if (t.includes("data") || t.includes("quando")) return "data_hora";
     return "";
@@ -191,7 +195,11 @@ function EditorPlanilha({ config, aoMudar }: {
       {config.planilha_id && (
         <>
           <div className="sub" style={{ marginBottom: 8 }}>
-            Planilha: <b>{config.planilha_nome || config.planilha_id}</b>{" "}
+            Planilha:{" "}
+            <a href={`https://docs.google.com/spreadsheets/d/${config.planilha_id}`}
+              target="_blank" rel="noopener noreferrer">
+              <b>{config.planilha_nome || config.planilha_id}</b>
+            </a>{" "}
             <button className="mini" onClick={() => { setAbas([]); setLink("");
               aoMudar({}); }}>trocar</button>
           </div>

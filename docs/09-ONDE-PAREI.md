@@ -126,6 +126,31 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
 
 ---
 
+## Lives semanais: a planilha fecha o ciclo (06/08/2026)
+
+Conta Google conectada (`dds.davi@gmail.com`, projeto Cloud "Ressoa") e o
+passo de planilha plantado na automação das lives, apontando para
+"[PATRÍCIA DOMINGOS] Lives semanais - inscritos". Uma inscrição real
+percorreu: lista → tag → ManyChat (01:10) → **linha na planilha (01:11)**.
+
+**Corrigido no caminho: a coluna "ID do Contato" recebia o uuid da Ressoa.**
+Aquela planilha sempre guardou ali o identificador do **ManyChat**
+(`1347252605`), que é o que permite cruzar com a conta de lá. O pacote que o
+motor manda aos passos (`payload_contato`) não levava esse número — agora
+leva (`payload_manychat_id.sql`), o mapeador oferece **ID no ManyChat**, e a
+adivinhação de coluna entende que "ID do Contato" numa planilha de chatbot é
+o id de lá, não o daqui. Vale também para webhook e Drive.
+
+**Ritmo esperado (não é lentidão):** cada passo espera o ciclo seguinte do
+cron, que roda de minuto em minuto. Inscrição → tag no mesmo minuto →
+ManyChat no minuto seguinte → planilha no outro. Cerca de 2 a 3 minutos até
+a linha aparecer. Um fluxo com cinco passos leva cinco minutos.
+
+**Linhas de teste:** quatro linhas escritas durante os testes (o uuid errado
+e um "TESTE Ressoa") foram apagadas da planilha em 06/08 01:05.
+
+---
+
 ## Automações: vários gatilhos e passos arrastáveis (06/08/2026)
 
 Duas coisas que o AC tinha e aqui faltavam:

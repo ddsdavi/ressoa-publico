@@ -251,6 +251,9 @@ Deno.serve(async (req) => {
         if (campo === "email") return String(contato.email ?? "");
         if (campo === "whatsapp") return String(contato.whatsapp ?? "");
         if (campo === "lead_id") return String(contato.lead_id ?? "");
+        // o identificador da pessoa NO MANYCHAT — é o que a planilha das
+        // lives sempre guardou na coluna "ID do Contato"
+        if (campo === "manychat_id") return String(contato.manychat_id ?? "");
         if (campo === "data_hora") {
           return new Intl.DateTimeFormat("pt-BR", {
             timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit",
