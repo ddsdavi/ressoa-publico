@@ -263,18 +263,27 @@ ligado e a decisão do Davi de manter a planilha como segurança):
    manda o e-mail "Inscrição confirmada" — envio real, no lugar do que o AC
    mandava. Falta só a prova com uma pessoa NOVA (não feita de propósito:
    exigiria inventar um telefone, e número inventado pode ser de terceiro real).
-2. **Planilha sem n8n (mudou em 05/08 à noite).** A pedido do Davi, o passo
-   "Planilha do Google" ficou NATIVO: conta Google conectada em Configurações
-   → Planilhas (setup único do app OAuth descrito lá), e o passo guarda
-   planilha + aba + mapeamento coluna ↔ campo — quem escreve é a Edge
-   Function `google-sheets` (log em `google_sheets_log`). Para as lives:
-   acrescentar esse passo na automação "[RESSOA] Lives Semanais", apontando
-   para a planilha "Lives semanais - inscritos". O modo antigo (URL de n8n)
-   continua aceito nos passos que já existiam. Enquanto a réplica
-   "Automação 19" (webhook para `livessemanais/inscrito`) estiver ativa com
-   `executar_webhooks` ligado, cada inscrição gera uma execução quebrada no
-   n8n — sem efeito além do ruído; desativar essa réplica quando o passo de
-   planilha assumir.
+2. ~~**Planilha sem n8n.**~~ **FEITO E PROVADO em 06/08 (madrugada).** A conta
+   Google (dds.davi@gmail.com) foi conectada em Configurações → Planilhas —
+   agora é um botão só; o app OAuth ("Ressoa", projeto Google Cloud
+   `ressoa-504702`, consentimento Em produção) mora nos secrets da função
+   (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`), não na tela. O passo
+   `google_sheets` nativo foi plantado na automação "[RESSOA] Lives
+   Semanais" (ordem 2, depois do ManyChat) apontando para a planilha real
+   "[PATRÍCIA DOMINGOS] Lives semanais - inscritos" (`1l3wE_XQ…`, aba
+   Página1, colunas ID do Contato | WhatsApp | Nome | E-mail; "ID do
+   Contato" agora recebe o lead_id da Ressoa — antes era o assinante do
+   ManyChat). Prova real: `executar_passo_planilha` com o lead do Davi
+   escreveu a linha 487 na planilha (as 486 anteriores são do n8n), com
+   sucesso registrado em `google_sheets_log`. A réplica "Automação 19"
+   (webhook `livessemanais/inscrito`) foi DESATIVADA — o flow do n8n fica
+   de reserva, parado. Migração: `supabase/lives_passo_planilha_v1.sql`.
+   No caminho, dois consertos na função `google-sheets`: o callback do
+   OAuth agora REDIRECIONA para o painel (`/config?google=ok`) porque o
+   Supabase não serve HTML de `*.supabase.co` (text/plain + nosniff), e a
+   porta do motor aceita os DOIS jogos de chave do projeto (env
+   `sb_secret_…` E `segredos.service_key` JWT) — só com o env, todo passo
+   de planilha levava 403 silencioso.
 3. ~~**Ativar a automação "[RESSOA] Lives Semanais — tag no ManyChat"**~~
    **ATIVADA E PROVADA em 06/08, 02h.** O teste foi o completo, sem simulação:
    tag 85 aplicada no lead do Davi → evento na fila → `processar_eventos_sistema`

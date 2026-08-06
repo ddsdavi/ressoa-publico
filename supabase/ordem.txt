@@ -84,3 +84,4 @@ supabase/hotmart_v3_estados_pedido.sql
 supabase/moeda_relatorios_v1.sql
 supabase/formulario_api_v1.sql
 supabase/hotmart_v4_um_mapa_so.sql
+supabase/lives_passo_planilha_v1.sql
