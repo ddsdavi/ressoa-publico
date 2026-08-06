@@ -68,8 +68,8 @@ por fora e inscrever gente numa lista que dispara e-mail.
 
 ## Passo 4 · Instalar o formulário
 
-São dois caminhos. O primeiro não exige nada de ninguém; o segundo mantém a sua
-landing page do jeito que ela é.
+São três caminhos, todos no botão **Instalar no site** de cada formulário. O
+primeiro não exige site nenhum; os outros dois preservam o visual da sua página.
 
 ### Caminho A — usar a página pronta
 
@@ -79,43 +79,37 @@ Cada formulário já nasce com uma página no ar, no domínio da Ressoa:
 https://ressoa.SEUDOMINIO.com.br/f/lives-semanais
 ```
 
-O botão **Copiar link** na lista de formulários entrega esse endereço. Serve
-para link na bio, anúncio, mensagem de WhatsApp, ou dentro de um `<iframe>` em
-qualquer site.
+**Instalar no site → Só divulgar o link** entrega esse endereço. Serve para link
+na bio, anúncio ou mensagem de WhatsApp. O visual é o desta plataforma, com a cor
+escolhida — não o do seu site.
 
 > **Não use o endereço `…supabase.co/functions/v1/formulario?f=slug` como
 > página.** Ele existe, mas o domínio de funções serve HTML como texto puro (uma
 > proteção contra hospedarem página falsa lá) — o visitante veria o código-fonte
 > cru. Como *destino de POST* ele é o certo; como *página*, nunca.
 
-### Caminho B — o formulário que já existe na sua landing
+### Caminho B — colar um bloco de código no seu site
 
-Quando a landing é sua (Lovable, WordPress, qualquer construtor) e você quer
-manter o visual dela, é o formulário existente que passa a enviar para cá.
+**Formulários → Instalar no site → Colar no meu site.** Copie e cole onde quiser:
 
-Peça ao construtor da página, trocando apenas o slug:
+| Onde | Onde colar |
+|---|---|
+| WordPress | bloco *HTML personalizado* (no Elementor, o widget *HTML*) |
+| Lovable, Framer, Webflow | qualquer bloco de código ou *embed* |
 
-```text
-Troque o destino do formulário de inscrição.
+**Ele assume a identidade do seu site sozinho.** A fonte, a cor do texto e o
+fundo são herdados da página onde ele foi colado (`font: inherit`); só o botão
+usa a cor escolhida aqui. Foi testado colando o mesmo bloco numa página de
+fonte serifada e fundo escuro: ficou serifado e claro, sem um ajuste sequer.
 
-O formulário deve fazer um POST para:
-https://SEU-PROJETO.supabase.co/functions/v1/formulario
+É por isso que este caminho preserva o visual e o *iframe* não — o iframe é uma
+página de fora, com a tipografia dela.
 
-com estes campos:
-- form_slug = "lives-semanais"  (valor fixo, campo escondido)
-- nome      = o nome digitado
-- email     = o e-mail digitado
-- whatsapp  = o WhatsApp digitado (com DDD)
+### Caminho C — a página já tem um formulário e você quer manter aquele
 
-Serve tanto JSON (Content-Type: application/json) quanto envio de formulário
-comum (form-data / urlencoded). Não precisa de chave nem autenticação.
-Sucesso: HTTP 200 com {"ok": true}. Erro: {"erro": "mensagem"} — mostre essa
-mensagem, mantenha o que foi digitado e deixe tentar de novo.
-```
-
-Três coisas que valem exigir de quem mexer na página: botão desabilitado com
-"Enviando…" durante o envio, a mensagem de erro visível sem perder os dados
-digitados, e nenhum outro arquivo tocado.
+**Formulários → Instalar no site → Pedir para a IA / programador.** Copie o
+texto e mande para quem cuida da página (ou cole no chat do Lovable). O
+formulário continua exatamente como está e só passa a enviar para cá.
 
 **Campos além dos três:** qualquer outro campo enviado dentro de um objeto
 `atributos` é gravado no lead. E se a landing receber `?utm_source=…`, a página

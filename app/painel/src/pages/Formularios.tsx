@@ -34,9 +34,19 @@ export default function Formularios() {
   const [tags, setTags] = useState<{ tag_id: number; nome: string }[]>([]);
   const [campos, setCampos] = useState<{ chave: string; rotulo: string }[]>([]);
   const [editando, setEditando] = useState<Form | "novo" | null>(null);
+  const [instalando, setInstalando] = useState<Form | null>(null);
+  const [modo, setModo] = useState<"html" | "link" | "prompt">("html");
+  const [copiado, setCopiado] = useState("");
   const [f, setF] = useState<typeof vazio>(vazio);
 
   const base = location.origin;
+  const endpoint = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/formulario`;
+
+  function copiar(texto: string, qual: string) {
+    navigator.clipboard?.writeText(texto);
+    setCopiado(qual);
+    setTimeout(() => setCopiado(""), 2200);
+  }
 
   async function carregar() {
     const [a, l, t, c] = await Promise.all([
@@ -115,6 +125,103 @@ export default function Formularios() {
     setF({ ...f, campos: f.campos.map((c, x) => (x === i ? { ...c, ...patch } : c)) });
   }
 
+  // ---------- código para instalar no site ----------
+  // O formulário embutido HERDA a identidade do site: fonte, cor do texto e
+  // fundo vêm do que já está na página (font/color: inherit, fundo
+  // transparente). Só o botão usa a cor escolhida aqui. É por isso que este
+  // caminho respeita o visual e o iframe não: o iframe é uma página de fora,
+  // com a tipografia dela.
+  function codigoHtml(x: Form): string {
+    const campos = (x.campos ?? []).map((c) => {
+      const tipo = c.campo === "email" ? "email" : c.campo === "whatsapp" ? "tel" : "text";
+      const auto = c.campo === "email" ? "email" : c.campo === "nome" ? "name" : "tel";
+      const nome = ["nome", "email", "whatsapp"].includes(c.campo) ? c.campo : `atr_${c.campo}`;
+      return `    <label>${c.rotulo}${c.obrigatorio ? " *" : ""}
+      <input type="${tipo}" name="${nome}" autocomplete="${auto}"${c.obrigatorio ? " required" : ""}>
+    </label>`;
+    }).join("\n");
+
+    return `<!-- Formulário ${x.nome} — Ressoa -->
+<form class="ressoa-form" id="ressoa-${x.slug}" novalidate>
+${campos}
+  <button type="submit">${x.botao}</button>
+  <p class="ressoa-erro" hidden></p>
+</form>
+
+<style>
+  /* Herda a fonte e a cor do seu site — só o botão tem cor própria. */
+  .ressoa-form { display: grid; gap: 14px; max-width: 420px; font: inherit; color: inherit; }
+  .ressoa-form label { display: grid; gap: 6px; font-size: .875em; font-weight: 600; }
+  .ressoa-form input {
+    font: inherit; color: inherit; background: transparent;
+    padding: 12px 13px; border: 1px solid rgba(128,128,128,.4); border-radius: 9px;
+  }
+  .ressoa-form input:focus { outline: 2px solid ${x.cor}; outline-offset: 1px; border-color: ${x.cor}; }
+  .ressoa-form button {
+    font: inherit; font-weight: 700; cursor: pointer; color: #fff;
+    background: ${x.cor}; border: 0; border-radius: 9px; padding: 14px;
+  }
+  .ressoa-form button[disabled] { opacity: .6; cursor: progress; }
+  .ressoa-erro { color: #d33; font-size: .85em; margin: 0; }
+</style>
+
+<script>
+(function () {
+  var f = document.getElementById('ressoa-${x.slug}');
+  f.addEventListener('submit', async function (ev) {
+    ev.preventDefault();
+    var b = f.querySelector('button'), erro = f.querySelector('.ressoa-erro');
+    var rotulo = b.textContent;
+    erro.hidden = true; b.disabled = true; b.textContent = 'Enviando…';
+    var dados = { form_slug: '${x.slug}', atributos: {} };
+    new FormData(f).forEach(function (v, k) {
+      if (k.indexOf('atr_') === 0) dados.atributos[k.slice(4)] = v; else dados[k] = v;
+    });
+    // repassa a origem do visitante (?utm_source=…), se houver
+    new URLSearchParams(location.search).forEach(function (v, k) {
+      if (k.indexOf('utm_') === 0 || k === 'sck' || k === 'xcod') dados.atributos[k] = v;
+    });
+    try {
+      var r = await fetch('${endpoint}', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados)
+      });
+      var j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.erro || 'Não deu certo. Tente de novo.');
+      ${x.redirecionar
+        ? `location.href = ${JSON.stringify(x.redirecionar)};`
+        : `f.innerHTML = '<p>' + ${JSON.stringify(x.sucesso)} + '</p>';`}
+    } catch (e) {
+      erro.textContent = e.message; erro.hidden = false;
+      b.disabled = false; b.textContent = rotulo;
+    }
+  });
+})();
+</script>`;
+  }
+
+  function codigoPrompt(x: Form): string {
+    const lista = (x.campos ?? []).map((c) =>
+      `- ${["nome", "email", "whatsapp"].includes(c.campo) ? c.campo : "atributos." + c.campo}` +
+      ` = ${c.rotulo}${c.obrigatorio ? " (obrigatório)" : ""}`).join("\n");
+    return `Faça o formulário desta página enviar os cadastros para a nossa plataforma.
+
+Mantenha o visual do formulário exatamente como está. Ao enviar, faça um POST para:
+${endpoint}
+
+Corpo em JSON (também aceita form-data/urlencoded), com estes campos:
+- form_slug = "${x.slug}"   (valor fixo, campo escondido)
+${lista}
+
+Não precisa de chave nem autenticação. Resposta de sucesso: HTTP 200 com
+{"ok": true} — ${x.redirecionar ? `redirecione para ${x.redirecionar}` : `mostre a mensagem "${x.sucesso}"`}.
+Se vier erro ({"erro": "mensagem"}), mostre essa mensagem, mantenha o que a
+pessoa digitou e deixe tentar de novo. Enquanto envia, desabilite o botão e
+troque o texto dele para "Enviando…".
+
+Não altere nenhuma outra página, rota, dependência ou arquivo.`;
+  }
+
   return (
     <div>
       <h1>Formulários</h1>
@@ -160,8 +267,8 @@ export default function Formularios() {
                   </span>
                 </td>
                 <td className="direita" style={{ whiteSpace: "nowrap" }}>
-                  <button onClick={() => navigator.clipboard?.writeText(`${base}/f/${x.slug}`)}>
-                    Copiar link
+                  <button className="primario" onClick={() => { setInstalando(x); setModo("html"); }}>
+                    Instalar no site
                   </button>{" "}
                   {podeOperar && <>
                     <button onClick={() => abrir(x)}>Editar</button>{" "}
@@ -176,6 +283,114 @@ export default function Formularios() {
           </tbody>
         </table>
       </div>
+
+      {instalando && (
+        <div className="editor-tela">
+          <div className="barra">
+            <h2>Instalar “{instalando.nome}” no seu site</h2>
+            <button onClick={() => setInstalando(null)}>Fechar</button>
+          </div>
+          <div className="corpo">
+            <div style={{ maxWidth: 860, margin: "0 auto" }}>
+              <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--borda)",
+                            marginBottom: 18, flexWrap: "wrap" }}>
+                {([
+                  ["html", "Colar no meu site"],
+                  ["prompt", "Pedir para a IA / programador"],
+                  ["link", "Só divulgar o link"],
+                ] as const).map(([id, rotulo]) => (
+                  <button key={id} onClick={() => setModo(id)}
+                    style={{
+                      border: "none", background: "transparent", cursor: "pointer",
+                      padding: "9px 16px", marginBottom: -1,
+                      borderBottom: `2px solid ${modo === id ? "var(--marca)" : "transparent"}`,
+                      color: modo === id ? "var(--texto)" : "var(--texto2)",
+                      fontWeight: modo === id ? 700 : 400,
+                    }}>{rotulo}</button>
+                ))}
+              </div>
+
+              {modo === "html" && (
+                <div className="caixa">
+                  <h2>Um bloco de código, em qualquer construtor de site</h2>
+                  <div className="sub">
+                    Este formulário <b>herda a identidade do seu site</b>: a fonte, a cor do
+                    texto e o fundo vêm da página onde ele for colado — só o botão usa a cor
+                    que você escolheu. É o caminho que mantém o visual; o link e o iframe
+                    trazem a aparência de fora.
+                  </div>
+                  <div className="sub" style={{ marginTop: 10 }}>
+                    <b>WordPress:</b> bloco <i>HTML personalizado</i> (ou widget <i>HTML</i>, no
+                    Elementor).<br />
+                    <b>Lovable, Framer, Webflow e afins:</b> qualquer bloco de código ou
+                    <i> embed</i>. Se o construtor não aceitar código, use a aba ao lado e peça
+                    para a IA dele.
+                  </div>
+                  <button className="primario" style={{ margin: "12px 0" }}
+                    onClick={() => copiar(codigoHtml(instalando), "html")}>
+                    {copiado === "html" ? "Copiado ✓" : "Copiar o código"}
+                  </button>
+                  <pre style={{
+                    background: "var(--ac-fundo)", border: "1px solid var(--ac-borda-suave)",
+                    borderRadius: 8, padding: 14, overflowX: "auto", margin: 0,
+                    fontSize: "calc(12px * var(--escala-texto))", lineHeight: 1.55,
+                    maxHeight: 460, overflowY: "auto",
+                  }}>{codigoHtml(instalando)}</pre>
+                </div>
+              )}
+
+              {modo === "prompt" && (
+                <div className="caixa">
+                  <h2>Quando a página já tem um formulário bonito</h2>
+                  <div className="sub">
+                    Aí o melhor é o formulário continuar exatamente como está e só passar a
+                    enviar para cá — visual intacto, sem código novo. Mande o texto abaixo
+                    para quem cuida da página (ou cole no chat do Lovable).
+                  </div>
+                  <button className="primario" style={{ margin: "12px 0" }}
+                    onClick={() => copiar(codigoPrompt(instalando), "prompt")}>
+                    {copiado === "prompt" ? "Copiado ✓" : "Copiar o pedido"}
+                  </button>
+                  <pre style={{
+                    background: "var(--ac-fundo)", border: "1px solid var(--ac-borda-suave)",
+                    borderRadius: 8, padding: 14, overflowX: "auto", margin: 0,
+                    fontSize: "calc(12.5px * var(--escala-texto))", lineHeight: 1.6,
+                    whiteSpace: "pre-wrap",
+                  }}>{codigoPrompt(instalando)}</pre>
+                </div>
+              )}
+
+              {modo === "link" && (
+                <div className="caixa">
+                  <h2>A página pronta, no seu domínio</h2>
+                  <div className="sub">
+                    Não precisa de site nenhum: serve para link na bio, anúncio ou mensagem.
+                    O visual é o desta plataforma, com a cor que você escolheu — não o do seu
+                    site. Para manter a identidade da sua página, use uma das outras abas.
+                  </div>
+                  <div className="linha" style={{ marginTop: 12 }}>
+                    <input readOnly value={`${base}/f/${instalando.slug}`} />
+                    <button className="primario" style={{ flex: "0 0 auto" }}
+                      onClick={() => copiar(`${base}/f/${instalando.slug}`, "link")}>
+                      {copiado === "link" ? "Copiado ✓" : "Copiar"}
+                    </button>
+                    <a className="botao" style={{ flex: "0 0 auto", lineHeight: "36px" }}
+                      href={`${base}/f/${instalando.slug}`} target="_blank" rel="noreferrer">
+                      Abrir
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              <div className="aviso">
+                Depois de instalar, <b>faça uma inscrição de teste</b> com um e-mail e um
+                celular que ainda não estejam na base — com dados que já existem, o sistema
+                reconhece a pessoa e não dispara nada, e o teste passa sem provar nada.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editando && (
         <div className="editor-tela">

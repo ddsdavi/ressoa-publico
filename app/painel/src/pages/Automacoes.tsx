@@ -185,8 +185,12 @@ export default function Automacoes() {
 
   return (
     <div>
-      <h1>Automações de e-mail</h1>
-      <div className="sub">Gatilho → passos, executados pelo motor no Postgres (ciclo de 1 min). Novas automações nascem desativadas.</div>
+      <h1>Automações</h1>
+      <div className="sub">
+        Quando acontece uma coisa, faça outra: mandar e-mail, aplicar tag, inscrever
+        numa lista, <b>marcar a pessoa no ManyChat</b>, <b>escrever numa planilha</b> ou
+        avisar outro sistema. Automação nova nasce desligada.
+      </div>
 
       <div className="caixa">
         <button className="primario" onClick={() => abrirEditor(null)}>+ Nova automação</button>
