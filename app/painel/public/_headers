@@ -1,0 +1,21 @@
+# Regra de cache do painel (Cloudflare Pages).
+#
+# O problema que isto resolve: cada publicação gera um nome novo para o JS e
+# o CSS (index-ABC123.js). O index.html aponta para eles. Se o navegador
+# guarda o index.html VELHO, ele pede um arquivo que não existe mais — e como
+# o _redirects manda tudo que não existe para o index.html, o navegador
+# recebe HTML no lugar do JavaScript. O sintoma é tela branca, ou a tela sem
+# estilo nenhum, até alguém limpar o cache na mão.
+#
+# A correção é a de sempre em aplicação de página única: o index.html nunca
+# fica em cache, e os arquivos com nome versionado ficam para sempre — o nome
+# muda quando o conteúdo muda, então não há o que invalidar.
+
+/index.html
+  Cache-Control: no-cache, must-revalidate
+
+/
+  Cache-Control: no-cache, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

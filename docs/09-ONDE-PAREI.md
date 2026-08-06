@@ -22,7 +22,7 @@ reconstituir a conversa.
 - `executar_webhooks` foi **ligado em 05/08/2026** por decisão do Davi: os
   POSTs para n8n/Boost.space herdados das automações do AC voltam a sair
   quando os gatilhos (listas/tags de lançamento) receberem gente.
-- 38 armadilhas conhecidas estão em [06-PROBLEMAS-CONHECIDOS.md](06-PROBLEMAS-CONHECIDOS.md).
+- 39 armadilhas conhecidas estão em [06-PROBLEMAS-CONHECIDOS.md](06-PROBLEMAS-CONHECIDOS.md).
   Vale ler antes de mexer em qualquer coisa; várias custaram horas.
 
 ---

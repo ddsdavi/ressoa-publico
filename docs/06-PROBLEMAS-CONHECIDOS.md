@@ -752,3 +752,40 @@ o mapa falhar, o evento fica **sem** `processado`, com o erro escrito, visível 
 **Regra que fica:** função nova com parâmetro novo = `drop function` da assinatura velha
 no mesmo arquivo. E toda chamada `supabase.rpc(...)` cujo resultado importa precisa ler
 `error`, não só `data`.
+
+---
+
+## 39. Publicar o painel deixava a tela branca (ou sem estilo nenhum)
+
+**Sintoma:** logo depois de publicar, quem já tinha o painel aberto via a tela em
+branco, ou a página crua sem CSS. Recarregar não resolvia; só limpar o cache do
+navegador na mão.
+
+**Causa:** cada build gera nomes novos para o JavaScript e o CSS
+(`index-ABC123.js`), e o `index.html` aponta para eles. O navegador guardava o
+`index.html` **velho**, que pedia um arquivo que não existia mais. E como o
+`_redirects` manda tudo que não existe para o `index.html`, o navegador recebia
+**HTML no lugar do JavaScript** — daí o silêncio: nenhum erro no console, porque
+o arquivo respondeu 200.
+
+**Correção:** `app/painel/public/_headers` com a regra padrão de aplicação de
+página única — `index.html` nunca fica em cache, e os arquivos com nome
+versionado ficam para sempre (o nome muda quando o conteúdo muda, então não há o
+que invalidar).
+
+**Como reconhecer de novo:** peça o JavaScript e olhe o tipo da resposta.
+
+```js
+const s = [...document.querySelectorAll('script[src]')].map(x => x.src).find(u => u.includes('/assets/'));
+(await (await fetch(s)).text()).startsWith('<!doctype')   // true = é este problema
+```
+
+**Enquanto o cache velho não expira**, o jeito de destravar sem pedir para o
+usuário limpar nada:
+
+```js
+const html = await (await fetch('/index.html', { cache: 'reload' })).text();
+for (const a of new Set([...html.matchAll(/\/assets\/[\w.-]+\.(?:js|css)/g)].map(m => m[0])))
+  await fetch(a, { cache: 'reload' });
+location.reload();
+```
