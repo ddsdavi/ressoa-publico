@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import grapesjs, { type Editor } from "grapesjs";
 import "grapesjs/dist/css/grapes.min.css";
 import presetNewsletter from "grapesjs-preset-newsletter";
+import { MARCA_NOME, MARCA_RODAPE } from "../lib/marca";
 
 // Editor visual de e-mail (GrapesJS, 100% local — nada sai do navegador).
 // Salva HTML com o CSS embutido em cada tag (é o que cliente de e-mail
@@ -221,8 +222,8 @@ const BLOCOS: { id: string; label: string; content: string }[] = [
   {
     id: "ress-assinatura", label: "Assinatura",
     content: bloco(`<p style="margin:0;font-size:15px;line-height:1.7;color:#3c3646">
-      Um abraço,<br /><b>Nome do Remetente</b><br />
-      <span style="color:#7a756a;font-size:13px">Sua Área</span></p>`, "20px 24px"),
+      Um abraço,<br /><b>${MARCA_NOME || "Nome do Remetente"}</b><br />
+      <span style="color:#7a756a;font-size:13px">${MARCA_RODAPE.split("·")[0].trim() || "Sua Área"}</span></p>`, "20px 24px"),
   },
 ];
 

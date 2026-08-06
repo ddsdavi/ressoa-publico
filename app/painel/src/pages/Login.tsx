@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import ControlesAparencia from "../components/ControlesAparencia";
+import { MARCA_NOME, MARCA_RODAPE } from "../lib/marca";
 
 type Modo = "entrar" | "cadastrar" | "esqueci" | "codigo";
 
@@ -104,7 +105,7 @@ export default function Login() {
             <MarcaRessoa tamanho={40} />
             <div>
               <b>Ressoa</b>
-              <span>Nome do Remetente</span>
+              {MARCA_NOME && <span>{MARCA_NOME}</span>}
             </div>
           </div>
           <h2>A sua base, na sua mão.</h2>
@@ -117,13 +118,13 @@ export default function Login() {
             <li><i>◇</i> Campanhas e automações próprias</li>
             <li><i>◇</i> Métricas de verdade, sem intermediário</li>
           </ul>
-          <footer>Sua Área · Terapia · Formação</footer>
+          {MARCA_RODAPE && <footer>{MARCA_RODAPE}</footer>}
         </aside>
 
         <form className="cartao-login" onSubmit={enviar}>
           <div className="marca-mobile">
             <MarcaRessoa tamanho={34} />
-            <div><b>Ressoa</b><span>Nome do Remetente</span></div>
+            <div><b>Ressoa</b>{MARCA_NOME && <span>{MARCA_NOME}</span>}</div>
           </div>
 
           <h2>{titulos[modo]}</h2>

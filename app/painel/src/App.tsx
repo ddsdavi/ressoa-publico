@@ -8,6 +8,7 @@ import Seguranca from "./pages/Seguranca";
 import Tour, { tourJaVisto } from "./components/Tour";
 import ControlesAparencia from "./components/ControlesAparencia";
 import { ROTULO_PAPEL } from "./lib/papeis";
+import { TITULO } from "./lib/marca";
 import Dashboard from "./pages/Dashboard";
 import Leads from "./pages/Leads";
 import Listas from "./pages/Listas";
@@ -185,7 +186,7 @@ function Layout() {
               ))}
             </div>
           ))}
-          <div className="rodape">Ressoa · Nome do Remetente</div>
+          <div className="rodape">{TITULO}</div>
         </aside>
         <main className="conteudo">
           <Routes>
@@ -242,7 +243,7 @@ function Portao() {
           <h2>{perfil?.status === "bloqueado" ? "Acesso bloqueado" : "Cadastro em análise"}</h2>
           <p style={{ fontSize: "calc(14px * var(--escala-texto))", color: "var(--ac-texto2)", lineHeight: 1.7 }}>
             {perfil?.status === "bloqueado"
-              ? "Sua conta foi bloqueada por um admin. Fale com a a dona da conta ou com o Davi."
+              ? "Sua conta foi bloqueada por um admin. Fale com quem administra a conta para voltar a entrar."
               : "Sua conta foi criada e está aguardando liberação de um admin. Assim que ela for liberada, o acesso é imediato."}
           </p>
           <button onClick={sair} style={{ width: "100%", marginTop: 18 }}>Sair</button>
