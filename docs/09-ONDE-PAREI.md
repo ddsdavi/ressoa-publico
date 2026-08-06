@@ -126,6 +126,32 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
 
 ---
 
+## Automações: vários gatilhos e passos arrastáveis (06/08/2026)
+
+Duas coisas que o AC tinha e aqui faltavam:
+
+**Mais de um gatilho por automação.** No quadro, o botão "+ outro gatilho"
+acrescenta portas de entrada, ligadas por um "OU" — qualquer uma inicia o
+fluxo, e a pessoa entra uma vez só mesmo que duas aconteçam juntas (o
+`distinct` no casamento garante). No banco, `automacoes.gatilho` aceita
+objeto (um gatilho — formato das automações herdadas, intocadas) ou array
+(vários). Quem normaliza é `public.gatilhos_de()`, e as QUATRO funções que
+leem o campo passaram por ela (`gatilhos_multiplos_v1.sql`):
+`processar_eventos_sistema`, `verificar_datas`, `mesclar_tags` e `rel_tags`.
+Esquecer uma delas seria automação que parece montada e não dispara — ou
+mesclagem de tag deixando gatilho órfão. Provado em produção: automação de
+teste com lista 6 + tag 85 salvou como array, o motor leu os dois, e as 13
+ativas continuaram legíveis.
+
+**Arrastar as caixinhas.** Os passos do quadro têm alça (⠿) e se reordenam
+por arrasto, com linha roxa mostrando onde a caixinha vai cair; as setas
+↑/↓ da gaveta continuam para quem prefere clique. Detalhe de implementação
+que importa: a posição de origem viaja no `dataTransfer` do próprio evento,
+não no estado do React — entre o "peguei" e o "soltei" pode não haver
+re-render, e ler o estado ali derrubava a solta.
+
+---
+
 ## Lives semanais: FUNCIONANDO de ponta a ponta (06/08/2026, 23h25)
 
 Uma inscrição real na página publicada (`biopatriciadomingos.com.br/livessemanais`)
