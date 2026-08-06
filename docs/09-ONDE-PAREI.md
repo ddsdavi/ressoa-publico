@@ -402,6 +402,45 @@ Duas coisas que quem religar precisa saber:
 A única `[RESSOA]` que ficou ativa é a **Lives Semanais — tag no
 ManyChat**: ela não manda e-mail (marca ManyChat e escreve na planilha).
 
+### O espelho público voltou a ficar em dia (06/08/2026)
+
+Estava 126 commits atrás. Antes de empurrar, a varredura das 7.500 linhas
+novas achou coisa que **não podia ir para um repositório aberto**:
+
+| O quê | Onde | Tratamento |
+|---|---|---|
+| 9 CPFs **com nome completo** de clientes | `cpf_nao_fundir_v1.sql` | valores foram para `cpf_nao_fundir_dados.local.sql` |
+| 5 e-mails pessoais (Patrícia e equipe) | `email_da_compra_v3_operacao.sql` | valores foram para `emails_da_operacao_dados.local.sql` |
+| ~14 telefones reais (BR, Suíça, Alemanha, Austrália) | `venda/telefone.test.ts` | trocados por fictícios de mesma forma |
+
+O `.gitignore` ganhou `*.local.sql`: o **porquê e a estrutura** da
+migração continuam versionados; só os **valores** ficam na máquina. Quem
+reconstruir o banco do zero precisa rodar o par local depois da migração
+— está escrito dentro dos dois arquivos, porque sem isso a tabela nasce
+vazia e a regra volta a não existir. Produção não foi tocada: as duas
+tabelas já tinham os dados (9 e 6 linhas, conferidas).
+
+Os testes de telefone continuam passando (16 de 16) com os números
+fictícios: eles preservam a forma que cada caso prova — DDD, quantidade
+de dígitos, o 9 do celular, o assinante suíço começando em 7.
+
+**Sobre a mecânica do espelho, que não é óbvia:** `publico/main` **não
+tem ancestral comum** com o repositório privado — são duas histórias
+paralelas (60 commits lá, 128 cá). Atualizar não é `push` nem
+`force-push`: monta-se um commit cujo *tree* é o do HEAD e cujo *pai* é o
+topo público, e empurra-se esse commit. Nada é reescrito, o histórico
+público é preservado, e como a árvore vem do Git, tudo que o `.gitignore`
+segura fica de fora por construção.
+
+    TREE=$(git rev-parse HEAD^{tree})
+    C=$(git commit-tree "$TREE" -p publico/main -m "…")
+    git push publico "$C:refs/heads/main"
+
+Conferido depois de publicar, pela API do GitHub: o arquivo dos CPFs tem
+só o `00000000000` do exemplo, nenhum nome de cliente, e a árvore
+publicada é byte a byte a mesma do HEAD (`8e8922b4`). O histórico público
+antigo também foi varrido: nunca teve nenhum desses dados.
+
 ### Sem teto: a decisão e o que ela custa (06/08/2026)
 
 Duas sessões trabalharam a mesma peça no mesmo dia e chegaram a desenhos
