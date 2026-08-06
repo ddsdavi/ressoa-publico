@@ -156,7 +156,9 @@ Deno.serve(async (req) => {
     const code = u.searchParams.get("code");
     const state = u.searchParams.get("state") ?? "";
     const s = await segredos(["google_oauth_state"]);
-    const [estadoGuardado, quando, origem] = (s.google_oauth_state ?? "||").split("|");
+    const partes = (s.google_oauth_state ?? "||").split("|");
+    const [estadoGuardado, quando] = partes;
+    const origem = partes[2] ?? ""; // estado gravado no formato antigo não tem origem
 
     // Esta rota não desenha nada, e não é escolha de estilo: o Supabase se
     // recusa a servir HTML de *.supabase.co — troca o content-type por
