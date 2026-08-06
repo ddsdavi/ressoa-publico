@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import FluxoAutomacao from "../components/FluxoAutomacao";
+import Ajuda from "../components/Ajuda";
 
 // Lista de automações. São dezenas, com nomes herdados do ActiveCampaign
 // (15LC_..., 16LC_...), e a leitura tem que caber num relance: o que está
@@ -11,6 +12,7 @@ type Passo = { passo_id?: string; ordem: number; tipo: string; config: Record<st
 type Auto = {
   automacao_id: string; nome: string; ativa: boolean; origem_ac_id: number | null;
   gatilho: Record<string, any> | Record<string, any>[] | null; nota: string | null;
+  produto: string | null;
   automacao_passos: Passo[];
 };
 
@@ -48,6 +50,7 @@ export default function Automacoes() {
   const [listas, setListas] = useState<{ lista_id: number; nome: string }[]>([]);
   const [tags, setTags] = useState<{ tag_id: number; nome: string }[]>([]);
   const [mensagens, setMensagens] = useState<{ mensagem_id: string; nome: string; subject: string }[]>([]);
+  const [produtos, setProdutos] = useState<{ apelido: string; padrao_nome: string | null }[]>([]);
   const [camposData, setCamposData] = useState<string[]>([]);
   const [execs, setExecs] = useState<Record<string, number>>({});
   const [busca, setBusca] = useState("");
@@ -60,6 +63,7 @@ export default function Automacoes() {
   const [eGatilhos, setEGatilhos] = useState<Record<string, any>[]>([]);
   const [ePassos, setEPassos] = useState<Passo[]>([]);
   const [eAtiva, setEAtiva] = useState(false);
+  const [eProduto, setEProduto] = useState("");
 
   const mapListas = Object.fromEntries(listas.map((x) => [x.lista_id, x.nome]));
   const mapTags = Object.fromEntries(tags.map((x) => [x.tag_id, x.nome]));
@@ -76,6 +80,9 @@ export default function Automacoes() {
     setListas(l.data ?? []);
     setTags((t.data ?? []) as never);
     setMensagens(m.data ?? []);
+    const { data: pr } = await supabase.from("hotmart_produtos")
+      .select("apelido, padrao_nome").eq("ativo", true).order("apelido");
+    setProdutos(pr ?? []);
     const { data: cd } = await supabase.from("campos_personalizados")
       .select("chave").eq("tipo", "data").order("chave");
     setCamposData((cd ?? []).map((c) => c.chave));
@@ -195,6 +202,7 @@ export default function Automacoes() {
       setEditId(a.automacao_id);
       setENome(a.nome);
       setEAtiva(a.ativa);
+      setEProduto(a.produto ?? "");
       setEGatilhos(Array.isArray(a.gatilho) ? a.gatilho
         : (a.gatilho?.tipo ? [a.gatilho] : []));
       setEPassos([...(a.automacao_passos ?? [])].sort((x, y) => x.ordem - y.ordem)
@@ -203,6 +211,7 @@ export default function Automacoes() {
       setEditId("nova");
       setENome("");
       setEAtiva(false);
+      setEProduto("");
       setEGatilhos([]);
       setEPassos([]);
     }
@@ -232,13 +241,14 @@ export default function Automacoes() {
     let id = editId;
     if (editId === "nova") {
       const { data, error } = await supabase.from("automacoes")
-        .insert({ nome: eNome.trim(), gatilho, ativa: eAtiva })
+        .insert({ nome: eNome.trim(), gatilho, ativa: eAtiva, produto: eProduto || null })
         .select("automacao_id").single();
       if (error) { alert(error.message); return; }
       id = data.automacao_id;
     } else {
       const { error } = await supabase.from("automacoes")
-        .update({ nome: eNome.trim(), gatilho, ativa: eAtiva }).eq("automacao_id", editId);
+        .update({ nome: eNome.trim(), gatilho, ativa: eAtiva, produto: eProduto || null })
+        .eq("automacao_id", editId);
       if (error) { alert(error.message); return; }
       await supabase.from("automacao_passos").delete().eq("automacao_fk", editId);
     }
@@ -378,6 +388,14 @@ export default function Automacoes() {
             Quando acontece uma coisa, faça outra: mandar e-mail, aplicar tag, inscrever
             numa lista, <b>marcar a pessoa no ManyChat</b>, <b>escrever numa planilha</b> ou
             avisar outro sistema. Automação nova nasce desligada.
+            <Ajuda>
+              Cada automação tem duas partes: o <b>gatilho</b> (o que faz a pessoa entrar) e
+              os <b>passos</b> (o que acontece com ela, em ordem). Faltando qualquer um dos
+              dois, ela não faz nada — é o que o filtro “Incompletas” mostra.
+              <br /><br />
+              Diferença para campanha: a campanha sai uma vez, para quem está lá agora. A
+              automação fica de plantão e pega quem chegar amanhã também.
+            </Ajuda>
           </div>
         </div>
         <button className="primario" onClick={() => abrirEditor(null)}>+ Nova automação</button>
@@ -404,6 +422,15 @@ export default function Automacoes() {
               {f.rot} <b>{contagens[f.id]}</b>
             </button>
           ))}
+          <Ajuda>
+            <b>Incompletas</b> são as que estão sem gatilho ou sem passo nenhum: existem na
+            lista, mas nunca fariam nada. Vale limpar — herança comum da migração.
+            <br /><br />
+            Em cada linha, as etiquetas do meio resumem o que a automação faz (“✉ 2 e-mails
+            · ⏱ 1 espera”) e abrem os passos ao clicar. À direita, <b>execuções</b> é quantas
+            pessoas já entraram nela desde sempre — zero numa automação ativa e antiga é
+            sinal de gatilho que nunca acontece.
+          </Ajuda>
         </div>
       </div>
 
@@ -440,12 +467,14 @@ export default function Automacoes() {
           gatilho={eGatilhos}
           passos={ePassos}
           ativa={eAtiva}
+          produto={eProduto}
           execucoes={editId !== "nova" ? (execs[editId] ?? 0) : 0}
           novo={editId === "nova"}
-          ref={{ listas, tags, mensagens, camposData }}
+          ref={{ listas, tags, mensagens, camposData, produtos }}
           onMudar={(p) => {
             if (p.nome !== undefined) setENome(p.nome);
             if (p.ativa !== undefined) setEAtiva(p.ativa);
+            if (p.produto !== undefined) setEProduto(p.produto);
             if (p.passos !== undefined) setEPassos(p.passos);
             if (p.gatilho !== undefined) {
               setEGatilhos(Array.isArray(p.gatilho) ? p.gatilho

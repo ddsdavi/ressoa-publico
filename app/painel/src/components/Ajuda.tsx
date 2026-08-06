@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 // Um "?" que abre a explicação só quando alguém quer.
 //
@@ -10,63 +11,116 @@ import { useEffect, useRef, useState } from "react";
 // Abre no clique, não no passar do mouse: em celular não existe passar o
 // mouse, e tooltip que só aparece no hover é tooltip que metade das
 // pessoas nunca vê.
+//
+// A caixa mora no <body>, não ao lado do "?". Presa ao lado, ela era
+// cortada pela rolagem da gaveta e sumia pela direita quando o campo
+// ficava perto da borda — justamente nas gavetas, que é onde estão os
+// campos que mais precisam de explicação.
+
+type Posicao = { topo: number; esq: number; setaEsq: number; acima: boolean };
 
 export default function Ajuda({ children }: { children: React.ReactNode }) {
   const [aberto, setAberto] = useState(false);
-  const caixa = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<Posicao | null>(null);
+  const botao = useRef<HTMLButtonElement>(null);
+  const caixa = useRef<HTMLDivElement>(null);
+  const id = useId();
+
+  const medir = useCallback(() => {
+    const b = botao.current?.getBoundingClientRect();
+    if (!b) return;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const largura = caixa.current?.offsetWidth ?? Math.min(320, vw - 24);
+    const altura = caixa.current?.offsetHeight ?? 160;
+
+    // nasce alinhada com o "?", mas nunca deixa a caixa sair da tela
+    let esq = b.left + b.width / 2 - 22;
+    esq = Math.max(12, Math.min(esq, vw - largura - 12));
+
+    const cabeAbaixo = b.bottom + 10 + altura <= vh - 12;
+    const topo = cabeAbaixo ? b.bottom + 10 : Math.max(12, b.top - 10 - altura);
+
+    // a setinha é o que amarra a explicação ao campo certo: com dois "?"
+    // perto um do outro, sem ela não dá para saber de qual deles ela saiu
+    const setaEsq = Math.min(
+      Math.max(b.left + b.width / 2 - esq - 5, 12),
+      Math.max(12, largura - 22),
+    );
+    setPos({ topo, esq, setaEsq, acima: !cabeAbaixo });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (aberto) medir(); else setPos(null);
+  }, [aberto, medir]);
 
   useEffect(() => {
     if (!aberto) return;
     const fora = (e: MouseEvent) => {
-      if (!caixa.current?.contains(e.target as Node)) setAberto(false);
+      const alvo = e.target as Node;
+      if (botao.current?.contains(alvo) || caixa.current?.contains(alvo)) return;
+      setAberto(false);
     };
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setAberto(false);
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setAberto(false); };
     document.addEventListener("mousedown", fora);
     document.addEventListener("keydown", esc);
+    window.addEventListener("resize", medir);
+    window.addEventListener("scroll", medir, true);
     return () => {
       document.removeEventListener("mousedown", fora);
       document.removeEventListener("keydown", esc);
+      window.removeEventListener("resize", medir);
+      window.removeEventListener("scroll", medir, true);
     };
-  }, [aberto]);
+  }, [aberto, medir]);
 
   return (
-    <span ref={caixa} style={{ position: "relative", display: "inline-block" }}>
-      <button type="button" aria-label="explicação" aria-expanded={aberto}
-        onClick={() => setAberto((v) => !v)}
+    <>
+      <button ref={botao} type="button" aria-label="O que é isto?"
+        aria-expanded={aberto} aria-describedby={aberto ? id : undefined}
+        // dentro de <label> o clique no "?" não pode virar clique na caixinha
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAberto((v) => !v); }}
         style={{
           width: 17, height: 17, padding: 0, marginLeft: 6, borderRadius: "50%",
           border: `1px solid ${aberto ? "var(--marca)" : "var(--texto2)"}`,
           background: aberto ? "var(--marca)" : "transparent",
-          color: aberto ? "#fff" : "var(--texto2)", cursor: "pointer",
+          color: aberto ? "#fff" : "var(--texto2)", cursor: "help",
           fontSize: 11, fontWeight: 700, lineHeight: "15px", verticalAlign: "middle",
+          flex: "0 0 auto",
         }}>
         ?
       </button>
 
-      {aberto && (
-        <>
-          {/* A setinha é o que amarra a explicação ao campo certo. Sem ela,
-              com dois "?" perto um do outro, não dá para saber de qual
-              deles a caixa saiu. */}
-          <span style={{
-            position: "absolute", zIndex: 51, left: 10, top: 17,
+      {aberto && createPortal(
+        <div ref={caixa} id={id} role="tooltip"
+          style={{
+            position: "fixed", zIndex: 500,
+            top: pos?.topo ?? -9999, left: pos?.esq ?? -9999,
+            visibility: pos ? "visible" : "hidden",
+            width: "min(320px, calc(100vw - 24px))",
+            background: "var(--cartao, #fff)", color: "var(--texto)",
+            border: "2px solid var(--marca)", borderRadius: 10,
+            boxShadow: "0 12px 36px rgba(0,0,0,.30)",
+            fontSize: "calc(13px * var(--escala-texto))", fontWeight: 400,
+            lineHeight: 1.65, textAlign: "left", whiteSpace: "normal",
+          }}>
+          <span aria-hidden="true" style={{
+            position: "absolute", left: pos?.setaEsq ?? 12,
+            top: pos?.acima ? undefined : -6,
+            bottom: pos?.acima ? -6 : undefined,
             width: 10, height: 10, transform: "rotate(45deg)",
             background: "var(--cartao, #fff)",
-            borderLeft: "2px solid var(--marca)",
-            borderTop: "2px solid var(--marca)",
+            borderLeft: pos?.acima ? undefined : "2px solid var(--marca)",
+            borderTop: pos?.acima ? undefined : "2px solid var(--marca)",
+            borderRight: pos?.acima ? "2px solid var(--marca)" : undefined,
+            borderBottom: pos?.acima ? "2px solid var(--marca)" : undefined,
           }} />
-          <span style={{
-            position: "absolute", zIndex: 50, left: 0, top: 22, width: 300,
-            background: "var(--cartao, #fff)", color: "var(--texto)",
-            border: "2px solid var(--marca)", borderRadius: 8, padding: "11px 13px",
-            boxShadow: "0 8px 28px rgba(0,0,0,.35)",
-            fontSize: "calc(12.5px * var(--escala-texto))", fontWeight: 400,
-            lineHeight: 1.6, whiteSpace: "normal", textAlign: "left",
+          <div style={{
+            padding: "12px 14px", maxHeight: "min(60vh, 440px)", overflowY: "auto",
           }}>
             {children}
-          </span>
-        </>
-      )}
-    </span>
+          </div>
+        </div>,
+        document.body)}
+    </>
   );
 }

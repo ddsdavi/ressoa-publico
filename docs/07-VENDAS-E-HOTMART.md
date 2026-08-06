@@ -46,21 +46,36 @@ Hotmart.
 
 **Marque todos os nove eventos de pedido da especificação 2.0.0:**
 
-| Evento Hotmart | Estado no Ressoa | É compra? |
-|---|---|---|
-| `PURCHASE_APPROVED` | aprovada | sim |
-| `PURCHASE_COMPLETE` | aprovada | sim |
-| `PURCHASE_BILLET_PRINTED` | pendente | não |
-| `PURCHASE_DELAYED` | pendente | não |
-| `PURCHASE_EXPIRED` | expirada | não |
-| `PURCHASE_CANCELED` | cancelada | não |
-| `PURCHASE_REFUNDED` | reembolsada | não é mais comprador |
-| `PURCHASE_CHARGEBACK` | chargeback | não é mais comprador |
-| `PURCHASE_PROTEST` | chargeback/protestada | não é mais comprador |
+| Evento Hotmart | Estado no Ressoa | É compra? | Move automação? |
+|---|---|---|---|
+| `PURCHASE_APPROVED` | aprovada | sim | **sim** |
+| `PURCHASE_COMPLETE` | aprovada | sim | **não** |
+| `PURCHASE_BILLET_PRINTED` | pendente | não | recuperação |
+| `PURCHASE_DELAYED` | pendente | não | recuperação |
+| `PURCHASE_EXPIRED` | expirada | não | recuperação |
+| `PURCHASE_CANCELED` | cancelada | não | sim |
+| `PURCHASE_REFUNDED` | reembolsada | não é mais comprador | sim |
+| `PURCHASE_CHARGEBACK` | chargeback | não é mais comprador | sim |
+| `PURCHASE_PROTEST` | chargeback/protestada | não é mais comprador | sim |
 
 O `purchase.status` detalha ainda estados como espera, análise, falta de fundos e reembolso
 parcial. Ele prevalece sobre o nome genérico do evento. Qualquer estado futuro ainda não
 mapeado é guardado no histórico bruto e retorna erro visível; nunca é presumido como venda.
+
+**Por que `PURCHASE_COMPLETE` conta como venda mas não move automação.** Ele avisa que o
+prazo de arrependimento venceu sem reembolso: a compra virou definitiva. Isso é controle
+interno. Quem manda em e-mail, tag e ManyChat é a **aprovação**, que aconteceu dias antes —
+a pessoa já entrou na lista e já foi marcada naquele momento. O prazo nem é fixo: sete dias
+é o mínimo do Código de Defesa do Consumidor, e o vendedor pode dar mais.
+
+Tratar esse aviso como entrada de comprador põe quem comprou na semana passada dentro da
+turma desta semana, e dispara o WhatsApp da turma errada. Foi o que aconteceu com 21 pessoas
+em 06/08/2026, até a correção.
+
+**Aprovada não volta a ser pendente.** Os avisos não chegam em ordem: um aviso de boleto que
+falhou é reenviado minutos depois, quando a compra já foi aprovada. Antes ele rebaixava a
+venda e o comprador sumia da lista de compradores sem que nada denunciasse. Depois de
+aprovada, só reembolso, chargeback e cancelamento mudam o estado.
 
 ---
 
@@ -179,6 +194,110 @@ No construtor de segmentos (**Leads → Segmento avançado**):
 
 Todas contam **só compra aprovada**. Reembolso e chargeback ficam de fora — quem devolveu
 o produto não é comprador.
+
+---
+
+## Quem está pronto pra comprar
+
+**Contatos → Lead scoring** (a página tem duas abas: **Venda**, com as jogadas
+e o ranking, e **Engajamento**, com a saúde de envio).
+
+A pontuação de venda é um eixo separado do engajamento: vendas é uma coisa,
+e-mail é outra. Ela enxerga só comportamento de compra (quando foi a última,
+quantas, quanto gastou), participação nas lives e tempo de base — e decai com
+o tempo, porque a esteira é rápida: no histórico real, quem chega ao produto
+principal compra **6 a 11 dias** depois de um produto de entrada.
+
+Cada lead carrega três coisas:
+
+| O quê | Para quê |
+|---|---|
+| **Pontos de venda (0–100)** | ordenar — quem está mais perto de comprar aparece primeiro |
+| **Faixa** (Prontíssimo · Pronto · Aquecendo · Frio) | falar de grupo: "Prontíssimo" é sempre o top 5% |
+| **Próxima oferta** | direção: qual degrau da esteira faz sentido oferecer AGORA |
+
+As **jogadas** da aba são a esteira em forma de lista: janela quente (comprou
+entrada há ≤30 dias, sem o produto principal), segunda chamada (30–90 dias),
+aluno → prateleira de cima, lives → porta de entrada, novos → porta de
+entrada, reativação (comprador parado >90 dias). O botão **Criar segmento**
+grava a jogada como segmento vivo — a campanha mira o segmento, e a lista se
+atualiza sozinha todo dia (recalcula às 03:44 e no instante de cada compra).
+
+Dois públicos não têm botão de propósito: **Aquecer primeiro** e **Fora de
+oferta** (reembolso). Campanha de venda para eles machuca o domínio ou a
+relação — reengaje antes.
+
+No construtor de segmentos, o eixo aparece como três condições novas:
+**Pontuação de venda** (acima/abaixo de um valor), **Próxima oferta** (a
+jogada) e **Comprou … nos últimos N dias** (a janela). "Alcançável" também
+existe como condição, e é o que faz o segmento contar igual ao painel.
+
+### A janela quente de forma automática
+
+A jogada nº 1 roda sozinha: a automação **"[RESSOA] Formação — janela
+quente"** está **ligada** desde 06/08/2026. Toda compra aprovada entra;
+saem na porta quem **já tem a Formação** e quem não tem **compra aprovada
+nos últimos 21 dias** (trava contra reprocessamento de eventos antigos —
+sem ela, reprocessar as compras mudas de 02–05/08 despejaria compradores
+de semanas atrás numa sequência que diz "ontem"). A conferência da
+Formação se repete antes de cada e-mail: quem compra no meio sai sozinho,
+sem nunca receber oferta do que acabou de comprar.
+
+Os envios acontecem em **D+1, D+4 e D+8** da compra — a janela real de
+conversão medida no histórico (6 a 11 dias). Os textos são as mensagens
+`[Janela quente 1..3/3]` na página **Mensagens**: link para a página de
+inscrição da Formação e promessas retiradas dos e-mails que a própria
+conta já enviou (método, certificado MEC/ABRATH, comunidade, mentorias,
+2 anos de acesso) — sem prazo falso nem bônus de lançamento, porque a
+sequência roda o ano inteiro.
+
+Para **pausar**: Automações → desmarcar Ativa. Para mudar o texto: edite
+as mensagens — o próximo envio já sai com a versão nova.
+
+### As outras sequências que rodam sozinhas
+
+| Automação | Entra quem | Sai quem |
+|---|---|---|
+| Formação — janela quente | comprou um produto de entrada (D+1, D+4, D+8, D+30) | já tem a Formação, ou a compra passou de 21 dias |
+| Pagamento não caiu | gerou boleto ou PIX e não pagou (4h e 24h) | pagou |
+| Carrinho abandonado | chegou no checkout e não concluiu (2h) | comprou |
+| Aluno → Black / Acompanhamento | comprou a Formação (D+7 e D+17) | já tem Black ou Acompanhamento |
+| Lives → Desafio | entrou na lista das Lives Semanais (D+2 e D+7) | comprou qualquer coisa |
+| Reativar esteira | comprador parado há mais de 90 dias | comprou nos últimos 90 dias |
+
+A reativação não tem gatilho de evento: uma rotina semanal enfileira até
+**150 pessoas por vez**, começando pelas de maior pontuação de venda.
+Mandar para as 2.500 de uma vez é exatamente o disparo que queima um
+domínio.
+
+### Quanto isso vendeu
+
+**Contatos → Lead scoring → Resultado.** Uma linha por automação e por
+campanha, com pessoas, e-mails, aberturas, cliques, **compradores,
+receita e receita por e-mail**.
+
+Só conta a compra que aconteceu **depois** do e-mail sair, dentro de 14
+dias. É por isso que a compra que dispara a janela quente nunca aparece
+como resultado dela — creditar ao e-mail uma venda anterior a ele faria
+qualquer sequência parecer perfeita.
+
+### Saúde do envio
+
+**Envios → Saúde do envio.** Esta operação **não trabalha com teto de
+e-mails por dia** (decisão de 06/08/2026): a fila escoa no ritmo do
+motor, 100 por minuto.
+
+O que protege o domínio é o **freio**. De hora em hora o sistema olha os
+últimos 7 dias e, se o bounce passar de 2% ou a reclamação de spam de
+0,1% — os limites que o Gmail publica —, ele **pausa o envio sozinho** e
+registra um alerta na própria página. A fila não perde nada: espera.
+
+O freio só age a partir de 50 e-mails no período. Com pouca amostra, um
+único bounce vira "taxa alta" e pararia a operação por estatística de
+nada.
+
+Sem teto, o freio deixa de ser rede secundária e passa a ser a única.
+Vale olhar esses dois números depois de todo disparo grande.
 
 ---
 

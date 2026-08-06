@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { useSessao, type Perfil } from "../lib/sessao";
 import { ROTULO_PAPEL, DESCRICAO_PAPEL, PODE } from "../lib/papeis";
 import Escolher from "../components/Escolher";
+import Ajuda from "../components/Ajuda";
 
 const PAPEIS: Record<string, [string, string]> = Object.fromEntries(
   Object.keys(ROTULO_PAPEL).map((k) => [k, [ROTULO_PAPEL[k], DESCRICAO_PAPEL[k]]]),
@@ -53,7 +54,15 @@ export default function Usuarios() {
   return (
     <div>
       <h1>Usuários <span className="contagem">({lista.length})</span></h1>
-      <div className="sub">Quem entra no Ressoa e o que cada pessoa pode fazer.</div>
+      <div className="sub">Quem entra no Ressoa e o que cada pessoa pode fazer.
+        <Ajuda>
+          Qualquer pessoa pode criar uma conta, mas ninguém entra antes de você liberar aqui —
+          cadastro novo nasce como <b>Assistente</b> e <b>pendente</b>.
+          <br /><br />
+          As permissões valem no banco de dados, não só na tela: mesmo chamando a API por
+          fora, ninguém faz o que o próprio nível não permite.
+        </Ajuda>
+      </div>
 
       {pendentes.length > 0 && (
         <div className="aviso">
@@ -64,7 +73,26 @@ export default function Usuarios() {
 
       <div className="caixa">
         <table>
-          <thead><tr><th>Pessoa</th><th>Papel</th><th>Situação</th><th></th></tr></thead>
+          <thead><tr>
+            <th>Pessoa<Ajuda>Contas com <b>🔒 permanente</b> não podem ser rebaixadas, bloqueadas nem excluídas — nem por outro admin, nem por elas mesmas. É a garantia de que a conta não fica sem dono.</Ajuda></th>
+            <th>Papel
+              <Ajuda>
+                Muda na hora, sem precisar salvar — e vale imediatamente, inclusive para quem
+                estiver com a plataforma aberta agora. A tabela logo abaixo mostra o que cada
+                nível pode fazer.
+              </Ajuda>
+            </th>
+            <th>Situação
+              <Ajuda>
+                <b>pendente</b> = criou a conta e ainda não entra · <b>aprovado</b> = acesso
+                liberado · <b>bloqueado</b> = a conta existe mas não entra mais.
+                <br /><br />
+                Bloquear é preferível a excluir quando alguém sai do time: o histórico do que
+                essa pessoa fez continua fazendo sentido nos registros.
+              </Ajuda>
+            </th>
+            <th></th>
+          </tr></thead>
           <tbody>
             {lista.map((u) => (
               <tr key={u.user_id}>
@@ -99,7 +127,16 @@ export default function Usuarios() {
       </div>
 
       <div className="caixa">
-        <h2>O que cada nível pode fazer</h2>
+        <h2>O que cada nível pode fazer
+          <Ajuda>
+            A linha divisória é o <b>irreversível</b>: disparo para milhares de pessoas,
+            exportação da base e supressão não têm desfazer, e por isso ficam fora do
+            Assistente.
+            <br /><br />
+            Preparar não é o mesmo que executar — quem monta a campanha não precisa ser quem
+            aperta enviar.
+          </Ajuda>
+        </h2>
         <table className="tabela-permissoes">
           <thead><tr>
             <th>Ação</th>
@@ -119,8 +156,9 @@ export default function Usuarios() {
           </tbody>
         </table>
         <div className="sub" style={{ marginTop: 14, lineHeight: 1.7 }}>
-          Em uma frase: <b>Terapeuta MEXE</b> na operação (cria, edita e dispara);{" "}
-          <b>Assistente SÓ OLHA</b> (consulta e acompanha, sem alterar nada);{" "}
+          Em uma frase: <b>Assistente PREPARA</b> (cria leads, listas, tags e deixa a campanha
+          pronta em rascunho, mas não dispara);{" "}
+          <b>Terapeuta PREPARA E DISPARA</b> (faz tudo da operação e é quem manda o e-mail sair);{" "}
           <b>Admin</b> faz tudo isso e ainda cuida de configurações, integrações e usuários.<br />
           Novos cadastros nascem como <b>Assistente</b> e <b>pendentes</b> — você libera e escolhe o nível aqui.<br />
           Contas com <b>🔒 permanente</b> não podem ser rebaixadas, bloqueadas nem excluídas.

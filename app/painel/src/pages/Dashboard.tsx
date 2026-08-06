@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSessao, saudacao, primeiroNome } from "../lib/sessao";
+import Ajuda from "../components/Ajuda";
 
 type Contagens = {
   leads: number; ativos: number; suprimidos: number;
@@ -53,15 +54,55 @@ export default function Dashboard() {
         </div>
       </div>
       <div className="cartoes">
-        <div className="cartao"><div className="num">{c?.leads ?? "…"}</div><div className="rot">Leads na base</div></div>
-        <div className="cartao"><div className="num">{c?.ativos ?? "…"}</div><div className="rot">Inscrições ativas em listas</div></div>
-        <div className="cartao"><div className="num">{c?.suprimidos ?? "…"}</div><div className="rot">E-mails suprimidos (nunca receberão)</div></div>
-        <div className="cartao"><div className="num">{c?.campanhas ?? "…"}</div><div className="rot">Campanhas criadas</div></div>
-        <div className="cartao"><div className="num">{c?.envios ?? "…"}</div><div className="rot">E-mails processados</div></div>
-        <div className="cartao"><div className="num">{c?.automacoes ?? "…"}</div><div className="rot">Automações ativas</div></div>
+        <div className="cartao"><div className="num">{c?.leads ?? "…"}</div>
+          <div className="rot">Leads na base
+            <Ajuda>
+              Pessoas cadastradas, contando cada uma <b>uma vez</b> — mesmo que ela esteja
+              em cinco listas. É o tamanho real da sua base.
+            </Ajuda>
+          </div></div>
+        <div className="cartao"><div className="num">{c?.ativos ?? "…"}</div>
+          <div className="rot">Inscrições ativas em listas
+            <Ajuda>
+              Vínculos, não pessoas: quem está ativo em três listas conta três vezes.
+              Por isso este número costuma ser maior que o de leads.
+            </Ajuda>
+          </div></div>
+        <div className="cartao"><div className="num">{c?.suprimidos ?? "…"}</div>
+          <div className="rot">E-mails suprimidos (nunca receberão)
+            <Ajuda>
+              Bounces, reclamações de spam e quem pediu para sair. Insistir com eles derruba
+              a reputação do domínio e faz o e-mail bom também parar no lixo — por isso o
+              bloqueio vale para campanha, automação e importação, sem exceção.
+            </Ajuda>
+          </div></div>
+        <div className="cartao"><div className="num">{c?.campanhas ?? "…"}</div>
+          <div className="rot">Campanhas criadas
+            <Ajuda>Inclui rascunhos e agendadas, não só as que já saíram.</Ajuda>
+          </div></div>
+        <div className="cartao"><div className="num">{c?.envios ?? "…"}</div>
+          <div className="rot">E-mails processados
+            <Ajuda>
+              Tudo o que passou pela fila desde o começo: enviados, entregues, retidos e os
+              que deram erro. O detalhe de cada um está em <b>Envios</b>.
+            </Ajuda>
+          </div></div>
+        <div className="cartao"><div className="num">{c?.automacoes ?? "…"}</div>
+          <div className="rot">Automações ativas
+            <Ajuda>
+              Só as ligadas — as que podem disparar agora, sem ninguém apertar nada.
+              As desligadas continuam existindo em Automações.
+            </Ajuda>
+          </div></div>
       </div>
       <div className="caixa">
-        <h2>Últimos eventos do motor</h2>
+        <h2>Últimos eventos do motor
+          <Ajuda>
+            Cada linha é uma coisa que aconteceu na base (alguém entrou numa lista, ganhou
+            uma tag, comprou) e que as automações escutam. O motor drena essa fila a cada
+            minuto: <b>na fila</b> não é erro, é só a vez que ainda não chegou.
+          </Ajuda>
+        </h2>
         <table>
           <thead><tr><th>#</th><th>Evento</th><th>Quando</th><th>Processado</th></tr></thead>
           <tbody>

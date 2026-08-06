@@ -392,6 +392,17 @@ Deno.serve(async (req) => {
     if (id) como = "e-mail";
   }
 
+  // Quem entrou no ManyChat por fora (pelo próprio WhatsApp, por um fluxo
+  // de lá) existe com o número no campo de SISTEMA e nada no personalizado.
+  // Sem esta busca a criação era tentada e o ManyChat recusava com "This
+  // WhatsApp ID already exists" — dez pessoas ficaram sem a tag da turma
+  // em 06/08/2026 assim, e o log só dizia "erro de validação".
+  if (!id && fone) {
+    id = primeiro((await mc(
+      `/subscriber/findBySystemField?phone=${encodeURIComponent(fone)}`)).dados);
+    if (id) como = "telefone";
+  }
+
   // ---- 2. criar ----
   // Sem telefone não cria: um assinante de WhatsApp sem número é um
   // registro que nunca vai receber nada e ainda suja a base de lá.
@@ -414,6 +425,18 @@ Deno.serve(async (req) => {
     id = primeiro(r.dados);
     criado = !!id;
     como = "criado agora";
+
+    // "This WhatsApp ID already exists" quer dizer que ele está lá e as
+    // buscas não o acharam. Desistir aqui deixaria a pessoa sem a tag por
+    // um motivo que é o oposto do que parece: não é contato faltando, é
+    // contato de sobra. Procura de novo pelo número antes de desistir.
+    if (!id && JSON.stringify(r.dados).includes("already exists")) {
+      id = primeiro((await mc(
+        `/subscriber/findBySystemField?phone=${encodeURIComponent(fone)}`)).dados);
+      criado = false;
+      como = "ja existia (achado pelo numero)";
+    }
+
     if (!id) {
       await anotar(c.lead_id, "criar", c.tag, false, JSON.stringify(r.dados).slice(0, 400));
       return new Response(JSON.stringify({ ok: false, erro: "não deu para criar", detalhe: r.dados }),

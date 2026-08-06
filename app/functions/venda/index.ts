@@ -17,7 +17,8 @@
 // linha existente é atualizada. É assim que um reembolso lançado depois
 // corrige a venda que já estava aqui.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { ehIntencaoDeCompra, statusPedidoHotmart } from "./estados.ts";
+import { ehFimDeGarantia, ehIntencaoDeCompra, statusPedidoHotmart } from "./estados.ts";
+import { normWhatsapp } from "./telefone.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -42,15 +43,13 @@ const cors = {
 // purchase.status é mais fino que o evento e manda quando existe: ele
 // distingue coisas que o nome do evento junta, como reembolso PARCIAL —
 // que não é reembolso (a pessoa ficou com parte) nem venda cheia.
-function normWhatsapp(p: string | null | undefined): string | null {
-  if (!p) return null;
-  let d = String(p).replace(/\D/g, "").replace(/^0+/, "");
-  if (!d) return null;
-  if (d.length === 10 || d.length === 11) d = "55" + d;
-  if (d.length < 10) return null;
-  const resto = d.startsWith("55") ? d.slice(2) : d;
-  if (new Set(resto.split("")).size <= 1) return null;
-  return d;
+
+// Quando a página monta a URL com uma variável vazia, o parâmetro chega como
+// a STRING "undefined" — quatro contatos guardaram isso no xcod. Não informa
+// nada e ainda suja a ficha de quem abre o contato.
+function semLixo(dados: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(dados).filter(([, v]) =>
+    !(typeof v === "string" && ["undefined", "null"].includes(v.trim().toLowerCase()))));
 }
 
 // a Hotmart manda data como milissegundos desde 1970
@@ -67,6 +66,7 @@ type Venda = {
   pagamento: string | null; status: string | null; quando: string | null;
   parcelas: number | null; origem: string;
   evento: string | null; ucode: string | null; oferta: string | null;
+  documento: string | null; pais: string | null;
   utms: Record<string, string>;
 };
 
@@ -118,6 +118,8 @@ function daHotmart(b: Record<string, any>): Venda | null {
     evento: b.event ?? null,
     ucode: d.product?.ucode ?? null,
     oferta: c.offer?.name ?? c.offer?.code ?? null,
+    documento: d.buyer?.document ?? null,
+    pais: d.buyer?.address?.country_iso ?? null,
     utms,
   };
 }
@@ -139,6 +141,8 @@ function simples(b: Record<string, any>): Venda {
     evento: b.event ?? null,
     ucode: b.ucode ?? null,
     oferta: b.oferta ?? null,
+    documento: b.documento ?? b.cpf ?? null,
+    pais: b.pais ?? null,
     utms: {},
   };
 }
@@ -246,11 +250,23 @@ Deno.serve(async (req) => {
     return await falhar("sem e-mail nem telefone do comprador", 400);
   }
 
-  const fone = normWhatsapp(v.telefone);
+  const fone = normWhatsapp(v.telefone, v.pais);
+  // só os dígitos: o checkout manda "123.456.789-00" e a base guarda cru
+  const doc = (v.documento ?? "").replace(/\D/g, "") || null;
 
-  // 1) acha o contato: WhatsApp primeiro, e-mail depois
+  // 1) acha o contato: CPF, WhatsApp, e-mail — nessa ordem.
+  //
+  // O CPF vem em toda compra da Hotmart e é o identificador mais forte
+  // que existe aqui: e-mail a pessoa troca, telefone ela troca, CPF não.
+  // É ele que permite a mesma pessoa comprar com dois endereços sem
+  // virar dois contatos.
   let leadId: string | null = null;
-  if (fone) {
+  if (doc && doc.length >= 11) {
+    const { data } = await supabase.from("tabela_1_leads")
+      .select("lead_id").eq("cpf", doc).maybeSingle();
+    if (data) leadId = data.lead_id;
+  }
+  if (!leadId && fone) {
     const { data } = await supabase.from("tabela_1_leads")
       .select("lead_id").eq("whatsapp", fone).maybeSingle();
     if (data) leadId = data.lead_id;
@@ -265,15 +281,42 @@ Deno.serve(async (req) => {
   let novo = false;
   if (!leadId) {
     const { data, error } = await supabase.from("tabela_1_leads")
-      .insert({ email: v.email, nome: v.nome, whatsapp: fone })
+      .insert({ email: v.email, nome: v.nome, whatsapp: fone, cpf: doc })
       .select("lead_id").single();
-    if (error) return await falhar(error.message, 500);
-    leadId = data.lead_id;
-    novo = true;
+
+    // Order bump e upsell são vendidos no mesmo checkout, e a Hotmart
+    // manda UM webhook por item — os dois chegam no mesmo segundo. Ambos
+    // procuram a pessoa, nenhum acha, ambos tentam criar, e o segundo
+    // esbarra na chave única do WhatsApp. Desistir aqui perdia o item:
+    // oito compras entre 03 e 06/08/2026 ficaram assim.
+    //
+    // A pessoa existe — quem acabou de criá-la foi o outro item da mesma
+    // compra. Procurar de novo devolve o mesmo contato, e cada item segue
+    // como a operação distinta que é.
+    if (error) {
+      if (fone) {
+        const { data: r } = await supabase.from("tabela_1_leads")
+          .select("lead_id").eq("whatsapp", fone).maybeSingle();
+        if (r) leadId = r.lead_id;
+      }
+      if (!leadId && v.email) {
+        const { data: r } = await supabase.from("tabela_1_leads")
+          .select("lead_id").ilike("email", v.email).maybeSingle();
+        if (r) leadId = r.lead_id;
+      }
+      if (!leadId) return await falhar(error.message, 500);
+    } else {
+      leadId = data.lead_id;
+      novo = true;
+    }
   } else {
+    // Completa o que faltava — sem trocar o e-mail principal por conta
+    // própria: o endereço antigo pode ser o que a pessoa de fato lê. O
+    // da compra fica guardado na compra e em lead_emails.
     const patch: Record<string, unknown> = {};
     if (v.nome) patch.nome = v.nome;
     if (fone) patch.whatsapp = fone;
+    if (doc && doc.length >= 11) patch.cpf = doc;
     if (Object.keys(patch).length) {
       await supabase.from("tabela_1_leads").update(patch).eq("lead_id", leadId);
     }
@@ -290,8 +333,22 @@ Deno.serve(async (req) => {
   // o status ficaria certo e o resto da informação sumiria. Por isso o que
   // chega vazio preserva o que já estava lá.
   const { data: existente } = await supabase.from("tabela_4_alunos")
-    .select("forma_de_pagamento, parcelas, data_compra, valor, nome_produto, evento_origem")
+    .select("forma_de_pagamento, parcelas, data_compra, valor, nome_produto, evento_origem, status, email_compra, documento")
     .eq("codigo_transacao", transacao).maybeSingle();
+
+  // Pedido pago não volta a ser boleto à espera de pagamento. Os eventos
+  // da Hotmart não chegam em ordem: um aviso de boleto que falhou é
+  // reenviado minutos depois, já com a compra aprovada, e o upsert cru
+  // rebaixava a venda para "pendente" — o comprador saía da lista de
+  // compradores sem que nada denunciasse. Aconteceu com três compras do
+  // Desafio entre 04 e 05/08/2026.
+  //
+  // Depois de aprovada, só reembolso, chargeback e cancelamento mudam o
+  // estado. "Pendente" e "expirada" são passado, e passado não sobrescreve
+  // presente.
+  const rebaixaria = existente?.status === "aprovada" &&
+    (v.status === "pendente" || v.status === "expirada");
+  const statusFinal = rebaixaria ? "aprovada" : v.status;
 
   const { error } = await supabase.from("tabela_4_alunos").upsert({
     lead_fk: leadId,
@@ -300,15 +357,34 @@ Deno.serve(async (req) => {
     valor: v.valor || existente?.valor || 0,
     moeda: v.moeda,
     forma_de_pagamento: v.pagamento ?? existente?.forma_de_pagamento ?? null,
-    status: v.status,
-    data_compra: v.quando ?? existente?.data_compra ?? new Date().toISOString(),
+    status: statusFinal,
+    data_compra: rebaixaria
+      ? existente?.data_compra
+      : (v.quando ?? existente?.data_compra ?? new Date().toISOString()),
     parcelas: v.parcelas ?? existente?.parcelas ?? null,
     origem: v.origem,
-    evento_origem: v.evento ?? existente?.evento_origem ?? null,
+    evento_origem: rebaixaria
+      ? existente?.evento_origem
+      : (v.evento ?? existente?.evento_origem ?? null),
+    // Com quem ESTA compra falou. Quem compra com um endereço novo é
+    // casado pelo WhatsApp com o cadastro antigo — a pessoa certa, e o
+    // e-mail da compra se perdia. É para cá que vai a comunicação
+    // deste produto.
+    email_compra: v.email ?? existente?.email_compra ?? null,
+    documento: doc ?? existente?.documento ?? null,
     updated_at: new Date().toISOString(),
   }, { onConflict: "codigo_transacao" });
 
   if (error) return await falhar(error.message, 500);
+
+  // O endereço da compra passa a ser um e-mail conhecido da pessoa, sem
+  // trocar o principal: o antigo pode ser o que ela de fato lê, e trocar
+  // por conta própria é decisão de gente.
+  if (v.email) {
+    await supabase.rpc("registrar_email_do_lead", {
+      p_lead: leadId, p_email: v.email, p_origem: "compra",
+    });
+  }
 
   // 4) tag opcional, para o disparo da automação de comprador
   if (v.status === "aprovada" && b.tag_id) {
@@ -327,7 +403,7 @@ Deno.serve(async (req) => {
   if (Object.keys(v.utms).length) {
     const { data: atual } = await supabase.from("lead_atributos")
       .select("dados").eq("lead_fk", leadId).maybeSingle();
-    const juntos = { ...(atual?.dados ?? {}), ...v.utms };
+    const juntos = semLixo({ ...(atual?.dados ?? {}), ...v.utms });
     // abre xcod e sck em campos separados na hora: guardados comprimidos
     // eles nao servem para segmentar, e ninguem volta para arrumar depois
     const { data: abertos } = await supabase.rpc("extrair_atribuicao", { p_dados: juntos });
@@ -338,8 +414,10 @@ Deno.serve(async (req) => {
     });
   }
 
-  // 4c) se foi intencao e nao venda, gera o evento de recuperacao
-  if (ehIntencaoDeCompra(evento)) {
+  // 4c) se foi intencao e nao venda, gera o evento de recuperacao.
+  // Só que um aviso de boleto atrasado, chegando depois da aprovação,
+  // pediria recuperação de quem já pagou — cobrança de quem não deve.
+  if (ehIntencaoDeCompra(evento) && !rebaixaria) {
     await supabase.rpc("registrar_intencao", {
       p_lead: leadId, p_evento: evento, p_produto: v.produto, p_valor: v.valor,
     });
@@ -348,9 +426,22 @@ Deno.serve(async (req) => {
   // 5) o mapa de produtos: "comprou o Desafio" vira, sozinho, "entra na
   // lista de compradores do Desafio e ganha a tag". Produto novo é uma
   // linha na tela, não uma alteração de código.
-  const { data: mapa, error: mapaErro } = await supabase.rpc("aplicar_mapa_produto", {
-    p_lead: leadId, p_produto: v.produto, p_status: v.status, p_ucode: v.ucode,
-  });
+  //
+  // Só a APROVAÇÃO move automação. O aviso de fim de garantia chega dias
+  // depois da compra e não repete este trabalho: a pessoa já entrou na
+  // lista, já ganhou a tag e já foi marcada no ManyChat quando comprou.
+  // A venda acima continua sendo atualizada — é o registro do dinheiro.
+  const fimDeGarantia = ehFimDeGarantia(evento, b.data?.purchase?.status);
+
+  // A turma sai da data da COMPRA, nunca da data de hoje. São a mesma
+  // coisa quando o aviso chega em tempo real, e coisas muito diferentes
+  // quando ele chega atrasado ou quando alguém reprocessa o histórico.
+  const { data: mapa, error: mapaErro } = fimDeGarantia
+    ? { data: { mapeado: false, motivo: "fim de garantia não move automação" }, error: null }
+    : await supabase.rpc("aplicar_mapa_produto", {
+      p_lead: leadId, p_produto: v.produto, p_status: v.status, p_ucode: v.ucode,
+      p_quando: v.quando ?? existente?.data_compra ?? new Date().toISOString(),
+    });
 
   // A venda já está gravada; o webhook responde ok. Mas se o mapa falhou,
   // o evento NÃO pode ganhar o carimbo de processado: sem o erro à vista

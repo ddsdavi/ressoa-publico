@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSessao } from "../lib/sessao";
 import Escolher from "../components/Escolher";
+import Ajuda from "../components/Ajuda";
 
 // Campos próprios do contato.
 //
@@ -100,6 +101,14 @@ export default function Campos() {
         Informação extra que fica guardada em cada contato — origem, UTM, respostas de
         formulário. Dá para filtrar por eles no segmento avançado e escrever a variável
         direto no e-mail. Campo sem valor naquele contato sai como vazio, nunca aparece cru.
+        <Ajuda>
+          Os <b>valores</b> já existem: vieram do ActiveCampaign e entram por formulário,
+          importação e API. O que se faz nesta tela é dar <b>nome legível</b> a eles.
+          <br /><br />
+          Sem cadastro, a informação continua guardada e funcionando — ela só aparece como
+          <code> 16LC-UTM-SOURCE</code> em vez de “Origem do cadastro”, e aí ninguém sabe
+          o que é na hora de montar um segmento.
+        </Ajuda>
       </div>
 
       <div className="caixa linha">
@@ -116,7 +125,13 @@ export default function Campos() {
       {orfaos.length > 0 && (
         <div className="aviso">
           <b>{orfaos.length} campo(s) aparecem nos dados mas não estão cadastrados aqui.</b> Eles
-          funcionam do mesmo jeito, só ficam sem nome legível.{" "}
+          funcionam do mesmo jeito, só ficam sem nome legível.
+          <Ajuda>
+            São chaves que chegaram por importação, formulário ou API sem passar por esta
+            tela. Cadastrar não mexe em nenhum valor já gravado: só coloca um nome na
+            frente da chave. O número entre parênteses é quantos contatos têm valor nela —
+            comece pelos maiores.
+          </Ajuda>{" "}
           {orfaos.slice(0, 6).map((o) => (
             <button key={o.chave} style={{ margin: "4px 4px 0 0" }} onClick={() => abrir(null, o.chave)}>
               cadastrar {o.chave} ({o.leads})
@@ -130,7 +145,17 @@ export default function Campos() {
           <h2>{g}</h2>
           <table>
             <thead><tr>
-              <th>Nome do campo</th><th>Tipo</th><th>Variável no e-mail</th><th>Contatos</th><th></th>
+              <th>Nome do campo</th>
+              <th>Tipo<Ajuda>Muda como o campo é oferecido no formulário e como ele é comparado no segmento. O tipo <b>data</b> é o único que serve de gatilho para a automação “chega uma data do contato”.</Ajuda></th>
+              <th>Variável no e-mail
+                <Ajuda>
+                  Cole isso no assunto ou no corpo da mensagem e, no envio, cada pessoa
+                  recebe o valor dela. Quem não tem valor recebe vazio — a variável nunca
+                  sai escrita no meio do texto.
+                </Ajuda>
+              </th>
+              <th>Contatos<Ajuda>Quantas pessoas têm algum valor guardado neste campo. Zero costuma ser campo que sobrou de um lançamento antigo.</Ajuda></th>
+              <th></th>
             </tr></thead>
             <tbody>
               {filtrados.filter((c) => c.grupo === g).map((c) => (
@@ -178,7 +203,16 @@ export default function Campos() {
           <input value={form.rotulo} placeholder="Origem do cadastro"
             onChange={(e) => setForm({ ...form, rotulo: e.target.value })} />
 
-          <label>Variável (a chave onde o valor fica guardado)</label>
+          <label>Variável (a chave onde o valor fica guardado)
+            <Ajuda>
+              É o nome técnico, o que aparece dentro de <code>{"{{campo.…}}"}</code> e o que
+              o formulário e a API mandam. Use letras minúsculas e sublinhado, sem acento
+              nem espaço.
+              <br /><br />
+              Se o campo veio do ActiveCampaign, a chave precisa ser <b>exatamente</b> a que
+              já está gravada nos contatos — é ela que liga o cadastro aos valores.
+            </Ajuda>
+          </label>
           <input value={form.chave} placeholder="origem_cadastro"
             disabled={editando !== "novo"}
             onChange={(e) => setForm({ ...form, chave: e.target.value })} />
@@ -189,7 +223,14 @@ export default function Campos() {
             </div>
           )}
 
-          <label>Tipo</label>
+          <label>Tipo
+            <Ajuda>
+              <b>Data</b> é o único que vira gatilho de automação (“chega a data do
+              contato”), então use-o para aniversário e vencimento.
+              <b> Lista de opções</b> vira um menu no formulário, o que evita a mesma
+              resposta chegar escrita de cinco jeitos e estragar o relatório do campo.
+            </Ajuda>
+          </label>
           <Escolher valor={form.tipo} aoMudar={(v) => setForm({ ...form, tipo: v })}
             opcoes={TIPOS.map(([v, r]) => ({ valor: v, rotulo: r }))} />
           {form.tipo === "oculto" && (

@@ -340,7 +340,16 @@ export default function Config() {
       {aba === "email" && (
       <div className="caixa">
         <h2>Envio de e-mail</h2>
-        <label>Provedor</label>
+        <label>Provedor
+          <Ajuda>
+            Quem leva o e-mail até a caixa da pessoa. Em <b>simulado</b>, tudo é processado e
+            marcado como enviado, mas nada sai de verdade — é o modo certo para conferir uma
+            campanha inteira sem risco.
+            <br /><br />
+            Trocar o provedor não muda mais nada: personalização, rastreio, descadastro e
+            relatórios continuam iguais nos três.
+          </Ajuda>
+        </label>
         <Escolher valor={cfg.provedor_email ?? "simulado"}
           aoMudar={(v) => setCfg({ ...cfg, provedor_email: v })}
           opcoes={[
@@ -350,8 +359,16 @@ export default function Config() {
           ]} />
         <label>Webhooks das automações
           <Ajuda>
-            Enquanto o ActiveCampaign ainda estiver rodando, deixe desligados: os dois
-            sistemas disparando o mesmo n8n significa a pessoa recebendo tudo em dobro.
+            A chave-geral dos passos que avisam <b>outro sistema</b> — n8n, Boost, um endereço
+            seu. Desligada, esses passos não fazem POST nenhum; o resto da automação (e-mail,
+            tag, lista) roda normalmente.
+            <br /><br />
+            Deixe desligada enquanto o ActiveCampaign ainda estiver rodando as mesmas
+            automações: os dois sistemas chamando o mesmo n8n é a pessoa recebendo tudo em
+            dobro.
+            <br /><br />
+            O passo <b>Planilha do Google</b> no modo direto não passa por aqui — ele escreve
+            pela conta conectada na aba Planilhas.
           </Ajuda>
         </label>
         <Escolher valor={cfg.executar_webhooks ?? "false"}
@@ -362,7 +379,16 @@ export default function Config() {
           ]} />
         {cfg.provedor_email !== "ses" && (
           <>
-            <label>Chave da API do Resend</label>
+            <label>Chave da API do Resend
+              <Ajuda>
+                Pegue em <b>resend.com → API Keys</b>. Sem ela preenchida, o envio continua em
+                modo simulado mesmo com o provedor trocado.
+                <br /><br />
+                Lembre de apontar o webhook do Resend para o endereço de postback (aba{" "}
+                <b>API e webhooks</b>): sem isso, bounce e reclamação de spam não entram
+                sozinhos no bloqueio.
+              </Ajuda>
+            </label>
             <CampoSegredo value={cfg.resend_api_key ?? ""} placeholder="re_..."
               onChange={(v) => setCfg({ ...cfg, resend_api_key: v })} />
           </>
@@ -385,10 +411,28 @@ export default function Config() {
           </>
         )}
         <div className="linha">
-          <div><label>Nome do remetente padrão</label>
+          <div><label>Nome do remetente padrão
+            <Ajuda>
+              O nome que aparece na caixa de entrada de quem recebe — e o que mais decide se a
+              pessoa abre. Toda campanha e toda mensagem nova já nascem com ele preenchido.
+              <br /><br />
+              Mudar aqui não mexe nas mensagens já escritas: cada uma guardou o remetente que
+              tinha na hora.
+            </Ajuda>
+          </label>
             <input value={cfg.from_name_padrao ?? ""}
               onChange={(e) => setCfg({ ...cfg, from_name_padrao: e.target.value })} /></div>
-          <div><label>E-mail do remetente padrão</label>
+          <div><label>E-mail do remetente padrão
+            <Ajuda>
+              Precisa ser de um domínio <b>verificado no provedor</b>, senão o envio é
+              recusado. Use um subdomínio só para envio (ex.: <code>envio.seudominio.com.br</code>):
+              se a reputação se estragar, o e-mail humano do domínio principal continua
+              funcionando.
+              <br /><br />
+              Subdomínio de envio costuma só enviar — por isso o campo “Responder para”
+              abaixo aponta para uma caixa que existe de verdade.
+            </Ajuda>
+          </label>
             <input value={cfg.from_email_padrao ?? ""}
               onChange={(e) => setCfg({ ...cfg, from_email_padrao: e.target.value })} /></div>
         </div>

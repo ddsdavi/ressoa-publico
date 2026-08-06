@@ -744,7 +744,9 @@ html.tema-escuro .cartao-login { background: #1F1926; }
   border-radius: 8px; padding: 9px 12px; font-size: calc(12.5px * var(--escala-texto)); line-height: 1.6;
 }
 .tour-rodape { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
-.tour-pontos { display: flex; gap: 5px; flex: 1; }
+/* São mais de vinte passos: sem quebrar linha, as bolinhas empurravam os
+   botões Voltar/Avançar para fora do balão no celular. */
+.tour-pontos { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; min-width: 0; }
 .tour-pontos span {
   width: 7px; height: 7px; border-radius: 50%; background: var(--ac-borda); cursor: pointer;
 }
@@ -1015,6 +1017,194 @@ html.tema-escuro .interruptor input:checked ~ .rot { color: #5FD49A; }
   .pagina-topo > button { margin-left: 0; }
   .campo-busca { max-width: none; }
   .auto-acoes { flex: 1 1 100%; justify-content: space-between; }
+}
+
+/* ============================================================
+   ABAS de página (Regras / Eventos)
+   Dois botões soltos lado a lado não dizem que são abas: parecem
+   duas ações, e a que está "ligada" fica com cara de botão apertado.
+   Aba é sublinhado, não preenchimento.
+   ============================================================ */
+.abas {
+  display: flex; gap: 2px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--ac-borda-suave); margin-bottom: 18px;
+}
+.abas > button {
+  height: 42px; padding: 0 16px; border: 0; background: none; border-radius: 8px 8px 0 0;
+  color: var(--ac-texto2); font-weight: 600; font-size: calc(14px * var(--escala-texto));
+  display: inline-flex; align-items: center; gap: 8px;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.abas > button:hover { background: var(--ac-hover); color: var(--ac-texto); }
+.abas > button.on { color: var(--ac-azul); border-bottom-color: var(--ac-azul); background: none; }
+html.tema-escuro .abas > button.on { color: #D9A3E6; border-bottom-color: #C77FD6; }
+.abas .cont {
+  background: var(--ac-pill); color: var(--ac-texto2); border-radius: 999px;
+  padding: 1px 8px; font-size: calc(12px * var(--escala-texto)); font-weight: 700;
+}
+.abas > button.on .cont { background: var(--marca-fraca); color: inherit; }
+.abas .cont.alerta { background: var(--ac-vermelho2); color: var(--ac-vermelho); }
+html.tema-escuro .abas .cont.alerta { background: #3F2020; color: #F08A85; }
+
+/* ============ Avisos por severidade ============
+   Vermelho é erro. Produto que vendeu e ainda não tem regra não é erro:
+   é uma pendência, e pintá-la de vermelho gasta o vermelho à toa — quando
+   um erro de verdade aparecer, ninguém repara mais. */
+.aviso.atencao { background: var(--ac-amarelo2); border-color: #EBD9A6; color: #6A4E05; }
+.aviso.info {
+  background: var(--acento2); border-color: color-mix(in srgb, var(--ac-azul) 26%, transparent);
+  color: #5B1F66;
+}
+html.tema-escuro .aviso.atencao { background: #3B3116; border-color: #5C4B20; color: #EDD89C; }
+html.tema-escuro .aviso.info { background: #3A2440; border-color: rgba(199,127,214,.42); color: #F0DFF6; }
+.aviso b.titulo { display: block; margin-bottom: 2px; font-size: calc(14px * var(--escala-texto)); }
+
+/* pendências clicáveis: pílulas de ação, não botões no meio do parágrafo */
+.pendencias { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.pendencias button {
+  height: 32px; padding: 0 6px 0 12px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--ac-superficie); border-color: #E3CE94;
+  font-size: calc(13px * var(--escala-texto)); font-weight: 600; color: var(--ac-texto);
+  max-width: 100%;
+}
+.pendencias button:hover { border-color: var(--ac-azul); color: var(--ac-azul); }
+.pendencias button .nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pendencias button .qtd {
+  flex: 0 0 auto; background: var(--ac-pill); color: var(--ac-texto2);
+  border-radius: 999px; padding: 1px 8px; font-size: calc(11.5px * var(--escala-texto));
+}
+.pendencias .resto { align-self: center; font-size: calc(12.5px * var(--escala-texto)); }
+html.tema-escuro .pendencias button { border-color: #5C4B20; }
+
+/* ============ Regras de produto: uma linha por produto ============
+   Eram onze cartões altos, cada um com uma grade de caixinhas repetindo
+   os mesmos rótulos. Tudo com o mesmo peso, nada comparável, e a página
+   inteira rolando. Agora a linha responde "o que esta regra faz" em
+   etiquetas, e os valores abrem sob demanda. */
+.auto-item.sem-efeito::before { background: var(--ac-ambar); opacity: 1; }
+
+.regra-como {
+  display: flex; align-items: center; gap: 7px; margin-top: 3px;
+  font-size: calc(12.5px * var(--escala-texto)); color: var(--ac-texto2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.regra-como code {
+  background: var(--ac-banda); border: 1px solid var(--ac-borda-suave);
+  border-radius: 4px; padding: 0 5px; font-size: calc(11.5px * var(--escala-texto));
+}
+
+.regra-detalhe {
+  display: grid; gap: 10px; padding: 2px 18px 16px 21px;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+}
+.efeito {
+  border: 1px solid var(--ac-borda-suave); border-radius: 9px;
+  padding: 9px 12px; background: var(--ac-banda); min-width: 0;
+}
+.efeito .rot {
+  display: flex; align-items: center; gap: 6px;
+  font-size: calc(11px * var(--escala-texto)); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px; color: var(--ac-texto2);
+}
+.efeito .val {
+  margin-top: 3px; font-weight: 600; overflow-wrap: anywhere;
+  font-size: calc(13.5px * var(--escala-texto));
+}
+.efeito .nota { margin-top: 2px; font-size: calc(12px * var(--escala-texto)); color: var(--ac-texto2); }
+.efeito.reembolso { background: color-mix(in srgb, var(--ac-vermelho2) 45%, var(--ac-superficie)); }
+html.tema-escuro .efeito.reembolso { background: #33201F; }
+
+/* ============ Eventos recebidos ============ */
+.tabela-eventos td { height: 46px; }
+/* "há 15 min" e "fora do escopo" quebrando no meio viravam duas linhas —
+   e pílula em duas linhas deixa de parecer pílula. Estas duas colunas têm
+   largura fixa e não quebram; quem cede espaço é o nome do produto. */
+.tabela-eventos th { white-space: nowrap; }
+.tabela-eventos .quando, .tabela-eventos .situacao { white-space: nowrap; }
+.tabela-eventos .quando { width: 1%; }
+.tabela-eventos .situacao { width: 1%; text-align: right; }
+.tabela-eventos .situacao .etiqueta { white-space: nowrap; margin-right: 0; }
+.tabela-eventos tr.tem-erro td { background: color-mix(in srgb, var(--ac-vermelho2) 40%, transparent); }
+html.tema-escuro .tabela-eventos tr.tem-erro td { background: #2E1C1C; }
+.tabela-eventos .motivo td {
+  height: auto; padding: 0 12px 12px; border-bottom: 1px solid var(--ac-borda-suave);
+  color: var(--ac-vermelho); font-size: calc(12.5px * var(--escala-texto)); overflow-wrap: anywhere;
+}
+html.tema-escuro .tabela-eventos .motivo td { color: #F08A85; }
+.tabela-eventos .col-email { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabela-eventos .quando b { font-weight: 600; }
+.tabela-eventos .quando span {
+  display: block; font-size: calc(11.5px * var(--escala-texto)); color: var(--ac-texto2);
+}
+.rodape-lista {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid var(--ac-borda-suave);
+  font-size: calc(12.5px * var(--escala-texto)); color: var(--ac-texto2);
+}
+
+/* ============ Gaveta em painel: cabeça e pé fixos ============
+   Quinze campos não cabem numa gaveta sem rolagem, e com o Salvar no fim
+   da rolagem ele deixa de existir: a pessoa preenche, não vê botão nenhum
+   e fecha no ✕. Cabeça e pé saem do fluxo; só o miolo rola. */
+.gaveta.painel { padding: 0; display: flex; flex-direction: column; }
+.gaveta.painel .gaveta-cabeca {
+  flex: 0 0 auto; padding: 18px 52px 14px 24px;
+  border-bottom: 1px solid var(--ac-borda-suave); background: var(--ac-superficie);
+}
+.gaveta.painel .gaveta-cabeca h2 { margin: 0; }
+.gaveta.painel .gaveta-cabeca .sub { margin: 3px 0 0; }
+.gaveta.painel .gaveta-corpo { flex: 1 1 auto; overflow-y: auto; padding: 4px 24px 22px; }
+.gaveta.painel .gaveta-pe {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+  padding: 13px 24px; border-top: 1px solid var(--ac-borda-suave);
+  background: var(--ac-superficie); box-shadow: 0 -5px 16px rgba(23, 0, 32, .06);
+}
+html.tema-escuro .gaveta.painel .gaveta-pe { box-shadow: 0 -5px 16px rgba(0, 0, 0, .35); }
+.gaveta.painel .gaveta-pe .recado {
+  margin-left: auto; text-align: right; font-size: calc(12px * var(--escala-texto));
+  color: var(--ac-texto2);
+}
+
+/* blocos numerados dentro da gaveta */
+.bloco-campo { padding-top: 18px; margin-top: 18px; border-top: 1px solid var(--ac-borda-suave); }
+.bloco-campo:first-child { padding-top: 14px; margin-top: 0; border-top: 0; }
+.bloco-campo > h3 {
+  display: flex; align-items: center; gap: 9px; margin: 0;
+  font-size: calc(14.5px * var(--escala-texto)); font-weight: 700;
+}
+.bloco-campo > .sub { margin: 4px 0 0 32px; }
+.bloco-campo > label:first-of-type { margin-top: 10px; }
+.selo-num {
+  flex: 0 0 auto; width: 23px; height: 23px; border-radius: 999px;
+  background: var(--marca-fraca); color: var(--ac-azul);
+  font-size: calc(12.5px * var(--escala-texto)); font-weight: 700;
+  display: grid; place-items: center;
+}
+html.tema-escuro .selo-num { color: #D9A3E6; }
+
+/* o resumo em português do que a regra vai fazer, atualizando enquanto digita */
+.resumo-regra {
+  background: var(--marca-fraca); border: 1px solid color-mix(in srgb, var(--ac-azul) 24%, transparent);
+  border-radius: 10px; padding: 12px 14px; margin-top: 12px;
+  font-size: calc(13.5px * var(--escala-texto)); line-height: 1.75;
+}
+.resumo-regra .rot {
+  display: block; font-size: calc(11px * var(--escala-texto)); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px; color: var(--ac-texto2); margin-bottom: 3px;
+}
+.resumo-regra b { color: var(--ac-azul); }
+html.tema-escuro .resumo-regra { border-color: rgba(199,127,214,.35); }
+html.tema-escuro .resumo-regra b { color: #D9A3E6; }
+
+@media (max-width: 640px) {
+  .gaveta.painel { padding: 0 !important; }
+  .gaveta.painel .gaveta-cabeca { padding: 16px 46px 12px 16px; }
+  .gaveta.painel .gaveta-corpo { padding: 4px 16px 18px; }
+  .gaveta.painel .gaveta-pe { padding: 12px 16px; }
+  .gaveta.painel .gaveta-pe .recado { display: none; }
+  .regra-detalhe { padding: 2px 14px 14px 18px; }
 }
 
 /* nomes e números clicáveis nas tabelas (padrão AC) */

@@ -5,9 +5,13 @@ import { useSessao } from "../lib/sessao";
 import { useSearchParams } from "react-router-dom";
 import ManyChatLeadDrawer, { type LeadParaManyChat } from "../components/ManyChatLeadDrawer";
 import Escolher from "../components/Escolher";
+import Ajuda from "../components/Ajuda";
+import { JOGADAS, ORDEM_JOGADAS, FAIXAS_VENDA } from "../lib/venda";
 
 type Lead = {
   lead_pontuacao?: { pontos: number } | { pontos: number }[] | null;
+  lead_venda?: { pontos_venda: number; faixa: string; proxima_oferta: string }
+    | { pontos_venda: number; faixa: string; proxima_oferta: string }[] | null;
   lead_id: string; nome: string | null; email: string | null;
   whatsapp: string | null; cpf: string | null; created_at: string;
 };
@@ -62,11 +66,14 @@ const CAMPOS_COND: [string, string][] = [
   ["abriu_email", "Abriu e-mail (últimos N dias)"],
   ["clicou_email", "Clicou em e-mail (últimos N dias)"],
   ["nao_suprimido", "Não está na supressão"],
-  ["pontuacao", "Pontuação do lead"],
+  ["pontuacao", "Pontuação do lead (engajamento)"],
   ["comprou", "Comprou (produto opcional)"],
   ["qtd_compras", "Quantidade de compras"],
   ["total_gasto", "Total gasto (R$)"],
   ["pediu_reembolso", "Pediu reembolso"],
+  ["pontuacao_venda", "Pontuação de venda"],
+  ["proxima_oferta", "Próxima oferta (jogada)"],
+  ["alcancavel", "Pode receber e-mail"],
 ];
 
 
@@ -159,7 +166,8 @@ export default function Leads() {
   }
 
   function montarQuery(paraContagem = false) {
-    let seletor = "lead_id, nome, email, whatsapp, cpf, created_at";
+    let seletor = "lead_id, nome, email, whatsapp, cpf, created_at, "
+      + "lead_pontuacao(pontos), lead_venda(pontos_venda, faixa, proxima_oferta)";
     if (fLista) seletor += ", lead_listas!inner(lista_fk, status)";
     if (fTag) seletor += ", lead_tags!inner(tag_fk)";
     let q = supabase.from("tabela_1_leads")
@@ -183,7 +191,7 @@ export default function Leads() {
       if (segAvancado) {
         const fatia = segAvancado.ids.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
         const { data } = await supabase.from("tabela_1_leads")
-          .select("lead_id, nome, email, whatsapp, cpf, created_at, lead_pontuacao(pontos)")
+          .select("lead_id, nome, email, whatsapp, cpf, created_at, lead_pontuacao(pontos), lead_venda(pontos_venda, faixa, proxima_oferta)")
           .in("lead_id", fatia);
         setLeads((data as never) ?? []);
         setTotal(segAvancado.ids.length);
@@ -667,7 +675,13 @@ export default function Leads() {
   return (
     <div>
       <h1>Leads</h1>
-      <div className="sub">{total.toLocaleString("pt-BR")} leads no filtro atual</div>
+      <div className="sub">{total.toLocaleString("pt-BR")} leads no filtro atual
+        <Ajuda>
+          Este número acompanha os filtros logo abaixo — sem nenhum filtro, é a base inteira.
+          É ele que a <b>ação em massa</b> e o <b>exportar</b> usam quando não há ninguém
+          marcado na tabela.
+        </Ajuda>
+      </div>
 
       {mensagemPagina && (
         <div className="aviso sucesso" role="status">
@@ -712,6 +726,15 @@ export default function Leads() {
               { valor: "3", rotulo: "bounce" },
               { valor: "0", rotulo: "não confirmado" },
             ]} />
+          <span style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center" }}>
+            <Ajuda>
+              <b>Status na lista</b> só faz sentido depois de escolher uma lista, porque a
+              mesma pessoa pode estar ativa numa e descadastrada em outra.
+              <br /><br />
+              <b>ativo</b> = pode receber · <b>descadastrado</b> = pediu para sair desta lista ·{" "}
+              <b>bounce</b> = o e-mail voltou · <b>não confirmado</b> = entrou mas nunca confirmou.
+            </Ajuda>
+          </span>
           <Escolher valor={fTag} vazio="Tag: todas"
             aoMudar={(v) => { setFTag(v); setSegAvancado(null); setPagina(0); }}
             opcoes={tags.map((t) => ({ valor: t.tag_id, rotulo: t.nome }))} />
@@ -729,9 +752,25 @@ export default function Leads() {
               valor: s.segmento_id, rotulo: s.nome,
               detalhe: s.definicao?.condicoes ? "avançado" : undefined,
             }))} />
-          <button style={{ flex: "0 0 auto" }} onClick={salvarSegmentoRapido}>💾 Salvar filtro</button>
-          <button className="primario" style={{ flex: "0 0 auto" }}
-            onClick={() => { setConstrutor(true); setPrevQtd(null); }}>🧩 Segmento avançado</button>
+          <span style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center" }}>
+            <button onClick={salvarSegmentoRapido}>💾 Salvar filtro</button>
+            <Ajuda>
+              Guarda a combinação de filtros que está na tela com um nome, e ela passa a
+              aparecer aqui e na hora de escolher quem recebe uma campanha.
+              <br /><br />
+              O segmento guarda a <b>regra</b>, não as pessoas: quem entrar na lista amanhã
+              já entra no segmento sozinho.
+            </Ajuda>
+          </span>
+          <span style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center" }}>
+            <button className="primario"
+              onClick={() => { setConstrutor(true); setPrevQtd(null); }}>🧩 Segmento avançado</button>
+            <Ajuda>
+              Para o que os filtros de cima não alcançam: quem comprou e não abriu, quem tem
+              a tag A mas não a B, quem gastou mais de R$ 500, quem clicou nos últimos 30 dias.
+              Combina quantas condições você quiser, com <b>E</b> ou <b>OU</b>.
+            </Ajuda>
+          </span>
           {segmentos.length > 0 && (
             <Escolher style={{ flex: "0 0 auto", width: 170 }} valor="" vazio="excluir segmento…"
               aoMudar={(v) => { if (v) excluirSegmento(v); }}
@@ -750,10 +789,31 @@ export default function Leads() {
               ...listas.map((l) => ({ valor: `deslista:${l.lista_id}`, rotulo: `− lista: ${l.nome}`, grupo: "Descadastrar da lista" })),
               { valor: "suprimir:0", rotulo: "Nunca mais enviar para estes leads", grupo: "Bloquear envio" },
             ]} />
-          <button disabled={!acaoMassa || ocupado} onClick={executarAcaoMassa} style={{ flex: "0 0 auto" }}>
-            {ocupado ? "Executando…" : "Executar"}
-          </button>
-          <button disabled={ocupado} onClick={exportarCsv} style={{ flex: "0 0 auto" }}>⬇ Exportar CSV</button>
+          <span style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center" }}>
+            <button disabled={!acaoMassa || ocupado} onClick={executarAcaoMassa}>
+              {ocupado ? "Executando…" : "Executar"}
+            </button>
+            <Ajuda>
+              Vale para quem estiver <b>marcado</b> na tabela. Sem ninguém marcado, vale para
+              o <b>filtro inteiro</b> — a confirmação sempre diz qual dos dois está em jogo,
+              porque é a diferença entre 3 pessoas e a base toda.
+              <br /><br />
+              Inscrever numa lista e aplicar tag <b>disparam as automações</b> ligadas a elas,
+              inclusive as que mandam e-mail. Descadastrar não apaga o vínculo: só muda o
+              status, e o histórico continua nos relatórios.
+            </Ajuda>
+          </span>
+          <span style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center" }}>
+            <button disabled={ocupado} onClick={exportarCsv}>⬇ Exportar CSV</button>
+            <Ajuda>
+              Baixa o filtro atual no mesmo formato do ActiveCampaign: dados da pessoa,
+              listas com status, campos próprios e tags.
+              <br /><br />
+              Sai também um registro em <b>Importações e exportações</b> com quem baixou,
+              quando e com que filtro — exportar é levar dado pessoal de milhares de pessoas
+              para fora do sistema, e isso precisa de rastro.
+            </Ajuda>
+          </span>
           {marcados.size > 0 && (
             <button style={{ flex: "0 0 auto" }} onClick={() => setMarcados(new Set())}>
               desmarcar {marcados.size}
@@ -779,8 +839,42 @@ export default function Leads() {
                   }} />
               </th>
             )}
-            <th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Pontos</th><th>Entrou em</th>
-            {podeOperar && <th style={{ width: 104 }}>ManyChat</th>}
+            <th>Nome</th><th>E-mail</th><th>WhatsApp</th>
+            <th>Pontos
+              <Ajuda>
+                O <b>engajamento com e-mail</b> da pessoa. Sobe quando ela abre, clica e
+                compra; cai com o tempo parado. Serve para separar quem acompanha de quem
+                nunca abriu — e mandar sempre para todo mundo é o que estraga a reputação
+                do domínio.
+                <br /><br />
+                Verde ≥ 40 · roxo ≥ 20 · amarelo ≥ 8 · cinza ≥ 1 · vermelho zerado. Dá para
+                filtrar por faixa no segmento avançado, em “Pontuação do lead”.
+                <br /><br />
+                Este número NÃO diz quem está pronto pra comprar — isso é a coluna
+                <b> Venda</b>, ao lado: são dois eixos separados de propósito.
+              </Ajuda>
+            </th>
+            <th>Venda
+              <Ajuda>
+                O <b>eixo de venda</b>: de 0 a 100, só com comportamento de compra —
+                recência (derrete com o tempo, meia-vida de ~1 mês), quantidade, gasto e
+                Lives. Abertura de e-mail não entra. A cor é a faixa por percentil:
+                verde = Prontíssimo (top 5%), roxo = Pronto, amarelo = Aquecendo,
+                cinza = Frio. Passe o mouse no número para ver a próxima oferta.
+                <br /><br />
+                A lista completa, ranqueada e com o porquê de cada número, está na página
+                <b> Lead scoring</b>, aqui em Contatos. No segmento avançado dá para
+                filtrar por “Pontuação de venda” e por “Próxima oferta (jogada)”.
+              </Ajuda>
+            </th>
+            <th>Entrou em<Ajuda>Quando a pessoa entrou na base, não quando entrou nesta lista. Quem veio da migração tem a data original do ActiveCampaign.</Ajuda></th>
+            {podeOperar && <th style={{ width: 104 }}>ManyChat
+              <Ajuda>
+                Abre esta pessoa no ManyChat, procurando pelo <b>WhatsApp</b> dela — lá é o
+                número que identifica, não o e-mail. Dá para ver e mexer nas tags de lá sem
+                sair daqui.
+              </Ajuda>
+            </th>}
           </tr></thead>
           <tbody>
             {leads.map((l) => (
@@ -802,6 +896,18 @@ export default function Leads() {
                   const cor = n >= 40 ? "et-verde" : n >= 20 ? "et-roxa"
                     : n >= 8 ? "et-amarela" : n >= 1 ? "et-cinza" : "et-vermelha";
                   return <span className={`etiqueta ${cor}`}>{n}</span>;
+                })()}</td>
+                <td>{(() => {
+                  const v = Array.isArray(l.lead_venda) ? l.lead_venda[0] : l.lead_venda;
+                  if (!v) return <span style={{ color: "var(--texto2)" }}>—</span>;
+                  const f = FAIXAS_VENDA[v.faixa];
+                  const oferta = JOGADAS[v.proxima_oferta]?.titulo ?? v.proxima_oferta;
+                  return (
+                    <span className={`etiqueta ${f?.classe ?? "et-cinza"}`}
+                      title={`${f?.rotulo ?? v.faixa} · próxima oferta: ${oferta}`}>
+                      {v.pontos_venda}
+                    </span>
+                  );
                 })()}</td>
                 <td>{new Date(l.created_at).toLocaleDateString("pt-BR")}</td>
                 {podeOperar && (
@@ -832,7 +938,15 @@ export default function Leads() {
           <button className="fechar" onClick={() => setConstrutor(false)}>✕</button>
           <h2>Segmento avançado</h2>
           <div className="sub">Combine quantas condições quiser — como a pesquisa avançada do AC.</div>
-          <label>Combinar condições com</label>
+          <label>Combinar condições com
+            <Ajuda>
+              <b>E</b> exige todas as condições ao mesmo tempo (quem comprou <i>e</i> não abriu).
+              <b> OU</b> aceita qualquer uma delas (quem tem a tag A <i>ou</i> a tag B).
+              <br /><br />
+              Cada condição também pode ser invertida no “tem / NÃO tem” ao lado dela — é
+              assim que se pede “quem está na lista mas nunca comprou”.
+            </Ajuda>
+          </label>
           <div className="linha" style={{ marginBottom: 10 }}>
             <button className={condOp === "and" ? "primario" : ""} onClick={() => setCondOp("and")}>E (todas)</button>
             <button className={condOp === "or" ? "primario" : ""} onClick={() => setCondOp("or")}>OU (qualquer)</button>
@@ -869,7 +983,7 @@ export default function Leads() {
                       value={c.valor ?? ""} onChange={(e) => mudarCond(i, { valor: e.target.value })} />
                   </>
                 )}
-                {c.campo === "pontuacao" && (
+                {(c.campo === "pontuacao" || c.campo === "pontuacao_venda") && (
                   <>
                     <Escolher valor={c.operador ?? "maior"} style={{ flex: "0 0 150px" }}
                       aoMudar={(v) => mudarCond(i, { operador: v })}
@@ -877,9 +991,15 @@ export default function Leads() {
                         { valor: "maior", rotulo: "é maior ou igual a" },
                         { valor: "menor", rotulo: "é menor ou igual a" },
                       ]} />
-                    <input type="number" style={{ flex: "0 0 110px" }} placeholder="40"
+                    <input type="number" style={{ flex: "0 0 110px" }}
+                      placeholder={c.campo === "pontuacao_venda" ? "25" : "40"}
                       value={c.valor ?? ""} onChange={(e) => mudarCond(i, { valor: e.target.value })} />
                   </>
+                )}
+                {c.campo === "proxima_oferta" && (
+                  <Escolher valor={c.valor ?? ""} vazio="— jogada —" style={{ flex: 1 }}
+                    aoMudar={(v) => mudarCond(i, { valor: v })}
+                    opcoes={ORDEM_JOGADAS.map((s) => ({ valor: s, rotulo: JOGADAS[s].titulo }))} />
                 )}
                 {c.campo === "whatsapp" && (
                   <Escolher valor={String(c.tem ?? "true")} style={{ flex: "0 0 130px" }}
@@ -928,6 +1048,13 @@ export default function Leads() {
                   <input type="number" placeholder="dias (ex.: 30)" value={c.dias ?? ""}
                     onChange={(e) => mudarCond(i, { dias: Number(e.target.value) })} />
                 )}
+                {c.campo === "comprou" && (
+                  <input type="number" placeholder="nos últimos N dias (vazio = desde sempre)"
+                    style={{ maxWidth: 260 }} value={c.dias ?? ""}
+                    onChange={(e) => mudarCond(i, {
+                      dias: e.target.value === "" ? undefined : Number(e.target.value),
+                    })} />
+                )}
               </div>
             </div>
           ))}
@@ -936,6 +1063,14 @@ export default function Leads() {
             <button onClick={contarConstrutor}>🔢 Contar</button>
             <button onClick={aplicarConstrutor} disabled={ocupado}>👁 Ver leads</button>
             <button className="primario" onClick={salvarConstrutor}>💾 Salvar segmento</button>
+            <span style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center" }}>
+              <Ajuda>
+                <b>Contar</b> só diz quantas pessoas atendem — é o jeito barato de conferir a
+                regra antes de qualquer coisa. <b>Ver leads</b> traz essas pessoas para a
+                tabela. <b>Salvar segmento</b> guarda a regra com um nome, e ela passa a
+                aparecer também na hora de escolher quem recebe uma campanha.
+              </Ajuda>
+            </span>
           </div>
           {prevQtd !== null && (
             <div className="sub" style={{ marginTop: 10 }}>
@@ -949,15 +1084,40 @@ export default function Leads() {
         <div className="gaveta" style={{ width: 620 }}>
           <button className="fechar" onClick={() => setImportando(false)}>✕</button>
           <h2>Importar leads por CSV</h2>
-          <div className="sub">Mesma lógica do AC: quem já existe (WhatsApp ou e-mail) é atualizado, nunca duplicado. Números ganham DDI 55 automaticamente.</div>
-          <label>Arquivo CSV (separado por ; , ou tab)</label>
+          <div className="sub">Mesma lógica do AC: quem já existe (WhatsApp ou e-mail) é atualizado, nunca duplicado. Números ganham DDI 55 automaticamente.
+            <Ajuda>
+              Linhas caem fora quando têm e-mail em branco, e-mail repetido dentro do próprio
+              arquivo ou WhatsApp com dígitos repetidos (número falso). Não é erro do
+              sistema: são linhas que não deveriam virar lead.
+              <br /><br />
+              O resultado de cada importação fica guardado em{" "}
+              <b>Importações e exportações</b>, com quem importou e o que entrou.
+            </Ajuda>
+          </div>
+          <label>Arquivo CSV (separado por ; , ou tab)
+            <Ajuda>
+              O arquivo é lido <b>no seu navegador</b> — nada é enviado antes de você conferir
+              o mapeamento das colunas e confirmar. Salve como CSV UTF-8 para os acentos não
+              chegarem trocados.
+            </Ajuda>
+          </label>
           <input type="file" accept=".csv,text/csv" onChange={aoEscolherArquivo} />
           {csv && (
             <>
               <div className="sub" style={{ marginTop: 10 }}>
                 {csv.linhas.length.toLocaleString("pt-BR")} linhas · colunas: {csv.cabecalho.join(" · ")}
               </div>
-              <h2 style={{ marginTop: 12 }}>Mapeamento de colunas</h2>
+              <h2 style={{ marginTop: 12 }}>Mapeamento de colunas
+                <Ajuda>
+                  Diz qual coluna do seu arquivo é o quê. O sistema adivinha pelo nome do
+                  cabeçalho, mas confira: coluna trocada aqui é dado errado em milhares de
+                  contatos de uma vez.
+                  <br /><br />
+                  É preciso mapear pelo menos <b>e-mail</b> ou <b>WhatsApp</b> — é por um dos
+                  dois que a pessoa é reconhecida como já existente, em vez de virar
+                  duplicata.
+                </Ajuda>
+              </h2>
               {(["email", "nome", "whatsapp", "cpf"] as const).map((campo) => (
                 <div key={campo} className="linha" style={{ marginTop: 6 }}>
                   <label style={{ flex: "0 0 90px", margin: 0 }}>{campo}</label>
@@ -969,7 +1129,16 @@ export default function Leads() {
                     ]} />
                 </div>
               ))}
-              <h2 style={{ marginTop: 14 }}>Aplicar a todos os importados (opcional)</h2>
+              <h2 style={{ marginTop: 14 }}>Aplicar a todos os importados (opcional)
+                <Ajuda>
+                  Inscreve na lista e aplica a tag em <b>cada linha do arquivo</b>, inclusive
+                  em quem já estava na base.
+                  <br /><br />
+                  E é isso que <b>dispara as automações</b> ligadas a essa lista ou tag. Numa
+                  importação de milhares de linhas, isso pode virar milhares de e-mails —
+                  confira em Automações antes de confirmar.
+                </Ajuda>
+              </h2>
               <div className="linha">
                 <Escolher valor={impLista} aoMudar={setImpLista} vazio="Inscrever na lista: nenhuma"
                   opcoes={listas.map((l) => ({ valor: l.lista_id, rotulo: l.nome }))} />
@@ -1010,7 +1179,13 @@ export default function Leads() {
           {det && (
             <>
               <div className="caixa">
-                <h2>Anotações</h2>
+                <h2>Anotações
+                  <Ajuda>
+                    Escrito por gente, para gente: fica com o nome de quem anotou e a data.
+                    Não entra em e-mail, não vira variável e não sai na exportação — é a
+                    memória do time sobre esta pessoa.
+                  </Ajuda>
+                </h2>
                 <div className="sub">O que o time precisa lembrar sobre esta pessoa.</div>
                 {podePreparar && (
                   <div className="linha" style={{ marginTop: 8 }}>
@@ -1037,7 +1212,14 @@ export default function Leads() {
               </div>
 
               <div className="caixa">
-                <h2>Linha do tempo</h2>
+                <h2>Linha do tempo
+                  <Ajuda>
+                    A história inteira desta pessoa, do mais recente para o mais antigo,
+                    juntando o que está espalhado por várias tabelas. É por aqui que se
+                    responde “por que ela recebeu esse e-mail?” — o gatilho aparece logo
+                    antes do envio.
+                  </Ajuda>
+                </h2>
                 <div className="sub">
                   Tudo o que já aconteceu com esta pessoa, em ordem: listas, tags, eventos,
                   e-mails recebidos, aberturas, cliques, automações e compras.
@@ -1066,7 +1248,15 @@ export default function Leads() {
               </div>
 
               <div className="caixa">
-                <h2>Histórico de e-mails</h2>
+                <h2>Histórico de e-mails
+                  <Ajuda>
+                    Os últimos 20 envios para esta pessoa. <b>queued</b> = na fila ·{" "}
+                    <b>sent</b> = entregue ao provedor · <b>delivered</b> = o provedor
+                    confirmou a entrega · <b>bounced</b> / <b>complained</b> = voltou ou foi
+                    marcado como spam · <b>suppressed</b> = estava bloqueada e o envio nem
+                    saiu.
+                  </Ajuda>
+                </h2>
                 {det.envios.map((e) => (
                   <div key={e.envio_id} style={{ padding: "5px 0", fontSize: "calc(13px * var(--escala-texto))", borderBottom: "1px dashed var(--borda)" }}>
                     <span className={`etiqueta ${STATUS_ENVIO[e.status] ?? "et-cinza"}`}>{e.status}</span>{" "}
@@ -1093,7 +1283,13 @@ export default function Leads() {
                 {!det.tags.length && <span className="sub">nenhuma</span>}
               </div>
               <div className="caixa">
-                <h2>Participações (eventos)</h2>
+                <h2>Participações (eventos)
+                  <Ajuda>
+                    Cada vez que esta pessoa entrou num evento ou turma, com a data. Veio da
+                    migração do ActiveCampaign e continua sendo alimentado — dá para filtrar
+                    por ele no segmento avançado, em “Participou de evento”.
+                  </Ajuda>
+                </h2>
                 {det.participacoes.map((p, i) => (
                   <div key={i} style={{ padding: "3px 0", fontSize: "calc(13px * var(--escala-texto))" }}>
                     {p.evento_origem}
@@ -1104,7 +1300,13 @@ export default function Leads() {
               </div>
               {Object.keys(det.atributos).length > 0 && (
                 <div className="caixa">
-                  <h2>Campos personalizados</h2>
+                  <h2>Campos personalizados
+                    <Ajuda>
+                      O que esta pessoa carrega além de nome, e-mail e telefone: origem,
+                      UTM, respostas de formulário. Chave sem nome legível se resolve
+                      cadastrando o campo em <b>Campos</b>.
+                    </Ajuda>
+                  </h2>
                   {Object.entries(det.atributos).map(([k, v]) => (
                     <div key={k} style={{ padding: "3px 0", fontSize: "calc(13px * var(--escala-texto))" }}><b>{k}:</b> {String(v)}</div>
                   ))}
@@ -1112,7 +1314,18 @@ export default function Leads() {
               )}
               {ehAdmin && (
                 <div className="caixa zona-perigo-lead">
-                  <h2>Excluir lead da Ressoa</h2>
+                  <h2>Excluir lead da Ressoa
+                    <Ajuda>
+                      Serve para pedido de exclusão de dados (LGPD). Não confunda com{" "}
+                      <b>bloquear o envio</b>: se a intenção é só parar de mandar e-mail, use
+                      a supressão em <b>Envios</b> — ela mantém o histórico e garante que a
+                      pessoa não volte por uma importação futura.
+                      <br /><br />
+                      A exclusão apaga o cadastro e tudo o que estava ligado a ele. O bloqueio
+                      de e-mail é o único que fica, justamente para o endereço não voltar a
+                      receber.
+                    </Ajuda>
+                  </h2>
                   {!confirmandoExclusao ? (
                     <>
                       <div className="sub">

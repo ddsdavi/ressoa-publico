@@ -428,7 +428,15 @@ export default function ManyChat() {
         <h2 style={{ marginTop: 0 }}>Tags</h2>
 
         <div>
-          <h3 style={{ margin: "0 0 6px" }}>Tags do usuário encontrado</h3>
+          <h3 style={{ margin: "0 0 6px" }}>Tags do usuário encontrado
+            <Ajuda>
+              Aplicar ou remover aqui muda a tag <b>no ManyChat</b>, na hora — e aplicar uma
+              tag é o que dispara o fluxo de mensagem de lá. Não é um rascunho: a pessoa pode
+              receber WhatsApp por causa deste clique.
+              <br /><br />
+              As tags daqui e as do Ressoa são listas separadas: mexer numa não mexe na outra.
+            </Ajuda>
+          </h3>
           {!procurou && (
             <div className="sub">Busque um usuário pelo WhatsApp para aplicar ou remover tags.</div>
           )}
@@ -492,6 +500,14 @@ export default function ManyChat() {
 
         <div className="sub" style={{ marginTop: 8 }}>
           Crie uma tag nova ou abra a lista para localizar e excluir uma tag da conta.
+          <Ajuda>
+            Criar a tag aqui <b>antes</b> de usá-la numa regra de produto ou num passo de
+            automação é o caminho seguro: assim você já consegue pendurar o fluxo nela do lado
+            do ManyChat. Tag criada só na hora do disparo nasce sem fluxo escutando, e a
+            pessoa é marcada sem receber nada.
+            <br /><br />
+            Excluir remove a tag da conta e de todos os usuários lá, e não tem desfazer.
+          </Ajuda>
         </div>
 
         <div className="linha" style={{ marginTop: 12 }}>

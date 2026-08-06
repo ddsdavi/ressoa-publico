@@ -4,6 +4,7 @@ import { useSessao } from "../lib/sessao";
 import EditorEmail from "../components/EditorEmail";
 import { useNavigate } from "react-router-dom";
 import Escolher from "../components/Escolher";
+import Ajuda from "../components/Ajuda";
 
 // Os tipos de campanha. Só entram aqui os que o motor executa de verdade —
 // dois deles não são campanha, são automação, e por isso levam para lá em
@@ -300,7 +301,16 @@ export default function Campanhas() {
   return (
     <div>
       <h1>Campanhas</h1>
-      <div className="sub">Disparos pontuais para listas ou segmentos — o motor respeita supressão e status, sempre.</div>
+      <div className="sub">Disparos pontuais para listas ou segmentos — o motor respeita supressão e status, sempre.
+        <Ajuda>
+          <b>Campanha</b> é o envio de uma vez, para quem estiver na lista naquele momento.
+          <b> Automação</b> é o que sai sozinho quando algo acontece com a pessoa, hoje ou
+          daqui a seis meses.
+          <br /><br />
+          Na hora do disparo o público é conferido de novo no banco: quem descadastrou, deu
+          bounce ou está na supressão não entra, mesmo constando na lista.
+        </Ajuda>
+      </div>
 
       {editando && (
         <EditorEmail html={html} design={design}
@@ -388,7 +398,16 @@ export default function Campanhas() {
             <div style={{ display: "grid", gap: 20, gridTemplateColumns: "minmax(300px, 1fr) minmax(260px, 380px)", marginTop: 16 }}>
               {/* --- remetente e assunto --- */}
               <div>
-                <label>Assunto <span style={{ color: "var(--perigo)" }}>*</span></label>
+                <label>Assunto <span style={{ color: "var(--perigo)" }}>*</span>
+                  <Ajuda>
+                    Aceita {"{{nome}}"} e os seus campos próprios (
+                    <code>{"{{campo.cidade}}"}</code>). Quem não tiver o valor recebe o
+                    assunto sem a variável, nunca com ela escrita no meio.
+                    <br /><br />
+                    Evite MAIÚSCULAS gritadas e excesso de emoji: além de cansar, é o tipo de
+                    coisa que o filtro de spam pesa contra você.
+                  </Ajuda>
+                </label>
                 <input value={assunto} onChange={(e) => setAssunto(e.target.value)}
                   placeholder="O que aparece na caixa de entrada" />
 
@@ -400,7 +419,16 @@ export default function Campanhas() {
                   que costuma ser "Olá, {'{{nome}}'}".
                 </div>
 
-                <label style={{ marginTop: 14 }}>Do nome <span style={{ color: "var(--perigo)" }}>*</span></label>
+                <label style={{ marginTop: 14 }}>Do nome <span style={{ color: "var(--perigo)" }}>*</span>
+                  <Ajuda>
+                    O nome que aparece como remetente na caixa de entrada — e o que mais
+                    decide se a pessoa abre. Mantenha o mesmo sempre: remetente que muda a
+                    cada envio não vira hábito e ainda atrapalha a entrega.
+                    <br /><br />
+                    Nasce do que está em <b>Configurações</b>. Mudar aqui vale só para esta
+                    campanha.
+                  </Ajuda>
+                </label>
                 <input value={deNome} onChange={(e) => setDeNome(e.target.value)} />
 
                 <label>Do e-mail <span style={{ color: "var(--perigo)" }}>*</span></label>
@@ -469,7 +497,16 @@ export default function Campanhas() {
                     ) : (
                       <button style={{ marginTop: 10 }} onClick={() => setEditandoB(true)}>Escrever a versão B</button>
                     )}
-                    <label style={{ marginTop: 12 }}>Fatia que participa do teste: {fatia}%</label>
+                    <label style={{ marginTop: 12 }}>Fatia que participa do teste: {fatia}%
+                      <Ajuda>
+                        Só essa porcentagem do público recebe agora, metade com cada versão.
+                        O restante fica esperando você olhar o placar e mandar a vencedora.
+                        <br /><br />
+                        Fatia pequena demais não prova nada: com 100 envios de cada lado, 2
+                        aberturas de diferença é sorte, não resultado. Em base pequena, prefira
+                        30% ou mais.
+                      </Ajuda>
+                    </label>
                     <input type="range" min={10} max={100} step={5} value={fatia}
                       onChange={(e) => setFatia(Number(e.target.value))} />
                     <div className="sub" style={{ marginTop: 4, textAlign: "left" }}>
@@ -482,7 +519,15 @@ export default function Campanhas() {
             </div>
 
             {/* --- destinatários --- */}
-            <h2 style={{ marginTop: 26 }}>Quem vai receber</h2>
+            <h2 style={{ marginTop: 26 }}>Quem vai receber
+              <Ajuda>
+                <b>Por listas</b>: escolha uma ou várias — quem estiver em duas recebe uma vez
+                só. <b>Por segmento salvo</b>: usa uma regra montada em Leads, que continua
+                valendo para quem entrar depois.
+                <br /><br />
+                Em qualquer um dos dois, só recebe quem está ativo e fora da supressão.
+              </Ajuda>
+            </h2>
             <div className="linha" style={{ marginBottom: 8 }}>
               <button className={tipoAud === "listas" ? "primario" : ""} onClick={() => setTipoAud("listas")}>Por listas</button>
               <button className={tipoAud === "segmento" ? "primario" : ""} onClick={() => setTipoAud("segmento")}>Por segmento salvo</button>
@@ -520,11 +565,26 @@ export default function Campanhas() {
 
             {/* --- agendamento --- */}
             <h2 style={{ marginTop: 26 }}>Quando</h2>
-            <label>Agendar para (vazio = disparo manual)</label>
+            <label>Agendar para (vazio = disparo manual)
+              <Ajuda>
+                Horário do seu computador. Agendado, o motor enfileira sozinho na hora
+                marcada — e o público é montado <b>naquele momento</b>, não agora: quem entrar
+                na lista até lá também recebe.
+                <br /><br />
+                O escoamento é de 100 e-mails por minuto, cerca de 6 mil por hora. Uma
+                campanha de 12 mil pessoas leva uma par de horas para chegar na última.
+              </Ajuda>
+            </label>
             <input type="datetime-local" value={agendarEm} onChange={(e) => setAgendarEm(e.target.value)} />
 
             {/* --- monitoramento --- */}
-            <h2 style={{ marginTop: 26 }}>Monitoramento</h2>
+            <h2 style={{ marginTop: 26 }}>Monitoramento
+              <Ajuda>
+                O que a campanha registra sobre quem recebeu. É daqui que saem os números do
+                relatório — desligado, o envio funciona igual, mas você fica sem saber o que
+                aconteceu depois.
+              </Ajuda>
+            </h2>
             <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
               <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                 <input type="checkbox" checked={rastreiaAbertura}
@@ -556,9 +616,19 @@ export default function Campanhas() {
             </div>
 
             <div className="linha" style={{ marginTop: 22 }}>
-              <button disabled={ocupado} onClick={() => criar(false)}>
-                {agendarEm ? "Salvar e agendar" : "Salvar rascunho"}
-              </button>
+              <span style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center" }}>
+                <button disabled={ocupado} onClick={() => criar(false)}>
+                  {agendarEm ? "Salvar e agendar" : "Salvar rascunho"}
+                </button>
+                <Ajuda>
+                  Guarda a campanha sem mandar nada. <b>Rascunho</b> fica esperando alguém
+                  apertar Disparar na lista abaixo; <b>agendada</b> sai sozinha na hora
+                  marcada.
+                  <br /><br />
+                  É o caminho de quem prepara: a Assistente monta e deixa pronta, e quem
+                  dispara é a Terapeuta ou a Admin.
+                </Ajuda>
+              </span>
               {podeOperar
                 ? <button className="primario" disabled={ocupado} onClick={() => criar(true)}>
                     {ocupado ? "…" : tipo === "ab" ? "Disparar o teste" : "Enviar agora"}
@@ -573,8 +643,32 @@ export default function Campanhas() {
       <div className="caixa">
         <table>
           <thead><tr>
-            <th>Campanha</th><th>Status</th><th>Enviados</th><th>Aberturas</th>
-            <th>Cliques</th><th>Bounces</th><th>Descadastros</th><th></th>
+            <th>Campanha</th>
+            <th>Status
+              <Ajuda>
+                <b>draft</b> = rascunho, nada saiu · <b>scheduled</b> = agendada ·{" "}
+                <b>sending</b> = escoando a fila agora · <b>sent</b> = tudo enfileirado ·{" "}
+                <b>paused</b> / <b>cancelled</b> = parada.
+              </Ajuda>
+            </th>
+            <th>Enviados<Ajuda>Quantos e-mails entraram na fila desta campanha. O “+ supr.” ao lado são as pessoas que estavam no público mas foram puladas por estarem bloqueadas — elas aparecem de propósito: somem da conta, não do relatório.</Ajuda></th>
+            <th>Aberturas
+              <Ajuda>
+                Pessoas diferentes que abriram, não o total de aberturas. É medido por uma
+                imagem de 1 pixel, então <b>subestima sempre</b>: quem lê com as imagens
+                bloqueadas não é contado.
+              </Ajuda>
+            </th>
+            <th>Cliques<Ajuda>Pessoas diferentes que clicaram em algum link. É a métrica mais confiável das três — clique não depende de imagem carregada. O detalhe por link está no Relatório.</Ajuda></th>
+            <th>Bounces<Ajuda>E-mails que voltaram em definitivo. Entram sozinhos na supressão para não serem tentados de novo — insistir é o que derruba a reputação do domínio.</Ajuda></th>
+            <th>Descadastros
+              <Ajuda>
+                Quem clicou em sair a partir desta campanha. Um pouco é normal e até
+                saudável. Muito de uma vez costuma dizer que a mensagem não combinou com o
+                que aquele público esperava.
+              </Ajuda>
+            </th>
+            <th></th>
           </tr></thead>
           <tbody>
             {stats.map((c) => (
@@ -582,8 +676,10 @@ export default function Campanhas() {
                 <td>{c.nome}</td>
                 <td><span className={`etiqueta ${STATUS[c.status] ?? "et-cinza"}`}>{c.status}</span></td>
                 <td>{c.enviados}{c.suprimidos > 0 && <span style={{ color: "var(--texto2)" }}> (+{c.suprimidos} supr.)</span>}</td>
-                <td>{c.aberturas_unicas}</td>
-                <td>{c.cliques_unicos}</td>
+                <td>{c.aberturas_unicas}{c.enviados > 0 && c.aberturas_unicas > 0 &&
+                  <span style={{ color: "var(--texto2)" }}> ({Math.round(100 * c.aberturas_unicas / c.enviados)}%)</span>}</td>
+                <td>{c.cliques_unicos}{c.enviados > 0 && c.cliques_unicos > 0 &&
+                  <span style={{ color: "var(--texto2)" }}> ({Math.round(100 * c.cliques_unicos / c.enviados)}%)</span>}</td>
                 <td>{c.hard_bounces}</td>
                 <td>{c.descadastros}</td>
                 <td className="direita" style={{ whiteSpace: "nowrap" }}>
@@ -613,7 +709,13 @@ export default function Campanhas() {
           {rel && (
             <>
               <div className="caixa">
-                <h2>Cliques por link</h2>
+                <h2>Cliques por link
+                  <Ajuda>
+                    Qual link puxou a atenção, e não só quantos cliques houve. Quando um
+                    e-mail tem três chamadas e uma leva 90% dos cliques, é essa que deveria
+                    estar no topo da próxima vez.
+                  </Ajuda>
+                </h2>
                 {rel.cliques.map((c) => (
                   <div key={c.url} style={{ padding: "4px 0", fontSize: "calc(12.5px * var(--escala-texto))", borderBottom: "1px dashed var(--borda)" }}>
                     <span className="etiqueta et-roxa">{c.unicos} únicos</span> {c.url}
@@ -622,7 +724,13 @@ export default function Campanhas() {
                 {!rel.cliques.length && <span className="sub">nenhum clique registrado</span>}
               </div>
               <div className="caixa">
-                <h2>Quem abriu ({rel.abriram.length})</h2>
+                <h2>Quem abriu ({rel.abriram.length})
+                  <Ajuda>
+                    Nome por nome, com a hora da primeira abertura. Serve para montar um
+                    segmento de quem está quente — em Leads, no segmento avançado, existe a
+                    condição “abriu e-mail nos últimos N dias”.
+                  </Ajuda>
+                </h2>
                 {rel.abriram.slice(0, 100).map((a) => (
                   <div key={a.email} style={{ padding: "3px 0", fontSize: "calc(13px * var(--escala-texto))" }}>
                     {a.email}

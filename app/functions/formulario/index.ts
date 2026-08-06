@@ -27,6 +27,14 @@ const cors = {
 
 type Campo = { campo: string; rotulo: string; obrigatorio?: boolean; tipo?: string };
 
+// Quando a página monta a URL com uma variável vazia, o parâmetro chega como
+// a STRING "undefined" — quatro contatos guardaram isso no xcod. Não informa
+// nada e ainda suja a ficha de quem abre o contato.
+function semLixo(dados: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(dados).filter(([, v]) =>
+    !(typeof v === "string" && ["undefined", "null"].includes(v.trim().toLowerCase()))));
+}
+
 function normWhatsapp(p: string | null | undefined): string | null {
   if (!p) return null;
   let d = p.replace(/\D/g, "").replace(/^0+/, "");
@@ -231,7 +239,7 @@ Deno.serve(async (req) => {
       Object.keys(body.atributos as object).length) {
     const { data: atual } = await supabase.from("lead_atributos")
       .select("dados").eq("lead_fk", leadId).maybeSingle();
-    const juntos = { ...(atual?.dados ?? {}), ...(body.atributos as object) };
+    const juntos = semLixo({ ...(atual?.dados ?? {}), ...(body.atributos as object) });
     // mesma abertura de origem que a venda faz: assim o lead já nasce com
     // origem identificada, e a taxa de conversão passa a ter denominador
     const { data: abertos } = await supabase.rpc("extrair_atribuicao", { p_dados: juntos });

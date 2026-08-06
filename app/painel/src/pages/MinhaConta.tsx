@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSessao, saudacao, primeiroNome } from "../lib/sessao";
 import { ROTULO_PAPEL, DESCRICAO_PAPEL } from "../lib/papeis";
+import Ajuda from "../components/Ajuda";
 
 // Converte qualquer imagem para WebP (quadrada, 400px) direto no navegador,
 // para o Supabase guardar sempre no formato leve.
@@ -193,7 +194,15 @@ export default function MinhaConta() {
       {msg && <div className={msg.tipo === "ok" ? "aviso ok" : "aviso"}>{msg.texto}</div>}
 
       <div className="caixa">
-        <h2>Foto de perfil</h2>
+        <h2>Foto de perfil
+          <Ajuda>
+            Aparece no canto da tela e na saudação da Visão geral. É só do painel: nunca
+            entra em e-mail que você manda para a base.
+            <br /><br />
+            A conversão para WebP acontece <b>no seu navegador</b>, antes de subir — uma foto
+            de 4 MB do celular vira uns 40 KB.
+          </Ajuda>
+        </h2>
         <div className="linha" style={{ alignItems: "center" }}>
           <div style={{ flex: "0 0 auto" }}>
             {perfil.avatar_url
@@ -221,7 +230,17 @@ export default function MinhaConta() {
       </div>
 
       <div className="caixa">
-        <h2>E-mail de acesso</h2>
+        <h2>E-mail de acesso
+          <Ajuda>
+            É o e-mail com que <b>você entra</b> na plataforma — não tem nada a ver com o
+            remetente das campanhas, que fica em Configurações.
+            <br /><br />
+            A troca pede sua senha e um código enviado para o endereço <b>atual</b>. Assim,
+            quem pegar sua tela desbloqueada não consegue mudar o dono da conta: o código
+            chega numa caixa que continua sendo sua. Cada tentativa fica no registro de
+            segurança.
+          </Ajuda>
+        </h2>
         {etapaEmail === "inicio" ? (
           <>
             <label>Novo e-mail</label>
@@ -256,7 +275,15 @@ export default function MinhaConta() {
       </div>
 
       <div className="caixa">
-        <h2>Trocar senha</h2>
+        <h2>Trocar senha
+          <Ajuda>
+            Mínimo de 8 caracteres. Prefira uma frase que só você diria a uma senha curta e
+            complicada: é mais difícil de quebrar e mais fácil de lembrar.
+            <br /><br />
+            Sua senha não é guardada em lugar nenhum de onde alguém possa lê-la — nem admin
+            vê a senha de ninguém. Trocar aqui não desconecta suas outras sessões.
+          </Ajuda>
+        </h2>
         <div className="linha">
           <div>
             <label>Nova senha</label>
@@ -274,7 +301,15 @@ export default function MinhaConta() {
       </div>
 
       <div className="caixa">
-        <h2>Seu acesso</h2>
+        <h2>Seu acesso
+          <Ajuda>
+            Seu nível define o que você consegue fazer, e ele só muda por um admin, na página
+            Usuários — ninguém aumenta o próprio acesso.
+            <br /><br />
+            Se algo que você precisa fazer aparece bloqueado, é aqui que está a resposta:
+            peça a quem administra a conta.
+          </Ajuda>
+        </h2>
         <table>
           <tbody>
             <tr><td style={{ width: 190, color: "var(--ac-texto2)" }}>Nível</td>
@@ -293,12 +328,27 @@ export default function MinhaConta() {
       </div>
 
       <div className="caixa">
-        <h2>Sessão</h2>
+        <h2>Sessão
+          <Ajuda>
+            Encerra o acesso <b>neste navegador</b>. Suas preferências de tema e tamanho de
+            texto continuam guardadas aqui para a próxima vez.
+          </Ajuda>
+        </h2>
         <button className="perigo" onClick={sair}>Sair da conta</button>
       </div>
 
       <div className="caixa" style={{ borderColor: "#F0C9C5" }}>
-        <h2 style={{ color: "var(--ac-vermelho)" }}>Excluir minha conta</h2>
+        <h2 style={{ color: "var(--ac-vermelho)" }}>Excluir minha conta
+          <Ajuda>
+            Apaga <b>o seu acesso</b>: cadastro, foto e histórico de login. Leads, campanhas,
+            mensagens e automações são da operação e continuam onde estão — apagar sua conta
+            não apaga o trabalho do time.
+            <br /><br />
+            É irreversível, e por isso pede senha, a palavra EXCLUIR e um código no seu
+            e-mail. Se a ideia é só parar de usar por um tempo, peça a um admin para bloquear
+            a conta.
+          </Ajuda>
+        </h2>
         {perfil.admin_mestre ? (
           <div className="sub">
             Esta é uma conta de administração permanente — não pode ser excluída pelo sistema.

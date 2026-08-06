@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSessao } from "../lib/sessao";
 import Escolher from "../components/Escolher";
+import Ajuda from "../components/Ajuda";
 
 // Formulários de captação: monta aqui, publica num endereço próprio.
 //
@@ -229,6 +230,15 @@ Não altere nenhuma outra página, rota, dependência ou arquivo.`;
       <div className="sub">
         Página de captação hospedada no seu próprio domínio. Quem preenche entra na base
         na hora, e as automações da lista e da tag escolhidas disparam sozinhas.
+        <Ajuda>
+          A lista e a tag de destino ficam guardadas <b>no formulário</b>, nunca são
+          enviadas pela página. É o que impede alguém de chamar o endereço por fora e
+          inscrever gente numa lista que este formulário não deveria tocar — e lista com
+          automação manda e-mail de verdade.
+          <br /><br />
+          O formulário também guarda a origem do visitante (utm_source e afins), e é dela
+          que sai o relatório “de onde vem o dinheiro”.
+        </Ajuda>
       </div>
 
       {podeOperar && (
@@ -240,7 +250,12 @@ Não altere nenhuma outra página, rota, dependência ou arquivo.`;
       <div className="caixa">
         <table>
           <thead><tr>
-            <th>Formulário</th><th>Endereço</th><th>Destino</th><th>Cadastros</th><th>Status</th><th></th>
+            <th>Formulário</th>
+            <th>Endereço<Ajuda>O link da página pronta, no seu domínio. Serve para link na bio, anúncio ou mensagem, sem precisar de site nenhum.</Ajuda></th>
+            <th>Destino<Ajuda>A lista em que a pessoa entra e a tag que ela ganha ao se inscrever — e, portanto, quais automações vão disparar.</Ajuda></th>
+            <th>Cadastros<Ajuda>Quantas inscrições este formulário já recebeu. Zero depois de divulgar costuma ser o formulário desligado, ou o código não instalado na página.</Ajuda></th>
+            <th>Status<Ajuda><b>No ar</b> aceita inscrição. <b>Desligado</b> devolve erro para quem tentar — o link não some, mas para de funcionar.</Ajuda></th>
+            <th></th>
           </tr></thead>
           <tbody>
             {forms.map((x) => (
@@ -427,7 +442,15 @@ Não altere nenhuma outra página, rota, dependência ou arquivo.`;
                         onChange={(e) => setF({ ...f, nome: e.target.value })} />
                     </div>
                     <div>
-                      <label>Endereço da página</label>
+                      <label>Endereço da página
+                        <Ajuda>
+                          O pedaço final do link, sem acento nem espaço. É por ele que o
+                          sistema sabe em qual formulário a inscrição caiu.
+                          <br /><br />
+                          Depois de divulgado, <b>não mude</b>: todo link já publicado em
+                          anúncio, bio ou e-mail passa a dar erro na hora.
+                        </Ajuda>
+                      </label>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <span style={{ color: "var(--texto2)", flex: "0 0 auto",
                                        fontSize: "calc(12.5px * var(--escala-texto))" }}>/f/</span>
@@ -464,7 +487,16 @@ Não altere nenhuma outra página, rota, dependência ou arquivo.`;
 
                 {/* 3 */}
                 <div className="caixa bloco">
-                  <h3><span className="numero">3</span> O que o formulário pergunta</h3>
+                  <h3><span className="numero">3</span> O que o formulário pergunta
+                    <Ajuda>
+                      Cada campo a mais derruba a taxa de preenchimento — peça só o que você
+                      vai usar de verdade.
+                      <br /><br />
+                      Além de nome, e-mail e WhatsApp, a lista de “adicionar campo” traz os
+                      seus <b>campos próprios</b>: o que a pessoa responder fica guardado
+                      nela e pode virar variável no e-mail ou filtro de segmento.
+                    </Ajuda>
+                  </h3>
                   <div className="sub">
                     O e-mail é obrigatório — é ele que identifica a pessoa. Para marcar alguém
                     no ManyChat, o WhatsApp também precisa estar aqui.
@@ -529,7 +561,15 @@ Não altere nenhuma outra página, rota, dependência ou arquivo.`;
                   <div className="sub">Ou uma mensagem na própria página, ou uma página de obrigado sua.</div>
                   <label>Mensagem de agradecimento</label>
                   <input value={f.sucesso} onChange={(e) => setF({ ...f, sucesso: e.target.value })} />
-                  <label>Ou levar para este endereço (opcional)</label>
+                  <label>Ou levar para este endereço (opcional)
+                    <Ajuda>
+                      Preenchido, ele <b>ganha da mensagem</b>: a pessoa é levada direto para
+                      esse link. Use para sua página de obrigado — ou para o grupo de
+                      WhatsApp, que é onde a maior parte das inscrições costuma se perder.
+                      <br /><br />
+                      É também a página que recebe o pixel de conversão do anúncio.
+                    </Ajuda>
+                  </label>
                   <input value={f.redirecionar} placeholder="https://…"
                     onChange={(e) => setF({ ...f, redirecionar: e.target.value })} />
                 </div>

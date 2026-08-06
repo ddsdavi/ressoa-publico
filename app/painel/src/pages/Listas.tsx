@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { useSessao } from "../lib/sessao";
 import { useNavigate } from "react-router-dom";
 import Escolher from "../components/Escolher";
+import Ajuda from "../components/Ajuda";
 
 type Lista = { lista_id: number; nome: string; descricao: string | null };
 type Contagem = { ativos: number; descadastrados: number; bounces: number; total: number };
@@ -91,7 +92,16 @@ export default function Listas() {
   return (
     <div>
       <h1>Listas <span className="contagem">({listas.length})</span></h1>
-      <div className="sub">Cada lista é um evento ou público — é o destino das campanhas e o gatilho das automações.</div>
+      <div className="sub">Cada lista é um evento ou público — é o destino das campanhas e o gatilho das automações.
+        <Ajuda>
+          <b>Lista</b> é onde a pessoa se inscreve e de onde ela pode se descadastrar: é para
+          ela que a campanha vai. <b>Tag</b> é um marcador que você aplica e tira quando quiser,
+          e não tem descadastro.
+          <br /><br />
+          Na dúvida: se é algo em que a pessoa entrou (um evento, uma turma, uma newsletter),
+          é lista. Se é algo que você observou sobre ela, é tag.
+        </Ajuda>
+      </div>
 
       <div className="caixa">
         <div className="linha">
@@ -104,7 +114,13 @@ export default function Listas() {
         </div>
         {criando && (
           <div style={{ marginTop: 12 }}>
-            <label>Nome da lista</label>
+            <label>Nome da lista
+              <Ajuda>
+                Vale escolher um padrão e repetir sempre — LANCAMENTO_2026_08, por exemplo.
+                Com dezenas de listas, nome padronizado é o que faz a busca funcionar e
+                evita duas listas quase iguais dividindo o mesmo público.
+              </Ajuda>
+            </label>
             <input value={nova.nome} onChange={(e) => setNova({ ...nova, nome: e.target.value })}
               placeholder="LISTA_EXEMPLO" />
             <label>Descrição (opcional)</label>
@@ -121,7 +137,12 @@ export default function Listas() {
       <div className="caixa">
         <table>
           <thead><tr>
-            <th>Lista</th><th>Ativos</th><th>Descadastrados</th><th>Bounces</th><th>Total</th><th></th>
+            <th>Lista</th>
+            <th>Ativos<Ajuda>Quem está inscrito e pode receber. É este o número que vale como público da campanha — os outros continuam na lista, mas não recebem.</Ajuda></th>
+            <th>Descadastrados<Ajuda>Clicaram no link de sair. O vínculo não é apagado, só muda de status: assim o histórico de que a pessoa esteve nesta lista continua valendo nos relatórios.</Ajuda></th>
+            <th>Bounces<Ajuda>O servidor do outro lado recusou o e-mail em definitivo. Endereço que não existe mais, quase sempre. Insistir aqui é o que mais derruba a reputação do domínio.</Ajuda></th>
+            <th>Total<Ajuda>Todo mundo que já passou por esta lista, em qualquer status. Clique em qualquer número para ver as pessoas dele.</Ajuda></th>
+            <th></th>
           </tr></thead>
           <tbody>
             {filtradas.map((l) => {

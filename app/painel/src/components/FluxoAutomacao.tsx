@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import Escolher from "./Escolher";
+import Ajuda from "./Ajuda";
 
 // Quadro visual da automação — a mesma leitura do ActiveCampaign: o gatilho
 // no topo, os passos descendo ligados por uma linha, e o "+" entre eles.
@@ -84,6 +85,7 @@ type Ref = {
   tags: { tag_id: number; nome: string }[];
   mensagens: { mensagem_id: string; nome: string; subject: string }[];
   camposData?: string[];
+  produtos?: { apelido: string; padrao_nome: string | null }[];
 };
 
 // ---------- Planilha do Google: o passo nativo ----------
@@ -402,12 +404,13 @@ function PainelAdicionar({ onFechar, onAdicionar, listas, tags }: {
 }
 
 export default function FluxoAutomacao({
-  nome, gatilho, passos, ativa, execucoes, ref: refs, novo,
+  nome, gatilho, passos, ativa, execucoes, ref: refs, novo, produto,
   onMudar, onSalvar, onFechar, onVerContatos, onAdicionarContatos,
 }: {
   nome: string; gatilho: Gatilho; passos: Passo[]; ativa: boolean;
-  execucoes: number; ref: Ref; novo: boolean;
-  onMudar: (p: { nome?: string; gatilho?: Gatilho; passos?: Passo[]; ativa?: boolean }) => void;
+  execucoes: number; ref: Ref; novo: boolean; produto: string;
+  onMudar: (p: { nome?: string; gatilho?: Gatilho; passos?: Passo[]; ativa?: boolean;
+                 produto?: string }) => void;
   onSalvar: () => void; onFechar: () => void; onVerContatos: () => void;
   onAdicionarContatos: (alvo: { emails?: string; lista?: number; tag?: number }) => Promise<void>;
 }) {
@@ -663,9 +666,43 @@ export default function FluxoAutomacao({
         <input value={nome} placeholder="Nome da automação"
           onChange={(e) => onMudar({ nome: e.target.value })}
           style={{ flex: "1 1 220px", minWidth: 160, maxWidth: 380, fontWeight: 700 }} />
-        <button style={{ flex: "0 0 auto" }} onClick={() => setAdicionando(true)}>
-          + Adicionar contatos
-        </button>
+        <span style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <select value={produto} onChange={(e) => onMudar({ produto: e.target.value })}
+            style={{ maxWidth: 240 }}>
+            <option value="">Fala de: assunto geral</option>
+            {(refs.produtos ?? []).map((p) => (
+              <option key={p.apelido} value={p.padrao_nome || p.apelido}>
+                Fala de: {p.apelido}
+              </option>
+            ))}
+          </select>
+          <Ajuda>
+            De qual produto esta automação fala. Serve para uma coisa só, e importante:
+            <b> escolher para qual e-mail a mensagem vai</b>.
+            <br /><br />
+            Quem compra nem sempre usa o mesmo endereço do cadastro antigo. Quando você
+            marca o produto aqui, a mensagem vai para <b>o e-mail daquela compra</b> — que é
+            onde a pessoa espera receber. Sem marcar, vai para o e-mail principal do
+            contato, que é o certo para o que não é sobre um produto: uma newsletter, um
+            convite de live.
+            <br /><br />
+            Compra feita pela própria equipe não conta: nesses casos a mensagem volta para o
+            e-mail da cliente.
+          </Ajuda>
+        </span>
+        <span style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center" }}>
+          <button onClick={() => setAdicionando(true)}>
+            + Adicionar contatos
+          </button>
+          <Ajuda>
+            Coloca gente na automação <b>agora</b>, sem esperar o gatilho. É o que se usa
+            quando o fluxo foi criado depois de a lista já existir — o gatilho só pega quem
+            entrar de agora em diante.
+            <br /><br />
+            Se a automação manda e-mail, essas pessoas <b>recebem de verdade</b>. Comece por
+            um endereço só.
+          </Ajuda>
+        </span>
         {execucoes > 0 && (
           <button style={{ flex: "0 0 auto" }} onClick={onVerContatos}>
             Ver contatos ({execucoes})
@@ -687,6 +724,14 @@ export default function FluxoAutomacao({
               ● Inativa
             </button>
           </div>
+          <Ajuda>
+            <b>Ativa</b> quer dizer que o gatilho passa a valer: a partir daí, quem fizer o
+            que ele descreve entra no fluxo sozinho. <b>Inativa</b> guarda tudo montado sem
+            disparar nada.
+            <br /><br />
+            Desligar no meio do caminho <b>para</b> quem estava esperando um passo — essas
+            pessoas não seguem adiante nem recebem o que faltava.
+          </Ajuda>
           <button className="primario" onClick={onSalvar}>Salvar</button>
         </div>
       </div>
@@ -901,7 +946,16 @@ export default function FluxoAutomacao({
 
           {iG >= 0 ? (
             <>
-              <h2>Gatilho</h2>
+              <h2>Gatilho
+                <Ajuda>
+                  O que faz a pessoa <b>entrar</b> nesta automação. Só vale de agora em diante:
+                  ligar a automação não a roda para quem já estava na lista antes — para isso
+                  existe o <b>+ Adicionar contatos</b>, lá em cima.
+                  <br /><br />
+                  Com mais de um gatilho, qualquer um deles inicia o fluxo, e a pessoa entra
+                  uma vez só mesmo que dois aconteçam juntos.
+                </Ajuda>
+              </h2>
               <div className="sub">{descreverGatilho(gAtual)}</div>
               {gAtual?.tipo === "lista_inscrita" && (
                 <>
@@ -995,7 +1049,16 @@ export default function FluxoAutomacao({
               <div style={{ marginTop: 12 }}>
                 {passos[editando].tipo === "enviar_email" && (
                   <>
-                    <label>Mensagem</label>
+                    <label>Mensagem
+                      <Ajuda>
+                        Sai da biblioteca de <b>Mensagens</b>. Editar a mensagem lá muda o que
+                        esta automação manda daqui para a frente — o que já foi enviado não
+                        muda.
+                        <br /><br />
+                        Quem está bloqueado na supressão não recebe, mesmo tendo entrado na
+                        automação.
+                      </Ajuda>
+                    </label>
                     <Escolher valor={passos[editando].config.mensagem_id ?? ""} vazio="— escolher —"
                       aoMudar={(v) => mudarPasso(editando as number, { mensagem_id: v })}
                       opcoes={refs.mensagens.map((m) => (
@@ -1004,7 +1067,16 @@ export default function FluxoAutomacao({
                 )}
                 {passos[editando].tipo === "esperar" && (
                   <>
-                    <label>Quanto tempo</label>
+                    <label>Quanto tempo
+                      <Ajuda>
+                        Conta a partir do passo anterior, por pessoa — cada uma tem o próprio
+                        relógio. A espera continua valendo mesmo que você mexa na automação no
+                        meio do caminho.
+                        <br /><br />
+                        Se a automação for desligada, ninguém que estava esperando segue
+                        adiante.
+                      </Ajuda>
+                    </label>
                     <Escolher valor={passos[editando].config.duracao ?? ""} vazio="— escolher —"
                       aoMudar={(v) => mudarPasso(editando as number, { duracao: v })}
                       opcoes={DURACOES.map(([v, r]) => ({ valor: v, rotulo: r }))} />
@@ -1092,7 +1164,16 @@ export default function FluxoAutomacao({
                     mudarPasso(editando as number, { ...cfg, condicao: { ...cd, ...patch } });
                   return (
                     <>
-                      <label>A condição</label>
+                      <label>A condição
+                        <Ajuda>
+                          Um bifurcador: a pergunta é feita <b>naquele momento</b>, para cada
+                          pessoa, e o caminho dela muda conforme a resposta.
+                          <br /><br />
+                          É o que permite “esperou 3 dias — abriu? então oferta; não abriu?
+                          então reenvia com outro assunto”, sem precisar de duas automações
+                          separadas.
+                        </Ajuda>
+                      </label>
                       <Escolher valor={cd.tipo ?? ""} vazio="— escolher —"
                         aoMudar={(v) => mudarPasso(editando as number,
                           { ...cfg, condicao: { tipo: v } })}
@@ -1122,7 +1203,16 @@ export default function FluxoAutomacao({
                         </>
                       )}
 
-                      <label>Se for VERDADEIRO, vai para o passo</label>
+                      <label>Se for VERDADEIRO, vai para o passo
+                        <Ajuda>
+                          O número que aparece no canto direito de cada cartão do quadro.
+                          Vazio segue para o próximo; <b>0</b> encerra a automação para quem
+                          cair naquele caminho.
+                          <br /><br />
+                          Cuidado ao mandar para trás: um passo que aponta para um anterior
+                          vira um laço, e a pessoa fica dando voltas recebendo o mesmo e-mail.
+                        </Ajuda>
+                      </label>
                       <input type="number" placeholder="vazio = o próximo"
                         value={cfg.ir_se_verdadeiro ?? ""}
                         onChange={(e) => mudarPasso(editando as number,

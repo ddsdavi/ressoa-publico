@@ -12,6 +12,11 @@ scripts/.keys_*
 activecampaign-export/
 *.csv
 
+# Migração cujos VALORES são dado pessoal (CPF com nome, e-mail da
+# equipe). A estrutura e o porquê ficam no .sql versionado; os valores
+# ficam no par `*_dados.local.sql`, que nunca sai desta máquina.
+*.local.sql
+
 # ===== Gerados =====
 node_modules/
 dist/

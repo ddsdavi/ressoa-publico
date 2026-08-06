@@ -126,6 +126,367 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
 
 ---
 
+## Campos: os dois órfãos da atribuição ganharam nome (06/08/2026)
+
+A página Campos avisava que "2 campos aparecem nos dados mas não estão
+cadastrados aqui" e oferecia dois botões, `hotmart_xcod` (248 contatos) e
+`hotmart_sck` (202). Não havia nada quebrado: são os dois parâmetros crus de
+origem da Hotmart, que chegam pela URL da landing (`?xcod=…&sck=…`) e pelo
+webhook de venda. O `atribuicao_v1` já desempacota os dois em campos legíveis
+e cadastrou **só** os desempacotados; os crus ficaram no JSON sem nome, e a
+comparação "o que existe nos dados × o que está cadastrado" acusou.
+
+`atribuicao_v3_campos_brutos.sql` cadastra os dois como **ocultos** no grupo
+"Atribuição da venda" — "Origem bruta da Hotmart (xcod)" e "(sck)" — e dá
+ordem de leitura ao grupo inteiro, que estava todo em `ordem = 0` e por isso
+abria pela chave em ordem alfabética, com "ID do anúncio" antes de "Origem do
+tráfego". Agora vai do legível ao técnico (10 a 80) e os crus fecham a lista
+(90 e 91). O rótulo diz "bruta" de propósito: **não se segmenta por eles** —
+o construtor compara o campo inteiro, e o valor é um JSON ou uma string
+`m=paid|s=ig|utm_id=…`. Quem segmenta é a dupla desempacotada.
+
+Conferido no mesmo passo, e está saudável: dos 251 contatos com dado cru,
+**zero** ficaram sem desempacotar (rodei `extrair_atribuicao` em todos e
+comparei chave a chave — nenhuma chave nova apareceria). Sobram duas
+sujeirinhas de origem, pequenas e conhecidas:
+
+- **8 contatos com `sck` que não é `chave=valor`** e sim um nome interno da
+  Hotmart (`HOTMART_SALES_AGENT`, `HOTMART_CLUB_TRENDRECOMMENDERC`,
+  `NEW_CLUB_SALES_PAGE_FROM_SHOWCASE_C`). A venda veio de dentro da própria
+  Hotmart, não de anúncio. Hoje o extrator ignora e eles caem em "(sem
+  origem)" nos relatórios.
+- **4 contatos com `xcod` igual à string `"undefined"`**, escrita por alguma
+  página que mandou o parâmetro vazio como texto.
+
+As duas foram resolvidas no mesmo dia, por ordem do Davi, em
+`atribuicao_v4_origem_interna.sql`:
+
+- **O `sck` sem `=` virou origem.** `extrair_atribuicao` passou a ler o nome
+  inteiro como `origem_trafego` (em minúsculas, do tamanho dos valores que já
+  moram lá, tipo `paid_metaads`) quando o xcod não tiver dito nada — entre os
+  dois, o xcod é o mais específico e continua com a palavra final. Isso não
+  era detalhe: os 8 estavam escondidos dentro de "(sem origem)" carregando
+  **R$ 8.754,78 em compras aprovadas**, quase todo ele do recomendador do
+  Hotmart Club (R$ 6.013,66 + R$ 2.509,76). Vitrine e recomendação da própria
+  Hotmart vendem, e o relatório de atribuição não sabia disso.
+- **A string "undefined" saiu do banco e não volta.** A migração apaga a
+  chave onde o valor é `undefined`/`null`/vazio, e as duas Edge Functions que
+  gravam atributo (`formulario` e `venda`) ganharam um `semLixo()` antes de
+  montar o JSON — vale para qualquer campo, não só o xcod.
+
+Depois disso: `sem_leitura = 0` (nenhum contato com dado cru fica sem origem
+identificada), `campos_orfaos = 0`, e o `rel_atribuicao('origem_trafego')`
+mostra as quatro origens internas da Hotmart como linhas próprias.
+
+---
+
+## O eixo de venda: pontuação, faixas e próxima oferta (06/08/2026)
+
+O Davi olhou a "Saúde do engajamento" e pediu para aprofundar o lead
+scoring "sempre pensando em vender". A regra que ele deu e que governa o
+desenho: **"vendas é uma coisa e engajamento com e-mail é outra"** — são
+dois eixos, e não se misturam.
+
+O eixo antigo (`lead_pontuacao.pontos`) continua intacto, cuidando da
+saúde de envio. O novo (`pontuacao_venda_v1.sql`) responde a pergunta de
+venda: tabela `lead_venda` com **pontos_venda 0–100 contínuo** (recência
+da última compra com decaimento exponencial de meia-vida ~31 dias +
+frequência + gasto em BRL; sem compra, vale o tempo de base; Lives soma;
+reembolso derruba; **nenhum sinal de e-mail entra**), **faixa por
+percentil dos alcançáveis** (prontíssimo = top 5%, nunca satura) e
+**próxima oferta** — o passo da esteira carimbado por lead, com o motivo
+escrito por extenso. Recalcula às 03:44 (cron `pontuacao-venda-diaria`) e
+no instante da compra (trigger em `tabela_4_alunos`, erro engolido em
+warning para nunca travar a ingestão de venda).
+
+Por que a esteira manda: medido no histórico, **79% dos alunos da
+Formação compraram um produto de entrada antes**, com mediana de 5,6 a
+10,8 dias entre a entrada e a Formação — a janela quente dura ~2 semanas.
+O eixo antigo não via nada disso (57% da base empatada no "topo", 2.604
+pessoas com os mesmos 11 pontos); o novo tem 83 valores distintos e o
+topo é quem deve ser (ex.: "Comprou 13x · R$ 4.428 · última há 0 d").
+
+`leads_do_segmento` ganhou quatro condições: `comprou` aceita `dias`
+(janela), `pontuacao_venda` (operador/valor), `proxima_oferta` (slug) e
+`alcancavel` (e-mail válido + lista ativa + fora da supressão — o mesmo
+filtro do painel, para segmento e painel contarem IGUAL; sem ela o
+segmento da janela quente dava 860 contra 720 do painel, porque incluía
+gente sem lista ativa que não deve receber campanha).
+
+No painel, Relatórios ganhou a aba **"Prontos pra comprar"**: as nove
+jogadas com contagem viva (janela quente 720 · segunda chamada 1.611 ·
+aluno→Black/Acomp 399 · Lives→Desafio 3.551 · novos→Desafio 827 ·
+reativar esteira 2.556 · VIP 21 · aquecer 1.682 · fora de oferta 1),
+botão "Criar segmento" (gateado por `podePreparar`; "aquecer" e "fora de
+oferta" não têm botão de propósito) e o top-50 ranqueado com faixa e
+motivo. RPCs: `rel_vendas_jogadas()` e `rel_melhores_leads(oferta,
+limite)` — ambas com execute revogado de anon.
+
+Decisões do Davi (respostas 1A/2A/3A): eixos separados; **automação da
+janela quente fica para outra leva** (enviaria e-mail real — os textos
+têm que ser dele); nada dispara sozinho — segmento é regra inerte até
+alguém disparar campanha. ManyChat intocado. Spec e plano em
+`docs/superpowers/`.
+
+**Segunda leva no mesmo dia ("faz tudo!"):** o eixo chegou na página
+Leads (coluna **Venda** com cor da faixa e a próxima oferta no hover; o
+`montarQuery` também não buscava `lead_pontuacao` no caminho normal — a
+coluna Pontos ficava vazia — e foi corrigido de carona), o construtor
+ganhou as condições novas na tela (Pontuação de venda, Próxima oferta,
+Pode receber e-mail, e `comprou` com "nos últimos N dias"), tooltips ❔
+explicam cada coluna e cada jogada (textos compartilhados em
+`app/painel/src/lib/venda.ts`), o tour ganhou o passo "Quem está pronto
+pra comprar" (navega para `/relatorios?aba=prontos` — a página passou a
+aceitar `?aba=`), e a jogada nº 1 virou automação de verdade:
+**"[RESSOA] Formação — janela quente (revisar e ligar)"**
+(`janela_quente_v1.sql`), DESLIGADA, gatilho `compra_realizada`
+(qualquer produto), passo `condicao` "já comprou a Formação? → encerra"
+na porta E antes de cada um dos 3 e-mails (D+1/D+4/D+8) — quem compra no
+meio sai sozinho. Os e-mails são `[RASCUNHO] Janela quente 1..3/3` na
+página Mensagens, com marcador `COLE-AQUI-O-LINK-DA-FORMACAO`,
+`[DEPOIMENTO — …]` e `[CONDIÇÃO — …]` para o Davi preencher antes de
+ligar. Nenhuma mudança de motor foi necessária: gatilho de compra e
+passo condicao já existiam no executor vivo.
+
+**Terceira leva no mesmo dia ("FAZ TUDO!") — a automação foi LIGADA**
+(`janela_quente_v2_ligada.sql`): os três e-mails viraram versão final
+`[Janela quente 1..3/3]` com o link real da página de vendas
+(`drapatriciadomingos.com.br/inscricoes-formacao`, conferida viva) e
+promessas garimpadas dos e-mails da própria conta (AC #31/#34: método
+para identificar a origem das queixas, mais de 1.300 alunos, certificado
+MEC/ABRATH, comunidade, mentorias, 2 anos de acesso) — sem prazo falso e
+sem bônus de lançamento, porque a sequência é perpétua; o rascunho do
+"depoimento" saiu (não se inventa depoimento) e virou prova social
+agregada. `avaliar_condicao` ganhou `dias` opcional no tipo `comprou`
+(sem `dias` = comportamento antigo), e a porta ganhou a **trava de
+idade**: só segue quem tem compra aprovada nos últimos 21 dias — é a
+proteção para o caso de a pendência 5 (reprocessar as 227 compras mudas)
+ser executada um dia: evento antigo reprocessado não dispara e-mail de
+"ontem". Testado no banco: comprador recente passa, antigo é barrado.
+Estado no ato da ativação: 11 passos, 0 execuções, fila de envios vazia
+— o primeiro e-mail real sai ~24h depois da primeira compra que entrar.
+
+**Quarta leva no mesmo dia — arrumação das telas (pedidos do Davi):**
+(1) o lead scoring ganhou **página própria** ("Lead scoring", Contatos →
+Gerenciar, rota `/leadscoring`), com aba **Venda** (jogadas + ranking, o
+que era "Prontos pra comprar") e aba **Engajamento** (a "Saúde do
+engajamento", que saiu de Relatórios) — razão: uso operacional diário
+não é relatório, e o nome é o que o mercado chama; links antigos
+`/relatorios?aba=prontos` redirecionam. (2) A aba **Campanhas saiu de
+Relatórios**: era DUPLICADA — a página Campanhas (Email) já tinha a
+tabela por campanha; ela só ganhou os percentuais de abertura/clique que
+faltavam. (3) **"De onde vem o dinheiro" foi reescrita** depois do Davi
+dizer que não entendia: o diagnóstico mediu 3% de cobertura de origem no
+histórico (21% nos últimos 30 dias) com "(sem origem)" de R$ 232 mil
+esmagando a primeira linha, jargão cru (`paid_metaads`,
+`hotmart_club_trendrecommenderc`) e "conversão de 100%" sobre 1 pessoa.
+Agora a aba abre com a COBERTURA ("X de Y compras têm origem conhecida"),
+período padrão de 30 dias (`rel_atribuicao`/`rel_anuncios` ganharam
+`p_dias` — com **DROP antes de recriar**, senão a assinatura nova vira
+sobrecarga e PGRST203, armadilha 38; `rel_dinheiro_resumo(p_dias)` é
+nova), origens traduzidas para português no painel (rótulo de exibição —
+o dado cru continua no banco), "(sem origem)" e "(sem anúncio)" fora dos
+rankings (viraram o cartão de cobertura), e a coluna de conversão saiu
+(era ilusão com denominador só de compradores). O `App.tsx` desta leva
+carrega também a refatoração de rotas de outra sessão (rotas derivadas
+dos grupos), auditada e buildada junto.
+
+---
+
+## A operação vira máquina: telemetria, rampa e recuperação (06/08/2026)
+
+Pergunta do Davi: "algo mais a fazer pra isso virar uma nave da SpaceX?".
+Os seis buracos que apareceram durante a construção foram fechados na
+ordem 1→2→4→3→5→6.
+
+**1. Telemetria de venda** (`telemetria_v1.sql`). Até aqui a plataforma
+media abertura e clique — nenhuma das duas paga boleto.
+`rel_resultado_envios(dias, janela)` cruza envios com compras aprovadas e
+mostra, por automação e por campanha: pessoas, e-mails, aberturas,
+cliques, **compradores, receita e receita por e-mail**. A regra de
+atribuição é o detalhe que a torna honesta: só conta compra
+**posterior** ao `sent_at`, dentro de 14 dias — assim a compra que
+**dispara** a janela quente nunca é creditada a ela (sem isso, a
+automação "converteria" 100% no primeiro dia). Tela: Lead scoring → aba
+**Resultado**.
+
+**2. Rampa de aquecimento com freio** (`aquecimento_v1.sql`). O risco
+real: 11.434 alcançáveis e o domínio tinha mandado **10 e-mails em 30
+dias**. Disparar para milhares de uma vez queima o domínio inteiro, não
+só a campanha. Agora existe `envio_limite_diario` (começou em **200**);
+`processar_fila_envios` para ao bater o teto e a fila **espera** (nada se
+perde). `subir_rampa()` (cron 6h51) sobe um degrau por dia —
+200→500→1000→2000→4000→8000→sem teto — mas só se o teto anterior tiver
+sido **usado** (70%) e a saúde estiver boa: teto que sobe sem volume
+entregue não aquece nada. `freio_entregabilidade()` (cron de hora em
+hora) pausa o envio e derruba o teto pela metade se bounce > 2% ou
+reclamação > 0,1% nos últimos 7 dias, **com volume mínimo de 50** — com
+11 e-mails, um bounce vira "9%" e pausaria a operação por estatística de
+nada (foi exatamente o que os dados mostraram no dia). Tabela `alertas` +
+`registrar_alerta()` com silenciamento por tipo (alerta repetido vira
+ruído, e ruído treina a pessoa a ignorar alerta). Tela: Envios.
+
+**4. Recuperação de pagamento** (`recuperacao_e_jogadas_v1.sql`). A
+Hotmart vinha avisando e ninguém escutava: **135 boletos/PIX gerados, 27
+carrinhos abandonados, 13 pagamentos atrasados** em `eventos_sistema` sem
+automação pendurada. Agora: **[RESSOA] Pagamento não caiu** (gatilho
+ARRAY — `boleto_gerado` + `pagamento_atrasado` —, e-mails em 4h e 24h,
+saindo na hora em que a compra é aprovada) e **[RESSOA] Carrinho
+abandonado** (2h). Os textos usam `{{evento.produto}}` (o `personalizar`
+de 3 argumentos lê o contexto do evento) numa frase que **funciona
+vazia**: "Você começou a compra {{evento.produto}} e o pagamento ainda
+não foi confirmado".
+
+**3. As outras jogadas viraram automação**: **Aluno → Black /
+Acompanhamento** (gatilho = compra da Formação; sai quem já tem),
+**Lives → Desafio** (gatilho = entrada na lista 6), **segunda chamada**
+(fase 2 da própria janela quente, passos 12–14, D+30) e **Reativar
+esteira** (sem gatilho de evento: `enfileirar_reativacao(teto)` roda às
+terças com **teto de 150**, porque 2.556 de uma vez é o disparo que queima
+domínio). Nenhum link inventado: só `drapatriciadomingos.com.br/inscricoes-formacao`,
+`biopatriciadomingos.com.br` (a página que 97 compradores do Desafio
+usaram) e o WhatsApp do suporte — todos conferidos com HTTP 200 no dia.
+
+**5. Radar**: montador de link rastreado na aba do dinheiro. Escreve
+`utm_source`/`utm_medium`/`utm_campaign` **e o `sck`**, que é o formato
+que a Hotmart carrega do clique até a compra. Os valores de origem são os
+que já existem na base (`organic_bio`, `paid_metaads`…) para o link novo
+cair na MESMA linha do relatório em vez de criar origem paralela.
+
+**6. Mission control** (`resumo_diario_v1.sql`): `enviar_resumo_diario()`
+às 8h de São Paulo com compras/receita/leads/e-mails das últimas 24h,
+saúde do envio, o que as automações venderam em 7 dias e os alertas
+abertos. **Não passa pela fila de envios** de propósito: o dia em que o
+freio pausar a fila é justamente o dia em que o aviso precisa chegar.
+Destinatário em `app_config.resumo_diario_para` (endereço de pessoa não
+entra em repositório; a migração cria a chave vazia).
+
+**Prova ponta a ponta feita em produção**: o lead do Davi foi inscrito na
+reativação, o motor executou a porteira, enfileirou e o Resend
+**entregou** (`delivered`, 17h06). É a primeira vez que a cadeia
+automação → porteira → fila → provedor foi provada inteira com e-mail
+real. Também foi disparado um resumo diário de teste.
+
+### PARADO no mesmo dia, por ordem do Davi
+
+Logo depois: **"calma, pois não mandaremos email pra ninguém por
+enquanto"**. Estado deixado (tudo em banco, nada de código):
+
+| O quê | Estado |
+|---|---|
+| `envio_pausado` | **true** — trava global; nenhum e-mail sai, de nenhuma origem |
+| Fila (`envios` queued) | **0** |
+| As 6 automações ligadas hoje | **desativadas** |
+| Execuções em voo nelas | **encerradas** (7 pessoas: 6 na janela quente, 1 no pagamento) |
+| `resumo_diario_para` | **vazio** — o resumo das 8h não sai para ninguém |
+
+Nenhum e-mail chegou a sair para lead nenhum: a fila estava vazia quando
+a pausa entrou, e o único envio do dia foi o teste para o próprio Davi.
+
+Duas coisas que quem religar precisa saber:
+
+1. **Encerrar a execução em voo foi necessário, não zelo.** O
+   `executar_automacoes()` seleciona por `status` da EXECUÇÃO e **não
+   confere se a automação está ativa** — desativar sozinho não pararia
+   quem já estava dentro; a pessoa seguiria avançando os passos e
+   enfileirando e-mail (que ficaria preso na fila pausada, para sair em
+   avalanche no dia em que alguém despausasse).
+2. **Seis automações HERDADAS do ActiveCampaign continuam ativas e têm
+   passo de e-mail**: `16LC_CADASTRADOS`, `18LC_NOV25_BLACK - Inscritos`,
+   `Hotmart Purchase Confirmation Email`, `Lives Semanais`,
+   `LP_COMPROU_INGRESSO_IMER_TERAP`, `LSHT_DEZ25`. Elas não foram
+   tocadas — já estavam assim desde a entrada em operação (05/08). Hoje
+   a trava global segura todas; **no dia em que o envio for despausado,
+   elas voltam a mandar sozinhas.** Conferir uma a uma antes.
+
+A única `[RESSOA]` que ficou ativa é a **Lives Semanais — tag no
+ManyChat**: ela não manda e-mail (marca ManyChat e escreve na planilha).
+
+### Sem teto: a decisão e o que ela custa (06/08/2026)
+
+Duas sessões trabalharam a mesma peça no mesmo dia e chegaram a desenhos
+diferentes: esta criou a rampa **com** teto diário; a outra removeu o
+teto (`aquecimento_v2_sem_teto.sql`, "a operação não trabalha com teto de
+e-mail por dia"). O Davi confirmou: **sem teto**.
+
+Consequência aplicada em `sem_teto_v1_1.sql`: o relógio
+`ressoa-rampa-aquecimento` foi **desagendado** — com o teto em 0,
+`subir_rampa()` devolvia "rampa concluída" sem escrever nada, e relógio
+que acorda todo dia para não fazer nada engana quem for ler o sistema
+depois. A função ficou (com `comment on` explicando), caso um teto volte
+a fazer sentido.
+
+**O que isso custa, e é bom estar escrito:** sem teto, o freio de
+entregabilidade deixa de ser rede secundária e passa a ser a **única**
+proteção — e ele age *depois* que o bounce já aconteceu, não antes. Com a
+fila vazia hoje isso é teórico; no primeiro lançamento grande, não é.
+Quem retomar o envio deve olhar `saude_envio(7)` logo depois do primeiro
+lote, não no dia seguinte.
+
+As telas foram alinhadas com a decisão no mesmo commit: a caixa de Envios
+virou "Saúde do envio" (sem falar em rampa), e a aba Resultado do Lead
+scoring passou a dizer que as seis sequências estão **desligadas
+esperando revisão** — antes ela afirmava que "seis automações trabalham
+sozinhas", o que virou mentira no minuto em que o Davi mandou parar.
+
+---
+
+## O nome "Active" acabou (06/08/2026)
+
+O Davi achou "Active" numa tela e mandou varrer o resto. A palavra
+significava três coisas diferentes aqui, e só uma delas estava errada:
+
+| Onde aparece | O que é | O que fiz |
+|---|---|---|
+| "pro seu Active" | nome antigo **deste** projeto | virou "pra sua Ressoa" |
+| "ActiveCampaign", "AC" | o sistema de onde a base veio | **fica** — é história real |
+| `isActive` | propriedade do React Router | **fica** — é código |
+
+Como nome do projeto sobrava em quatro lugares: uma frase na tela
+(Configurações → API e webhooks → Endereços de entrada), os **quatro
+relógios do pg_cron**, que se chamavam `active-*`, o `motor_v1.sql` que
+criava esses nomes, e um docstring. Os relógios agora são `ressoa-*`
+(`renomear_cron_ressoa_v1.sql`, atômica e repetível — o jobid muda, o
+que eles fazem não). Quem for procurar tarefa agendada no banco procura
+por `ressoa-`, não por `active-`.
+
+O banco vivo foi varrido junto — mensagens, listas, tags, formulários,
+automações, campanhas, segmentos, `app_config` e o código das funções:
+zero ocorrência. O payload dos webhooks já não dizia `active-proprio`
+desde o motor v9.
+
+**Na mesma conversa, a tela passou a se explicar (06/08/2026).** Reclamação
+do Davi: "é difícil saber pra que serve cada ferramenta". A tela listava
+treze endereços com o nome técnico e o comando pronto, e nada dizia em que
+situação cada um se usa — quem não montou o sistema não adivinha que o
+postback do Resend é o que impede a base inteira de perder entrega. Agora
+cada um tem "?" no padrão do componente `Ajuda`: as três abas, os sete
+endereços de entrada, a chave-geral e os quatro exemplos de API. Cada texto
+responde as mesmas três coisas: para que serve, quando se usa, e o que
+acontece de ruim se for usado errado.
+
+**Consertado no caminho: a lista "Eventos disponíveis" estava incompleta.**
+Citava cinco eventos e o motor emite treze — faltavam os seis de venda
+(`compra_realizada`, `compra_cancelada`, `boleto_gerado`,
+`carrinho_abandonado`, `pagamento_atrasado`, `pagamento_expirou`), os dois de
+comportamento (`email_aberto`, `email_clicado`) e o `lista_descadastrada`.
+Quem cadastrasse webhook guiando-se por ela nunca receberia aviso de compra.
+Atenção para a próxima varredura: `lead_descadastrado` **existe**, mas quem
+emite é a Edge Function `descadastro`, não um gatilho do banco — procurar só
+no SQL dá falso negativo, e ele tinha zero linhas em `eventos_sistema`
+apenas porque ninguém havia clicado no link do rodapé ainda.
+
+**O que NÃO foi mexido e ainda merece decisão:** três textos da tela
+falam do ActiveCampaign no presente, como se ele estivesse ligado — o
+aviso de "pode gerar disparo duplicado" ao ligar os webhooks, o "só saem
+com a chave-geral LIGADA — pra não duplicar com o AC enquanto ele
+existir" e o "enquanto o ActiveCampaign ainda estiver rodando, deixe
+desligados" em Configurações. O AC morreu em 05/08 e os webhooks estão
+ligados: hoje esses avisos justificam uma trava com um motivo que não
+existe mais.
+
+---
+
 ## Lives semanais: a planilha fecha o ciclo (06/08/2026)
 
 Conta Google conectada (a conta pessoal do Davi, projeto Cloud "Ressoa") e o

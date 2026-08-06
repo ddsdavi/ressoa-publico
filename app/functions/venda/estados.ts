@@ -52,3 +52,17 @@ export function statusPedidoHotmart(evento: unknown, statusCompra: unknown): str
 export function ehIntencaoDeCompra(evento: unknown): boolean {
   return EVENTOS_INTENCAO.includes(String(evento ?? ""));
 }
+
+// PURCHASE_COMPLETE avisa que a garantia venceu sem reembolso: a venda
+// virou definitiva. É controle interno — a pessoa já comprou dias antes, e
+// quem manda em automação é a APROVAÇÃO da compra, não o fim do prazo de
+// arrependimento. O prazo nem é fixo: sete dias é o mínimo do Código de
+// Defesa do Consumidor, e o vendedor pode dar mais.
+//
+// Tratar este aviso como entrada de comprador põe quem comprou na semana
+// passada dentro da turma desta semana — e dispara o WhatsApp da turma
+// errada. Aconteceu com 19 pessoas em 06/08/2026.
+export function ehFimDeGarantia(evento: unknown, statusCompra: unknown): boolean {
+  return String(evento ?? "") === "PURCHASE_COMPLETE"
+    || String(statusCompra ?? "") === "COMPLETE";
+}

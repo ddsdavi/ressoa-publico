@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSessao } from "../lib/sessao";
+import Ajuda from "../components/Ajuda";
 
 // Registro de importações e exportações — quem mexeu na base, quando e quanto.
 // Exportação de 12 mil contatos é dado pessoal saindo do sistema: precisa de
@@ -48,6 +49,14 @@ export default function Dados() {
       <div className="sub">
         Tudo o que entrou e saiu da base, com autor e data. Arquivos exportados ficam
         guardados por 7 dias; depois disso o registro continua e dá para gerar de novo.
+        <Ajuda>
+          Este é o livro-caixa dos dados pessoais da operação: quem levou o quê, quando e com
+          que filtro. É o que a LGPD espera que exista, e é o que responde “de onde veio esta
+          planilha com 12 mil contatos?” meses depois.
+          <br /><br />
+          As ações ficam nas telas de origem: importar em <b>Leads → Importar CSV</b>,
+          exportar em <b>Leads → Exportar CSV</b>. Aqui é só o histórico.
+        </Ajuda>
       </div>
 
       <div className="linha" style={{ margin: "14px 0" }}>
@@ -60,11 +69,26 @@ export default function Dados() {
       <div className="caixa">
         <table>
           <thead><tr>
-            <th>Nome</th><th>Quem</th><th>Criado em</th>
-            {aba === "exportacao" && <th>Expira</th>}
-            <th>Contatos</th>
-            {aba === "importacao" && <th>Falhas</th>}
-            <th>Status</th><th></th>
+            <th>Nome<Ajuda>Na importação, o nome do arquivo enviado. Na exportação, o filtro que estava na tela — é o que permite reconstruir depois o que foi levado.</Ajuda></th>
+            <th>Quem<Ajuda>O e-mail de quem estava logado no momento. Não dá para exportar de forma anônima.</Ajuda></th>
+            <th>Criado em</th>
+            {aba === "exportacao" && <th>Expira
+              <Ajuda>
+                O arquivo é apagado depois de 7 dias — dado pessoal não deve ficar parado num
+                servidor para sempre. O registro da exportação continua aqui, e para ter o
+                arquivo de novo basta exportar outra vez em Leads.
+              </Ajuda>
+            </th>}
+            <th>Contatos<Ajuda>Quantas pessoas a operação tocou: na importação, os que entraram somados aos atualizados; na exportação, as linhas do arquivo.</Ajuda></th>
+            {aba === "importacao" && <th>Falhas
+              <Ajuda>
+                Linhas que não viraram lead: e-mail em branco, e-mail repetido dentro do
+                próprio arquivo ou WhatsApp com dígitos repetidos (número falso). Clique em
+                “Ver resultados” para o detalhe.
+              </Ajuda>
+            </th>}
+            <th>Status<Ajuda><b>Completo</b> terminou. <b>Processando</b> ainda está rodando. <b>Erro</b> parou no meio — o que já tinha entrado, entrou.</Ajuda></th>
+            <th></th>
           </tr></thead>
           <tbody>
             {ops.map((op) => (

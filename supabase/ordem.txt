@@ -85,3 +85,16 @@ supabase/moeda_relatorios_v1.sql
 supabase/formulario_api_v1.sql
 supabase/hotmart_v4_um_mapa_so.sql
 supabase/lives_passo_planilha_v1.sql
+supabase/renomear_cron_ressoa_v1.sql
+supabase/atribuicao_v3_campos_brutos.sql
+supabase/pontuacao_venda_v1.sql
+supabase/atribuicao_v4_origem_interna.sql
+supabase/janela_quente_v1.sql
+supabase/janela_quente_v2_ligada.sql
+supabase/relatorios_v2_dinheiro.sql
+supabase/telemetria_v1.sql
+supabase/aquecimento_v1.sql
+supabase/recuperacao_e_jogadas_v1.sql
+supabase/resumo_diario_v1.sql
+supabase/aquecimento_v2_sem_teto.sql
+supabase/sem_teto_v1_1.sql

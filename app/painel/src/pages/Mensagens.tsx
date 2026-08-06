@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import EditorEmail from "../components/EditorEmail";
+import Ajuda from "../components/Ajuda";
 
 type Msg = {
   mensagem_id: string; nome: string; from_name: string; from_email: string;
@@ -76,14 +77,29 @@ export default function Mensagens() {
   return (
     <div>
       <h1>Mensagens</h1>
-      <div className="sub">{msgs.length} e-mails na biblioteca (importados do ActiveCampaign + novos)</div>
+      <div className="sub">{msgs.length} e-mails na biblioteca (importados do ActiveCampaign + novos)
+        <Ajuda>
+          É daqui que as <b>automações</b> puxam o que enviar — o passo “enviar e-mail”
+          escolhe uma mensagem desta lista.
+          <br /><br />
+          Campanha é diferente: nela você escreve o e-mail ali mesmo, e ele é guardado aqui
+          depois. Editar uma mensagem não mexe no que já foi enviado, mas vale para as
+          próximas vezes que uma automação usar essa mensagem.
+        </Ajuda>
+      </div>
       <div className="caixa linha">
         <input placeholder="Buscar por nome ou assunto…" value={busca} onChange={(e) => setBusca(e.target.value)} />
         <button className="primario" style={{ flex: "0 0 auto" }} onClick={() => { setSel(null); abrirEdicao(null); }}>+ Nova mensagem</button>
       </div>
       <div className="caixa">
         <table>
-          <thead><tr><th>Nome</th><th>Assunto</th><th>Remetente</th><th>Origem</th><th></th></tr></thead>
+          <thead><tr>
+            <th>Nome<Ajuda>O nome interno, só para você achar a mensagem depois. Quem recebe nunca vê isto — vê o assunto.</Ajuda></th>
+            <th>Assunto<Ajuda>O que aparece na caixa de entrada. Aceita {"{{nome}}"} para chamar cada pessoa pelo primeiro nome.</Ajuda></th>
+            <th>Remetente<Ajuda>Nome e endereço que assinam o e-mail. Nasce do que está em Configurações, e pode ser mudado por mensagem.</Ajuda></th>
+            <th>Origem<Ajuda><b>AC #</b> veio da migração do ActiveCampaign, com o número original de lá. <b>Própria</b> foi escrita aqui. As duas funcionam igual.</Ajuda></th>
+            <th></th>
+          </tr></thead>
           <tbody>
             {filtradas.map((m) => (
               <tr key={m.mensagem_id}>
@@ -118,9 +134,23 @@ export default function Mensagens() {
               <h2>{sel ? "Editar mensagem" : "Nova mensagem"}</h2>
               <label>Nome interno</label>
               <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-              <label>Assunto (aceita {"{{nome}}"})</label>
+              <label>Assunto (aceita {"{{nome}}"})
+                <Ajuda>
+                  Quem não tem nome cadastrado recebe o assunto sem a variável, nunca com{" "}
+                  {"{{nome}}"} escrito no meio.
+                  <br /><br />
+                  Também valem os seus campos próprios: <code>{"{{campo.cidade}}"}</code>, por
+                  exemplo. A lista completa está em <b>Campos</b>.
+                </Ajuda>
+              </label>
               <input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
-              <label>Texto de prévia</label>
+              <label>Texto de prévia
+                <Ajuda>
+                  O trecho cinza que o Gmail mostra ao lado do assunto, antes de a pessoa
+                  abrir. Depois do assunto, é o que mais mexe na taxa de abertura — e a
+                  maioria dos e-mails desperdiça esse espaço.
+                </Ajuda>
+              </label>
               <input value={form.preheader} maxLength={140}
                 placeholder="o trecho que aparece ao lado do assunto na caixa de entrada"
                 onChange={(e) => setForm({ ...form, preheader: e.target.value })} />
@@ -135,7 +165,16 @@ export default function Mensagens() {
                 <div><label>E-mail do remetente</label>
                   <input value={form.from_email} onChange={(e) => setForm({ ...form, from_email: e.target.value })} /></div>
               </div>
-              <label>Conteúdo</label>
+              <label>Conteúdo
+                <Ajuda>
+                  O editor visual monta o e-mail em blocos de arrastar e soltar, com as
+                  cores e a fonte definidas em <b>Configurações → Aparência dos e-mails</b>.
+                  <br /><br />
+                  No envio, o sistema acrescenta sozinho o pixel de abertura, o rastreio dos
+                  links, o descadastro e o endereço no rodapé — não precisa escrever nada
+                  disso.
+                </Ajuda>
+              </label>
               <div className="linha" style={{ marginBottom: 8 }}>
                 <button className="primario" onClick={() => setEditorVisual(true)}>🎨 Abrir editor visual</button>
               </div>
@@ -144,6 +183,17 @@ export default function Mensagens() {
               )}
               <details style={{ marginTop: 8 }}>
                 <summary style={{ fontSize: "calc(12.5px * var(--escala-texto))", color: "var(--texto2)", cursor: "pointer" }}>editar HTML manualmente</summary>
+                <div className="sub" style={{ marginTop: 6 }}>
+                  Só para quem sabe HTML de e-mail.
+                  <Ajuda>
+                    Mexer aqui <b>desfaz o vínculo com o editor visual</b>: os blocos são
+                    esquecidos e a mensagem passa a ser só o HTML que estiver escrito. Não dá
+                    para voltar atrás depois de salvar.
+                    <br /><br />
+                    E-mail não é página: use tabelas e estilo na própria tag, porque boa
+                    parte dos clientes ignora CSS externo.
+                  </Ajuda>
+                </div>
                 <textarea rows={10} style={{ fontFamily: "monospace", fontSize: "calc(12px * var(--escala-texto))", marginTop: 6 }}
                   value={form.html} onChange={(e) => { setForm({ ...form, html: e.target.value }); setFormDesign(null); }} />
               </details>

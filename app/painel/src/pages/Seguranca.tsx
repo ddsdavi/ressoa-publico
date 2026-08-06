@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSessao } from "../lib/sessao";
+import Ajuda from "../components/Ajuda";
 
 type Log = {
   id: number; user_id: string | null; evento: string;
@@ -41,7 +42,17 @@ export default function Seguranca() {
   return (
     <div>
       <h1>Registro de segurança</h1>
-      <div className="sub">Tudo que acontece de sensível nas contas: trocas de e-mail, tentativas erradas e exclusões.</div>
+      <div className="sub">Tudo que acontece de sensível nas contas: trocas de e-mail, tentativas erradas e exclusões.
+        <Ajuda>
+          É o registro das <b>contas de acesso</b> — não da operação. O que aconteceu com um
+          lead está na linha do tempo dele; quem importou ou exportou está em{" "}
+          <b>Importações e exportações</b>.
+          <br /><br />
+          Vale ficar de olho em código digitado errado várias vezes seguidas e em senha
+          incorreta na troca de e-mail: é o desenho de alguém tentando tomar uma conta.
+          Mostra os 200 eventos mais recentes.
+        </Ajuda>
+      </div>
 
       <div className="caixa">
         <table>

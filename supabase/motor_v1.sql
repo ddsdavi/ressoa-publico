@@ -1,5 +1,5 @@
 -- =====================================================================
--- MOTOR v1 do "Active Próprio" — roda inteiro dentro do Postgres.
+-- MOTOR v1 da Ressoa — roda inteiro dentro do Postgres.
 -- Eventos (outbox) -> automações -> passos (email/webhook/tag/lista/espera)
 -- Fila de envios com provedor abstraído: 'simulado' agora, 'resend' depois.
 -- =====================================================================
@@ -428,9 +428,9 @@ left join public.eventos_email ev on ev.envio_fk = e.envio_id
 group by c.campanha_id, c.nome, c.status;
 
 -- ------------------ agendamento (a cada minuto) ------------------
-select cron.schedule('active-processar-eventos',   '* * * * *', $$select public.processar_eventos_sistema()$$);
-select cron.schedule('active-executar-automacoes', '* * * * *', $$select public.executar_automacoes()$$);
-select cron.schedule('active-fila-envios',         '* * * * *', $$select public.processar_fila_envios()$$);
-select cron.schedule('active-campanhas',           '* * * * *', $$select public.processar_campanhas()$$);
+select cron.schedule('ressoa-processar-eventos',   '* * * * *', $$select public.processar_eventos_sistema()$$);
+select cron.schedule('ressoa-executar-automacoes', '* * * * *', $$select public.executar_automacoes()$$);
+select cron.schedule('ressoa-fila-envios',         '* * * * *', $$select public.processar_fila_envios()$$);
+select cron.schedule('ressoa-campanhas',           '* * * * *', $$select public.processar_campanhas()$$);
 
 commit;

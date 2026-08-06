@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { useSessao } from "../lib/sessao";
 import { useNavigate } from "react-router-dom";
 import Escolher from "../components/Escolher";
+import Ajuda from "../components/Ajuda";
 
 type Tag = { tag_id: number; nome: string; descricao: string | null };
 
@@ -112,7 +113,16 @@ export default function Tags() {
   return (
     <div>
       <h1>Tags <span className="contagem">({tags.length})</span></h1>
-      <div className="sub">Marcadores que você aplica nos leads — servem para segmentar e para disparar automações.</div>
+      <div className="sub">Marcadores que você aplica nos leads — servem para segmentar e para disparar automações.
+        <Ajuda>
+          Diferença para <b>lista</b>: da lista a pessoa se descadastra sozinha e é para a
+          lista que a campanha vai. A tag é sua: você põe e tira quando quiser, e ela serve
+          para segmentar e para acionar automação.
+          <br /><br />
+          Ganhar uma tag <b>dispara</b> as automações ligadas a ela — inclusive as que mandam
+          e-mail. Vale conferir a coluna “Usada em automação” antes de aplicar em massa.
+        </Ajuda>
+      </div>
 
       <div className="caixa">
         <div className="linha">
@@ -131,7 +141,16 @@ export default function Tags() {
         </div>
         {criando && (
           <div style={{ marginTop: 12 }}>
-            <label>Nome da tag</label>
+            <label>Nome da tag
+              <Ajuda>
+                Escolha um padrão e repita sempre — CASA_H_2026_08_10, por exemplo. É o que
+                faz a busca funcionar quando existem centenas delas, e o que evita
+                CADASTRADO e CADASTRADOS convivendo, cada uma com metade do público.
+                <br /><br />
+                Já aconteceu? Use o <b>⤳ Mesclar tags</b> aqui em cima: ele junta as duas e
+                reaponta as automações antes de apagar a antiga.
+              </Ajuda>
+            </label>
             <input value={nova.nome} onChange={(e) => setNova({ ...nova, nome: e.target.value })}
               placeholder="CASA_H_2026_08_10" />
             <label>Descrição (opcional)</label>
@@ -147,7 +166,18 @@ export default function Tags() {
 
       <div className="caixa">
         <table>
-          <thead><tr><th>Tag</th><th>Leads</th><th>Usada em automação</th><th></th></tr></thead>
+          <thead><tr>
+            <th>Tag</th>
+            <th>Leads<Ajuda>Quantas pessoas têm esta tag agora. Clique no número para ver quem são.</Ajuda></th>
+            <th>Usada em automação
+              <Ajuda>
+                As automações que começam quando alguém ganha esta tag. Se tem nome aqui,
+                aplicar a tag <b>faz coisa acontecer</b> — e excluir a tag quebra esse gatilho
+                em silêncio: a automação continua ligada, mas nunca mais dispara.
+              </Ajuda>
+            </th>
+            <th></th>
+          </tr></thead>
           <tbody>
             {filtradas.map((t) => (
               <tr key={t.tag_id}>
@@ -200,13 +230,25 @@ export default function Tags() {
       {mesclando && (
         <div className="gaveta" style={{ width: 470 }}>
           <button className="fechar" onClick={() => setMesclando(null)}>✕</button>
-          <h2>Mesclar tags</h2>
+          <h2>Mesclar tags
+            <Ajuda>
+              Antes de apagar as antigas, o sistema <b>reaponta as automações</b> que usavam
+              cada uma delas para a tag que fica. Sem isso, a automação continuaria viva
+              apontando para uma tag que não existe mais — ela pararia de disparar e ninguém
+              perceberia.
+            </Ajuda>
+          </h2>
           <div className="sub">
             Junta várias tags numa só. Serve para limpar duplicatas como
             CADASTRADOS e CADASTRADO, que dividem a mesma audiência em duas.
           </div>
 
-          <label>Tags que vão sumir</label>
+          <label>Tags que vão sumir
+            <Ajuda>
+              Os contatos delas passam para a tag de destino — ninguém fica sem marcação.
+              Depois disso, estas tags são apagadas.
+            </Ajuda>
+          </label>
           <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid var(--borda)",
                         borderRadius: 8, padding: 8 }}>
             {tags.map((t) => (
@@ -229,7 +271,12 @@ export default function Tags() {
             ))}
           </div>
 
-          <label>Tag que fica</label>
+          <label>Tag que fica
+            <Ajuda>
+              A que sobrevive. Escolha a de nome certo — é ela que as automações vão passar
+              a escutar, e o nome não muda depois da mesclagem.
+            </Ajuda>
+          </label>
           <Escolher valor={mesclando.destino} vazio="— escolher —"
             aoMudar={(v) => setMesclando({
               ...mesclando, destino: v,

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   EVENTOS_PEDIDO_HOTMART,
   STATUS_COMPRA,
+  ehFimDeGarantia,
   ehIntencaoDeCompra,
   statusPedidoHotmart,
 } from "./estados.ts";
@@ -46,4 +47,19 @@ test("boleto, atraso e expiração são intenção, não venda aprovada", () => 
     assert.notEqual(statusPedidoHotmart(evento, null), "aprovada");
   }
   assert.equal(ehIntencaoDeCompra("PURCHASE_APPROVED"), false);
+});
+
+test("fim de garantia é venda definitiva, mas não move automação", () => {
+  // continua sendo compra aprovada para efeito de registro e faturamento
+  assert.equal(statusPedidoHotmart("PURCHASE_COMPLETE", null), "aprovada");
+  assert.equal(statusPedidoHotmart(null, "COMPLETE"), "aprovada");
+
+  // e é reconhecido como fim de garantia, pelo evento ou pelo status
+  assert.equal(ehFimDeGarantia("PURCHASE_COMPLETE", null), true);
+  assert.equal(ehFimDeGarantia("PURCHASE_APPROVED", "COMPLETE"), true);
+
+  // a aprovação da compra, essa sim, move automação
+  assert.equal(ehFimDeGarantia("PURCHASE_APPROVED", "APPROVED"), false);
+  assert.equal(ehFimDeGarantia("PURCHASE_REFUNDED", "REFUNDED"), false);
+  assert.equal(ehFimDeGarantia(null, null), false);
 });

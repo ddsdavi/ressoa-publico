@@ -22,57 +22,66 @@ import Campos from "./pages/Campos";
 import FormularioPublico from "./pages/FormularioPublico";
 import Formularios from "./pages/Formularios";
 import Relatorios from "./pages/Relatorios";
+import LeadScoring from "./pages/LeadScoring";
 import Vendas from "./pages/Vendas";
 import Config from "./pages/Config";
 import ManyChat from "./pages/ManyChat";
 
 // Layout no padrão do ActiveCampaign: topbar escura + rail de ícones + sidebar branca contextual.
+// Cada seção lista só os seus itens de menu; as rotas que ela responde saem
+// daí, no .map() do fim. Antes eram duas listas escritas à mão, e bastou
+// esquecer "/envios" na segunda: a página abria certa, mas nenhuma seção
+// assumia a rota e a barra caía na "Visão geral" — parecia que o clique tinha
+// voltado para o início.
 const SECOES = [
   {
-    id: "inicio", titulo: "Visão geral", rotas: ["/"],
+    id: "inicio", titulo: "Visão geral",
     icone: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>,
     grupos: [{ titulo: null, itens: [["Visão geral", "/"]] }],
   },
   {
-    id: "contatos", titulo: "Contatos", rotas: ["/leads", "/listas", "/tags", "/campos", "/formularios", "/dados", "/relatorios"],
+    id: "contatos", titulo: "Contatos",
     icone: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg>,
     grupos: [
       { titulo: null, itens: [["Leads", "/leads"], ["Listas", "/listas"], ["Tags", "/tags"],
                             ["Campos", "/campos"], ["Formulários", "/formularios"]] },
       { titulo: "Gerenciar", itens: [["Envios e exclusões", "/envios"],
                                      ["Importações e exportações", "/dados"],
+                                     ["Lead scoring", "/leadscoring"],
                                      ["Relatórios", "/relatorios"]] },
     ],
   },
   {
-    id: "email", titulo: "Email", rotas: ["/campanhas", "/mensagens"],
+    id: "email", titulo: "Email",
     icone: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>,
+    // Envios não se repete aqui: é a mesma página de Contatos › Gerenciar, e
+    // uma rota só pode pertencer a uma seção. Repetida, o clique feito por
+    // Email jogava o menu inteiro para Contatos.
     grupos: [
       { titulo: null, itens: [["Campanhas", "/campanhas"], ["Mensagens", "/mensagens"]] },
-      { titulo: "Relatórios", itens: [["Envios", "/envios"]] },
     ],
   },
   {
-    id: "produtos", titulo: "Produtos", rotas: ["/vendas"],
+    id: "produtos", titulo: "Produtos",
     icone: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5v-9Z" /><path d="m3 7.5 9 4.5 9-4.5M12 12v9" /></svg>,
     grupos: [{ titulo: null, itens: [["Produtos e vendas", "/vendas"]] }],
   },
   {
-    id: "automacoes", titulo: "Automações", rotas: ["/automacoes", "/manychat"],
+    id: "automacoes", titulo: "Automações",
     icone: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="6" cy="6" r="2.5" /><circle cx="18" cy="6" r="2.5" /><circle cx="12" cy="18" r="2.5" /><path d="M6 8.5V12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8.5M12 14v1.5" /></svg>,
     grupos: [{ titulo: null, itens: [["Fluxos", "/automacoes"], ["ManyChat", "/manychat"]] }],
   },
   {
-    id: "admin", titulo: "Admin", rotas: ["/usuarios", "/seguranca"], soAdmin: true,
+    id: "admin", titulo: "Admin", soAdmin: true,
     icone: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l7 3v6c0 4.4-3 8.2-7 9-4-.8-7-4.6-7-9V6l7-3Z" /><path d="m9 12 2 2 4-4" /></svg>,
     grupos: [{ titulo: null, itens: [["Usuários", "/usuarios"], ["Registro de segurança", "/seguranca"]] }],
   },
   {
-    id: "config", titulo: "Configurações", rotas: ["/config"], soAdmin: true,
+    id: "config", titulo: "Configurações", soAdmin: true,
     icone: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2Z" /></svg>,
     grupos: [{ titulo: null, itens: [["Configurações", "/config"]] }],
   },
-];
+].map((s) => ({ ...s, rotas: s.grupos.flatMap((g) => g.itens.map(([, rota]) => rota)) }));
 
 function Layout() {
   const { pathname } = useLocation();
@@ -202,6 +211,7 @@ function Layout() {
             <Route path="/campos" element={<Campos />} />
             <Route path="/formularios" element={<Formularios />} />
             <Route path="/relatorios" element={<Relatorios />} />
+            <Route path="/leadscoring" element={<LeadScoring />} />
             <Route path="/vendas" element={<Vendas />} />
             {/* endereço antigo: API e webhooks agora moram numa aba de Configurações */}
             <Route path="/api" element={<Navigate to="/config" replace />} />
