@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import ApiWebhooks from "./ApiWebhooks";
 import Ajuda from "../components/Ajuda";
@@ -69,13 +69,16 @@ export default function Config() {
   const [capResposta, setCapResposta] = useState("");
   const [aba, setAba] = useState("email");
   const [naFila, setNaFila] = useState(0);
-  const [gsId, setGsId] = useState("");
-  const [gsSegredo, setGsSegredo] = useState("");
   const [gsStatus, setGsStatus] = useState<{
     app_configurado?: boolean; conectada?: boolean;
     conta?: string | null; url_retorno?: string;
   }>({});
   const [gsResposta, setGsResposta] = useState("");
+  const [gsEsperando, setGsEsperando] = useState(false);
+  const relogioGoogle = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => {
+    if (relogioGoogle.current) clearInterval(relogioGoogle.current);
+  }, []);
 
   async function carregar() {
     const { data } = await supabase.from("app_config").select("chave, valor");
@@ -94,33 +97,98 @@ export default function Config() {
   useEffect(() => { carregar(); }, []);
 
   async function carregarGoogle() {
-    try { setGsStatus(await chamarPlanilhas("status")); }
-    catch (e) { setGsResposta((e as Error).message); }
+    try {
+      const s = await chamarPlanilhas("status");
+      setGsStatus(s);
+      if (s.conectada) desistirDeEsperar();
+      return s as typeof gsStatus;
+    } catch (e) { setGsResposta((e as Error).message); return {} as typeof gsStatus; }
   }
   useEffect(() => { if (aba === "planilhas") carregarGoogle(); }, [aba]);
 
-  async function guardarChavesGoogle() {
-    try {
-      if (gsId.trim()) {
-        await supabase.rpc("guardar_segredo",
-          { p_chave: "google_client_id", p_valor: gsId.trim() });
-      }
-      if (gsSegredo.trim()) {
-        await supabase.rpc("guardar_segredo",
-          { p_chave: "google_client_secret", p_valor: gsSegredo.trim() });
-      }
-      setGsId(""); setGsSegredo("");
-      setGsResposta("✓ Chaves guardadas. Agora clique em Conectar conta Google.");
-      await carregarGoogle();
-    } catch (e) { setGsResposta("Não deu para guardar: " + (e as Error).message); }
+  // A volta do Google cai AQUI, no painel — a função do servidor só redireciona,
+  // porque o Supabase não serve HTML do domínio dela. Se esta página é a
+  // janelinha, ela avisa quem a abriu e se fecha; se a pessoa fez tudo na mesma
+  // aba, ela mesma mostra o resultado.
+  useEffect(() => {
+    const resultado = new URLSearchParams(window.location.search).get("google");
+    if (!resultado) return;
+    window.history.replaceState({}, "", window.location.pathname);
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.postMessage({ ressoa: "google", resultado },
+                                  window.location.origin);
+      } catch { /* quem abriu era de outra origem: segue o fluxo normal */ }
+      window.close();
+      return;
+    }
+    setAba("planilhas");
+    contarOFinal(resultado);
+  }, []);
+
+  // O recado da janelinha para a aba que a abriu.
+  useEffect(() => {
+    const ouvir = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      if ((e.data as { ressoa?: string })?.ressoa !== "google") return;
+      contarOFinal(String((e.data as { resultado?: string }).resultado ?? ""));
+    };
+    window.addEventListener("message", ouvir);
+    return () => window.removeEventListener("message", ouvir);
+  }, []);
+
+  function contarOFinal(resultado: string) {
+    desistirDeEsperar();
+    setGsResposta(resultado === "ok"
+      ? "✓ Conta Google conectada."
+      : `Não deu para conectar (${resultado}). Clique em Conectar e tente de novo.`);
+    carregarGoogle();
   }
+
+  // Rede de segurança: se o recado se perder (pop-up bloqueado, janela fechada
+  // na mão), a volta da pessoa para esta aba já vale como pergunta ao servidor.
+  useEffect(() => {
+    if (!gsEsperando) return;
+    const aoVoltar = () => { carregarGoogle(); };
+    window.addEventListener("focus", aoVoltar);
+    return () => window.removeEventListener("focus", aoVoltar);
+  }, [gsEsperando]);
 
   async function conectarGoogle() {
     try {
-      const d = await chamarPlanilhas("conectar");
-      window.open(d.url, "_blank");
-      setGsResposta("Autorize na aba que abriu. Quando terminar, volte aqui e clique em Atualizar.");
-    } catch (e) { setGsResposta((e as Error).message); }
+      const d = await chamarPlanilhas("conectar",
+        { origem: window.location.origin });
+      const janela = window.open(d.url, "ressoa_google",
+        "width=520,height=680,menubar=no,toolbar=no");
+      if (!janela) {
+        setGsResposta("O navegador bloqueou a janela do Google. Libere os pop-ups " +
+          "para este endereço e clique de novo.");
+        return;
+      }
+      setGsResposta("Escolha a conta Google na janela que abriu.");
+      setGsEsperando(true);
+
+      // O recado da janelinha é quem costuma chegar primeiro. Este relógio é
+      // só teimosia: aba em segundo plano tem o timer estrangulado pelo Chrome,
+      // então ele não serve como plano A — serve para o caso de tudo falhar.
+      if (relogioGoogle.current) clearInterval(relogioGoogle.current);
+      let voltas = 0;
+      relogioGoogle.current = setInterval(async () => {
+        voltas++;
+        const s = await carregarGoogle();
+        if (s.conectada) {
+          try { janela?.close(); } catch { /* já se fechou sozinha */ }
+        } else if (voltas > 150 || (voltas > 2 && janela?.closed)) {
+          desistirDeEsperar();
+        }
+      }, 2000);
+    } catch (e) { setGsResposta((e as Error).message); setGsEsperando(false); }
+  }
+
+  function desistirDeEsperar() {
+    if (relogioGoogle.current) clearInterval(relogioGoogle.current);
+    relogioGoogle.current = null;
+    setGsEsperando(false);
   }
 
   async function desconectarGoogle() {
@@ -533,68 +601,42 @@ export default function Config() {
           sem n8n no caminho.
         </div>
 
-        <h3 style={{ marginTop: 18 }}>1 · O app no Google (uma única vez)</h3>
-        <div className="sub">
-          O Google exige que integrações tenham um cadastro próprio — o ManyChat tem o
-          dele; este é o do Ressoa.
-          <Ajuda>
-            Em <b>console.cloud.google.com</b>: crie um projeto → APIs e serviços →
-            ative a <b>Google Sheets API</b> → Tela de consentimento (público{" "}
-            <b>Externo</b>, e depois <b>Publicar o app</b> — parado "Em teste", a
-            conexão morre a cada 7 dias) → Credenciais → Criar credenciais →{" "}
-            <b>ID do cliente OAuth</b>, tipo <b>Aplicativo da Web</b>, com o URI de
-            redirecionamento abaixo. Copie o Client ID e o Client Secret para cá.
-          </Ajuda>
-        </div>
-        {gsStatus.url_retorno && (
-          <div className="sub" style={{ marginTop: 6 }}>
-            URI de redirecionamento para registrar lá:{" "}
-            <code style={{ userSelect: "all" }}>{gsStatus.url_retorno}</code>
-          </div>
-        )}
-        <label style={{ marginTop: 10 }}>
-          Client ID
-          {gsStatus.app_configurado && <span style={{ color: "var(--marca)" }}> · configurado ✓</span>}
-        </label>
-        <CampoSegredo value={gsId}
-          placeholder={gsStatus.app_configurado ? "••••••••  (digite para trocar)" : "termina em .apps.googleusercontent.com"}
-          onChange={setGsId} />
-        <label style={{ marginTop: 10 }}>Client Secret</label>
-        <div style={{ display: "flex", gap: 8 }}>
-          <CampoSegredo value={gsSegredo} style={{ flex: 1 }}
-            placeholder={gsStatus.app_configurado ? "••••••••  (digite para trocar)" : "começa com GOCSPX-"}
-            onChange={setGsSegredo} />
-          <button onClick={guardarChavesGoogle}
-            disabled={!gsId.trim() && !gsSegredo.trim()}>Guardar</button>
-        </div>
-        <div className="sub" style={{ marginTop: 6 }}>
-          Depois de guardadas, elas não aparecem mais aqui — ficam num lugar do banco
-          que o navegador não lê.
-        </div>
-
-        <h3 style={{ marginTop: 22 }}>2 · A conta conectada</h3>
         {gsStatus.conectada ? (
-          <div className="sub">
+          <div className="sub" style={{ marginTop: 18 }}>
             Conectada{gsStatus.conta ? <> como <b>{gsStatus.conta}</b></> : null}. As
             automações escrevem nas planilhas que essa conta pode editar.
           </div>
         ) : (
-          <div className="sub">Nenhuma conta conectada ainda.</div>
+          <div className="sub" style={{ marginTop: 18 }}>
+            Nenhuma conta conectada ainda.
+            <Ajuda>
+              Clique no botão, escolha a conta Google na janela que abrir e pronto —
+              esta tela vira sozinha quando o Google responder. Se aparecer o aviso de
+              app não verificado, é o app do próprio Ressoa: <b>Avançado → Acessar</b>,
+              uma vez só.
+            </Ajuda>
+          </div>
         )}
         <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
           <button className="primario" onClick={conectarGoogle}
-            disabled={!gsStatus.app_configurado}>
-            {gsStatus.conectada ? "Trocar a conta" : "Conectar conta Google"}
+            disabled={gsEsperando || gsStatus.app_configurado === false}>
+            {gsEsperando ? "Esperando o Google…"
+              : gsStatus.conectada ? "Trocar a conta" : "Conectar conta Google"}
           </button>
-          <button onClick={carregarGoogle}>Atualizar</button>
           {gsStatus.conectada && (
             <button onClick={desconectarGoogle}>Desconectar</button>
           )}
         </div>
-        <div className="sub" style={{ marginTop: 8 }}>
-          Na tela do Google pode aparecer o aviso de app não verificado — é o seu
-          próprio app: <b>Avançado → Acessar</b>, uma vez só.
-        </div>
+
+        {gsStatus.app_configurado === false && (
+          <div className="aviso" style={{ marginTop: 12 }}>
+            A ponte com o Google ainda não foi ligada <b>neste servidor</b> — faltam os
+            secrets <code>GOOGLE_CLIENT_ID</code> e <code>GOOGLE_CLIENT_SECRET</code>{" "}
+            da função <code>google-sheets</code>. É coisa de instalação, uma vez na
+            vida, como as chaves do envio de e-mail — não é para ser resolvido nesta
+            tela.
+          </div>
+        )}
 
         {gsResposta && (
           <div className={gsResposta.startsWith("✓") ? "sub" : "aviso"} style={{ marginTop: 10 }}>

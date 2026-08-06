@@ -13,6 +13,12 @@
 // propósito: listar todos os arquivos da conta é escopo restrito, que o
 // Google só libera com auditoria — por isso a planilha entra pelo LINK.
 //
+// As credenciais desse cadastro (client id e secret) são configuração de
+// INSTALAÇÃO, não de uso: moram nos secrets desta função, ao lado das chaves
+// da AWS. Quando a tela do Google diz "Prosseguir para Ressoa", é esse
+// cadastro falando. Ninguém no painel precisa saber que ele existe — do
+// mesmo jeito que ninguém digita o client id do ManyChat para usar ManyChat.
+//
 // Armadilha conhecida: app OAuth com status "Em teste" tem refresh token
 // que MORRE em 7 dias. O consentimento precisa estar "Em produção" (mesmo
 // sem verificação — a tela de aviso aparece uma vez e pronto).
@@ -60,6 +66,18 @@ Deno.serve(async (req) => {
       { method: "DELETE", headers: cab });
   };
 
+  // As chaves do nosso cadastro no Google. Vêm dos secrets da função; a
+  // leitura em public.segredos fica de reserva só para não quebrar quem já
+  // tinha digitado as chaves na tela antiga de Configurações.
+  const credenciais = async (): Promise<{ id: string; secret: string }> => {
+    const id = Deno.env.get("GOOGLE_CLIENT_ID") ?? "";
+    const secret = Deno.env.get("GOOGLE_CLIENT_SECRET") ?? "";
+    if (id && secret) return { id, secret };
+    const s = await segredos(["google_client_id", "google_client_secret"]);
+    return { id: id || (s.google_client_id ?? ""),
+             secret: secret || (s.google_client_secret ?? "") };
+  };
+
   const anotar = async (lead: string | null, planilha: string, aba: string,
                         ok: boolean, detalhe: string) => {
     await fetch(`${base}/rest/v1/google_sheets_log`, {
@@ -94,18 +112,19 @@ Deno.serve(async (req) => {
 
   // ---------- access token válido, renovando quando preciso ----------
   const tokenDeAcesso = async (): Promise<string> => {
-    const s = await segredos(["google_client_id", "google_client_secret",
-      "google_refresh_token", "google_access_token", "google_access_expira"]);
+    const s = await segredos(["google_refresh_token", "google_access_token",
+                              "google_access_expira"]);
     if (!s.google_refresh_token) throw new Error("conta Google não conectada");
     const expira = Date.parse(s.google_access_expira ?? "") || 0;
     if (s.google_access_token && expira > Date.now() + 60_000) {
       return s.google_access_token;
     }
+    const app = await credenciais();
     const r = await fetch(TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: s.google_client_id, client_secret: s.google_client_secret,
+        client_id: app.id, client_secret: app.secret,
         refresh_token: s.google_refresh_token, grant_type: "refresh_token",
       }),
     });
@@ -136,36 +155,42 @@ Deno.serve(async (req) => {
   if (req.method === "GET" && u.pathname.endsWith("/callback")) {
     const code = u.searchParams.get("code");
     const state = u.searchParams.get("state") ?? "";
-    const pagina = (titulo: string, texto: string, ok: boolean) => new Response(
-      `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-       <meta name="viewport" content="width=device-width,initial-scale=1"><title>${titulo}</title></head>
-       <body style="margin:0;display:grid;place-items:center;min-height:100vh;background:#170020;color:#eee9f3;font-family:system-ui,sans-serif">
-       <div style="text-align:center;max-width:420px;padding:24px">
-       <div style="font-size:42px">${ok ? "✅" : "⚠️"}</div>
-       <h1 style="font-size:20px;color:${ok ? "#c9a0e8" : "#ffb4a8"}">${titulo}</h1>
-       <p style="line-height:1.5;color:#a49db3">${texto}</p></div></body></html>`,
-      { status: ok ? 200 : 400, headers: { "Content-Type": "text/html; charset=utf-8" } });
+    const s = await segredos(["google_oauth_state"]);
+    const [estadoGuardado, quando, origem] = (s.google_oauth_state ?? "||").split("|");
 
-    const s = await segredos(["google_client_id", "google_client_secret", "google_oauth_state"]);
-    const [estadoGuardado, quando] = (s.google_oauth_state ?? "|").split("|");
+    // Esta rota não desenha nada, e não é escolha de estilo: o Supabase se
+    // recusa a servir HTML de *.supabase.co — troca o content-type por
+    // text/plain e crava nosniff, contra phishing. Página bonita aqui vira
+    // código-fonte na cara da pessoa, e script nenhum roda. Então devolvemos
+    // o navegador para o painel, que é HTML de verdade, e ele conta o final.
+    const voltar = (resultado: string) => {
+      if (!origem.startsWith("https://")) {
+        return new Response(
+          resultado === "ok"
+            ? "Conta Google conectada. Pode fechar esta aba e voltar ao Ressoa."
+            : "Nao deu para conectar (" + resultado + "). Volte ao painel e tente de novo.",
+          { status: resultado === "ok" ? 200 : 400,
+            headers: { "Content-Type": "text/plain; charset=utf-8" } });
+      }
+      return Response.redirect(
+        `${origem}/config?google=${encodeURIComponent(resultado)}`, 302);
+    };
+
     if (!code || !state || state !== estadoGuardado ||
         Date.now() - (Number(quando) || 0) > 15 * 60_000) {
-      return pagina("Não deu para conectar",
-        "O pedido não bate com o que o Ressoa iniciou (ou passou de 15 minutos). Volte ao painel e clique em Conectar de novo.", false);
+      return voltar("pedido_nao_confere");
     }
+    const app = await credenciais();
     const r = await fetch(TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: s.google_client_id, client_secret: s.google_client_secret,
+        client_id: app.id, client_secret: app.secret,
         code, grant_type: "authorization_code", redirect_uri: urlRetorno,
       }),
     });
     const d = await r.json();
-    if (!r.ok || !d.refresh_token) {
-      return pagina("O Google não devolveu o acesso",
-        "Resposta: " + JSON.stringify(d).slice(0, 300), false);
-    }
+    if (!r.ok || !d.refresh_token) return voltar("google_negou_o_acesso");
     let conta = "";
     try {
       const rInfo = await fetch(USERINFO_URL,
@@ -180,8 +205,7 @@ Deno.serve(async (req) => {
     if (conta) await gravar("google_conta_email", conta);
     await apagar(["google_oauth_state"]);
 
-    return pagina("Conta Google conectada",
-      `${conta ? "Conectada como <b>" + conta + "</b>. " : ""}Pode fechar esta aba e voltar ao Ressoa.`, true);
+    return voltar("ok");
   }
 
   // ================== demais ações (POST com JSON) ==================
@@ -249,14 +273,19 @@ Deno.serve(async (req) => {
     if (!(await usuarioEhAdmin())) return erro("só admin", 403);
 
     if (acao === "conectar") {
-      const s = await segredos(["google_client_id", "google_client_secret"]);
-      if (!s.google_client_id || !s.google_client_secret) {
-        return erro("guarde primeiro o Client ID e o Client Secret do Google");
+      const app = await credenciais();
+      if (!app.id || !app.secret) {
+        return erro("a ponte com o Google não foi ligada neste servidor: faltam " +
+          "os secrets GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET da função google-sheets");
       }
+      // De onde o painel chamou — é para lá que o Google devolve a pessoa.
+      // Só https, e só o que o próprio painel mandou nesta chamada de admin.
+      const origem = String(corpo.origem ?? "");
       const estado = crypto.randomUUID();
-      await gravar("google_oauth_state", `${estado}|${Date.now()}`);
+      await gravar("google_oauth_state", `${estado}|${Date.now()}|` +
+        (/^https:\/\/[^|\s]+$/.test(origem) ? origem : ""));
       const url = `${AUTH_URL}?` + new URLSearchParams({
-        client_id: s.google_client_id, redirect_uri: urlRetorno,
+        client_id: app.id, redirect_uri: urlRetorno,
         response_type: "code", scope: ESCOPOS, access_type: "offline",
         prompt: "consent", state: estado,
       });
@@ -264,10 +293,10 @@ Deno.serve(async (req) => {
     }
 
     if (acao === "status") {
-      const s = await segredos(["google_client_id", "google_client_secret",
-                                "google_refresh_token", "google_conta_email"]);
+      const app = await credenciais();
+      const s = await segredos(["google_refresh_token", "google_conta_email"]);
       return ok({
-        app_configurado: !!(s.google_client_id && s.google_client_secret),
+        app_configurado: !!(app.id && app.secret),
         conectada: !!s.google_refresh_token,
         conta: s.google_conta_email ?? null,
         url_retorno: urlRetorno,

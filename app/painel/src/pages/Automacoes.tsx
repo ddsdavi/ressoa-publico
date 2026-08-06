@@ -10,7 +10,7 @@ import FluxoAutomacao from "../components/FluxoAutomacao";
 type Passo = { passo_id?: string; ordem: number; tipo: string; config: Record<string, any> };
 type Auto = {
   automacao_id: string; nome: string; ativa: boolean; origem_ac_id: number | null;
-  gatilho: Record<string, any> | null; nota: string | null;
+  gatilho: Record<string, any> | Record<string, any>[] | null; nota: string | null;
   automacao_passos: Passo[];
 };
 
@@ -55,8 +55,9 @@ export default function Automacoes() {
   const [abertas, setAbertas] = useState<Set<string>>(new Set());
   const [editId, setEditId] = useState<string | "nova" | null>(null);
   const [eNome, setENome] = useState("");
-  const [eGatilhoTipo, setEGatilhoTipo] = useState("lista_inscrita");
-  const [eGatilhoAlvo, setEGatilhoAlvo] = useState("");
+  // uma automação pode ter vários gatilhos (qualquer um dela inicia). No banco
+  // fica objeto quando é um só — o formato que as automações herdadas têm.
+  const [eGatilhos, setEGatilhos] = useState<Record<string, any>[]>([]);
   const [ePassos, setEPassos] = useState<Passo[]>([]);
   const [eAtiva, setEAtiva] = useState(false);
 
@@ -85,6 +86,11 @@ export default function Automacoes() {
   useEffect(() => { carregar(); }, []);
 
   function descreverGatilho(g: Auto["gatilho"]): string {
+    // vários gatilhos: descreve todos, separados por "ou"
+    if (Array.isArray(g)) {
+      if (!g.length) return "sem gatilho definido";
+      return g.map((x) => descreverGatilho(x)).join("  ou  ");
+    }
     if (!g) return "sem gatilho definido";
     if (g.tipo === "lista_inscrita") {
       if (g.qualquer_lista) return "Entrou em QUALQUER lista";
@@ -136,7 +142,11 @@ export default function Automacoes() {
     });
   }
 
-  const incompleta = (a: Auto) => !a.gatilho?.tipo || !a.automacao_passos.length;
+  // com vários gatilhos, basta um deles ter tipo para a automação disparar
+  const primeiroGatilho = (a: Auto): Record<string, any> | null =>
+    Array.isArray(a.gatilho) ? (a.gatilho[0] ?? null) : a.gatilho;
+  const incompleta = (a: Auto) =>
+    !primeiroGatilho(a)?.tipo || !a.automacao_passos.length;
 
   const contagens = {
     todas: autos.length,
@@ -185,16 +195,15 @@ export default function Automacoes() {
       setEditId(a.automacao_id);
       setENome(a.nome);
       setEAtiva(a.ativa);
-      setEGatilhoTipo(a.gatilho?.tipo ?? "lista_inscrita");
-      setEGatilhoAlvo(String(a.gatilho?.lista_id ?? a.gatilho?.tag_id ?? ""));
+      setEGatilhos(Array.isArray(a.gatilho) ? a.gatilho
+        : (a.gatilho?.tipo ? [a.gatilho] : []));
       setEPassos([...(a.automacao_passos ?? [])].sort((x, y) => x.ordem - y.ordem)
         .map((p) => ({ ordem: p.ordem, tipo: p.tipo, config: { ...(p.config ?? {}) } })));
     } else {
       setEditId("nova");
       setENome("");
       setEAtiva(false);
-      setEGatilhoTipo("lista_inscrita");
-      setEGatilhoAlvo("");
+      setEGatilhos([]);
       setEPassos([]);
     }
   }
@@ -202,9 +211,12 @@ export default function Automacoes() {
 
   async function salvarEditor() {
     if (!eNome.trim()) { alert("Dê um nome à automação."); return; }
-    if ((eGatilhoTipo === "lista_inscrita" || eGatilhoTipo === "tag_adicionada") && !eGatilhoAlvo) {
-      alert("Escolha a lista/tag do gatilho.");
-      return;
+    for (const g of eGatilhos) {
+      if ((g.tipo === "lista_inscrita" && !g.lista_id && !g.qualquer_lista)
+          || (g.tipo === "tag_adicionada" && !g.tag_id)) {
+        alert("Há um gatilho sem a lista ou a tag escolhida.");
+        return;
+      }
     }
     for (const p of ePassos) {
       if (p.tipo === "enviar_email" && !p.config.mensagem_id && !p.config.mensagem) { alert("Há um passo de e-mail sem mensagem escolhida."); return; }
@@ -213,9 +225,9 @@ export default function Automacoes() {
       if ((p.tipo === "aplicar_tag" || p.tipo === "remover_tag") && !p.config.tag_id) { alert("Há um passo de tag sem tag escolhida."); return; }
       if ((p.tipo === "inscrever_lista" || p.tipo === "desinscrever_lista") && !p.config.lista_id) { alert("Há um passo de lista sem lista escolhida."); return; }
     }
-        const gatilho: Record<string, unknown> = { tipo: eGatilhoTipo };
-    if (eGatilhoTipo === "lista_inscrita") gatilho.lista_id = Number(eGatilhoAlvo);
-    if (eGatilhoTipo === "tag_adicionada") gatilho.tag_id = Number(eGatilhoAlvo);
+    // um gatilho vira objeto (formato de sempre); vários viram lista
+    const gatilho = eGatilhos.length === 0 ? null
+      : eGatilhos.length === 1 ? eGatilhos[0] : eGatilhos;
 
     let id = editId;
     if (editId === "nova") {
@@ -297,7 +309,13 @@ export default function Automacoes() {
               {a.origem_ac_id && <span className="auto-origem" title="Veio do ActiveCampaign">AC #{a.origem_ac_id}</span>}
             </div>
             <div className="auto-gatilho">
-              <span className="ic">{a.gatilho?.tipo ? (ICONE_GATILHO[a.gatilho.tipo] ?? "⚙") : "∅"}</span>
+              <span className="ic">
+                {primeiroGatilho(a)?.tipo
+                  ? (ICONE_GATILHO[primeiroGatilho(a)!.tipo] ?? "⚙") : "∅"}
+                {Array.isArray(a.gatilho) && a.gatilho.length > 1 && (
+                  <sup style={{ fontSize: ".7em", marginLeft: 1 }}>{a.gatilho.length}</sup>
+                )}
+              </span>
               {descreverGatilho(a.gatilho)}
             </div>
             {a.nota && <div className="auto-nota" title={a.nota}>{a.nota}</div>}
@@ -419,13 +437,7 @@ export default function Automacoes() {
       {editId && (
         <FluxoAutomacao
           nome={eNome}
-          gatilho={eGatilhoTipo
-            ? {
-              tipo: eGatilhoTipo,
-              ...(eGatilhoTipo === "lista_inscrita" && eGatilhoAlvo ? { lista_id: Number(eGatilhoAlvo) } : {}),
-              ...(eGatilhoTipo === "tag_adicionada" && eGatilhoAlvo ? { tag_id: Number(eGatilhoAlvo) } : {}),
-            }
-            : null}
+          gatilho={eGatilhos}
           passos={ePassos}
           ativa={eAtiva}
           execucoes={editId !== "nova" ? (execs[editId] ?? 0) : 0}
@@ -436,8 +448,8 @@ export default function Automacoes() {
             if (p.ativa !== undefined) setEAtiva(p.ativa);
             if (p.passos !== undefined) setEPassos(p.passos);
             if (p.gatilho !== undefined) {
-              setEGatilhoTipo(p.gatilho?.tipo ?? "lista_inscrita");
-              setEGatilhoAlvo(String(p.gatilho?.lista_id ?? p.gatilho?.tag_id ?? ""));
+              setEGatilhos(Array.isArray(p.gatilho) ? p.gatilho
+                : (p.gatilho?.tipo ? [p.gatilho] : []));
             }
           }}
           onSalvar={salvarEditor}

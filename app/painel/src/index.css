@@ -197,13 +197,74 @@ label { font-size: calc(12.5px * var(--escala-texto)); font-weight: 600; color: 
 input.segredo { -webkit-text-security: disc; }
 input.segredo::placeholder { -webkit-text-security: none; }
 
+/* ============ Escolher: a caixa de escolha com busca ============ */
+/* Fechada é igual ao <select> que ela substituiu — mesma altura, mesma
+   borda, mesma setinha. Aberta, é um campo de texto que vai filtrando.
+   Ver components/Escolher.tsx. */
+.escolher { position: relative; display: block; min-width: 0; }
+.escolher-campo {
+  padding-right: 30px; cursor: pointer;
+  text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+}
+.escolher.aberta .escolher-campo { cursor: text; }
+.escolher-campo:disabled { opacity: .5; cursor: not-allowed; }
+.escolher-seta {
+  position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
+  pointer-events: none; color: var(--ac-texto2);
+  font-size: calc(11px * var(--escala-texto));
+}
+.escolher.aberta .escolher-seta { color: var(--ac-azul); }
+
+/* A lista mora no <body>, presa na tela: dentro da gaveta ela seria cortada
+   pela rolagem, e é justamente na gaveta que se escolhe lista e tag. */
+.escolher-lista {
+  position: fixed; z-index: 400; overflow-y: auto; padding: 4px;
+  background: var(--ac-superficie); border: 1px solid var(--ac-borda);
+  border-radius: 8px; box-shadow: 0 6px 24px rgba(23, 0, 32, .16);
+}
+.escolher-grupo {
+  padding: 8px 10px 4px; font-size: calc(11.5px * var(--escala-texto));
+  font-weight: 700; letter-spacing: .3px; text-transform: uppercase;
+  color: var(--ac-texto2);
+}
+.escolher-opcao {
+  display: flex; align-items: baseline; gap: 8px; padding: 7px 10px;
+  border-radius: 6px; cursor: pointer; line-height: 1.35;
+  font-size: calc(13.5px * var(--escala-texto));
+}
+.escolher-opcao.destacada { background: var(--ac-hover); }
+.escolher-opcao.escolhida .rot { font-weight: 600; }
+.escolher-opcao.apagada { opacity: .45; cursor: not-allowed; }
+.escolher-opcao .tique {
+  flex: 0 0 12px; color: var(--ac-azul);
+  font-size: calc(11px * var(--escala-texto));
+}
+.escolher-opcao .rot { flex: 1; overflow-wrap: anywhere; }
+.escolher-opcao .detalhe {
+  flex: 0 1 auto; color: var(--ac-texto2); text-align: right;
+  font-size: calc(12px * var(--escala-texto)); overflow-wrap: anywhere;
+}
+.escolher-vazia {
+  padding: 10px; color: var(--ac-texto2);
+  font-size: calc(13px * var(--escala-texto));
+}
+
 /* ============ Botões (medidas exatas do AC) ============ */
 button, .botao {
   font: inherit; font-size: calc(14px * var(--escala-texto)); font-weight: 500; height: 36px; padding: 8px 12px;
   border-radius: 4px; border: 1px solid var(--ac-borda); background: var(--ac-superficie);
   color: var(--ac-texto); cursor: pointer;
 }
-button:hover { background: var(--ac-hover); }
+/* .botao veste de botão um <a> ("Abrir", "Ver a página"): continua link — abre
+   em aba nova, dá para copiar o endereço, o meio do botão do teclado funciona —
+   mas com a mesma pele. Sem isto o <a> é inline: a altura de 36px não pega, a
+   caixa sai mais alta que o botão do lado, o texto cai para baixo e ainda vem
+   sublinhado e roxo de link. */
+a.botao {
+  display: inline-flex; align-items: center; justify-content: center;
+  text-decoration: none; color: var(--ac-texto);
+}
+button:hover, a.botao:hover { background: var(--ac-hover); }
 button.primario {
   background: var(--ac-azul); border-color: var(--ac-azul); color: #fff;
   border-radius: 8px; padding: 8px 16px;
@@ -373,6 +434,8 @@ html.tema-escuro {
 }
 html.tema-escuro body { background: var(--ac-fundo); color: var(--ac-texto); }
 html.tema-escuro a { color: #C77FD6; }
+/* menos o <a> vestido de botão: ali o roxo de link some, como no tema claro */
+html.tema-escuro a.botao { color: var(--ac-texto); }
 html.tema-escuro tr.clicavel td:first-child { color: #C77FD6; }
 html.tema-escuro .aviso { border-color: #5A3333; color: #F0C9C5; }
 html.tema-escuro .aviso.sucesso { background: #17362A; border-color: #285C46; color: #7AE0A9; }
@@ -385,6 +448,8 @@ html.tema-escuro .passo .ordem { background: #3A2440; color: #D9A3E6; }
 html.tema-escuro button.primario { background: #9440A4; border-color: #9440A4; }
 html.tema-escuro button.primario:hover { background: #7D3390; }
 html.tema-escuro .gaveta { box-shadow: -8px 0 30px rgba(0, 0, 0, .5); }
+html.tema-escuro .escolher-lista { box-shadow: 0 8px 30px rgba(0, 0, 0, .5); }
+html.tema-escuro .escolher-opcao .tique, html.tema-escuro .escolher.aberta .escolher-seta { color: #C77FD6; }
 html.tema-escuro input:focus, html.tema-escuro select:focus, html.tema-escuro textarea:focus {
   outline-color: rgba(199, 127, 214, .35);
 }

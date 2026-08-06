@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import Escolher from "./Escolher";
 
 // Quadro visual da automação — a mesma leitura do ActiveCampaign: o gatilho
 // no topo, os passos descendo ligados por uma linha, e o "+" entre eles.
@@ -10,7 +11,9 @@ import { supabase } from "../lib/supabase";
 // aparece apagado e dizendo que não está disponível.
 
 export type Passo = { ordem: number; tipo: string; config: Record<string, any> };
-export type Gatilho = Record<string, any> | null;
+// Um gatilho (formato antigo, e o que 20 automações têm no banco) ou vários.
+// O motor lê os dois: `gatilhos_de()` normaliza objeto e array.
+export type Gatilho = Record<string, any> | Record<string, any>[] | null;
 
 type Item = {
   id: string; rotulo: string; icone: string; categoria: string;
@@ -55,6 +58,11 @@ const ACOES: Item[] = [
   { id: "condicao", rotulo: "Se / então", icone: "🔀", categoria: "Fluxo", disponivel: true,
     ajuda: "Manda quem atende a condição por um caminho e o resto por outro." },
 ];
+
+// gatilhos que não precisam de alvo (lista/tag/produto) para estarem prontos
+const SEM_ALVO = ["lead_criado", "email_aberto", "email_clicado",
+                  "compra_realizada", "lista_descadastrada", "carrinho_abandonado",
+                  "boleto_gerado", "pagamento_atrasado", "pagamento_expirou"];
 
 const CONDICOES: [string, string][] = [
   ["tem_tag", "Tem a tag"],
@@ -189,12 +197,11 @@ function EditorPlanilha({ config, aoMudar }: {
           </div>
 
           <label>Aba</label>
-          <select value={config.aba ?? ""} disabled={ocupado}
-            onChange={(e) => escolherAba(e.target.value)}>
-            <option value="">— escolher —</option>
-            {(abas.length ? abas : (config.aba ? [config.aba] : [])).map(
-              (a) => <option key={a} value={a}>{a}</option>)}
-          </select>
+          <Escolher valor={config.aba ?? ""} desabilitado={ocupado}
+            aoMudar={(v) => escolherAba(v)}
+            vazio="— escolher —"
+            opcoes={(abas.length ? abas : (config.aba ? [config.aba] : [])).map(
+              (a) => ({ valor: a, rotulo: a }))} />
           {!abas.length && config.aba && (
             <div className="sub" style={{ marginTop: 4 }}>
               Para ver as outras abas de novo, clique em "trocar" e recarregue a planilha.
@@ -210,13 +217,10 @@ function EditorPlanilha({ config, aoMudar }: {
                 return (
                   <div key={c} style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
                     <div style={{ flex: 1, fontWeight: 600 }}>{c}</div>
-                    <select style={{ flex: 1 }}
-                      value={ehAtributo ? "__atributo" : v}
-                      onChange={(e) => mudarCampo(c,
-                        e.target.value === "__atributo" ? "atributo:" : e.target.value)}>
-                      {CAMPOS_PLANILHA.map(([valor, rotulo]) =>
-                        <option key={valor} value={valor}>{rotulo}</option>)}
-                    </select>
+                    <Escolher style={{ flex: 1 }}
+                      valor={ehAtributo ? "__atributo" : v}
+                      aoMudar={(x) => mudarCampo(c, x === "__atributo" ? "atributo:" : x)}
+                      opcoes={CAMPOS_PLANILHA.map(([valor, rotulo]) => ({ valor, rotulo }))} />
                     {ehAtributo && (
                       <input style={{ flex: 1 }} placeholder="nome do campo, ex.: cidade"
                         value={v.startsWith("atributo:") ? v.slice("atributo:".length) : ""}
@@ -345,11 +349,12 @@ function PainelAdicionar({ onFechar, onAdicionar, listas, tags }: {
       </div>
 
       <label>Como você quer escolher</label>
-      <select value={modo} onChange={(e) => setModo(e.target.value as never)}>
-        <option value="emails">Contatos específicos (para testar)</option>
-        <option value="lista">Todos os ativos de uma lista</option>
-        <option value="tag">Todos que têm uma tag</option>
-      </select>
+      <Escolher valor={modo} aoMudar={(v) => setModo(v as never)}
+        opcoes={[
+          { valor: "emails", rotulo: "Contatos específicos (para testar)" },
+          { valor: "lista", rotulo: "Todos os ativos de uma lista" },
+          { valor: "tag", rotulo: "Todos que têm uma tag" },
+        ]} />
 
       {modo === "emails" && (
         <>
@@ -361,19 +366,15 @@ function PainelAdicionar({ onFechar, onAdicionar, listas, tags }: {
       {modo === "lista" && (
         <>
           <label>Lista</label>
-          <select value={lista} onChange={(e) => setLista(e.target.value)}>
-            <option value="">— escolher —</option>
-            {listas.map((l) => <option key={l.lista_id} value={l.lista_id}>{l.nome}</option>)}
-          </select>
+          <Escolher valor={lista} aoMudar={setLista} vazio="— escolher —"
+            opcoes={listas.map((l) => ({ valor: l.lista_id, rotulo: l.nome }))} />
         </>
       )}
       {modo === "tag" && (
         <>
           <label>Tag</label>
-          <select value={tag} onChange={(e) => setTag(e.target.value)}>
-            <option value="">— escolher —</option>
-            {tags.map((t) => <option key={t.tag_id} value={t.tag_id}>{t.nome}</option>)}
-          </select>
+          <Escolher valor={tag} aoMudar={setTag} vazio="— escolher —"
+            opcoes={tags.map((t) => ({ valor: t.tag_id, rotulo: t.nome }))} />
         </>
       )}
 
@@ -402,9 +403,32 @@ export default function FluxoAutomacao({
   onSalvar: () => void; onFechar: () => void; onVerContatos: () => void;
   onAdicionarContatos: (alvo: { emails?: string; lista?: number; tag?: number }) => Promise<void>;
 }) {
-  const [seletor, setSeletor] = useState<null | { tipo: "gatilho" } | { tipo: "acao"; posicao: number }>(null);
-  const [editando, setEditando] = useState<number | "gatilho" | null>(null);
+  const [seletor, setSeletor] = useState<
+    null | { tipo: "gatilho"; indice: number } | { tipo: "acao"; posicao: number }>(null);
+  // número = passo; {g: n} = o gatilho de índice n
+  const [editando, setEditando] = useState<number | { g: number } | null>(null);
   const [zoom, setZoom] = useState(100);
+  // arrastar as caixinhas: qual está sendo levada e onde ela cairia
+  const [arrastando, setArrastando] = useState<number | null>(null);
+  const [alvoSolta, setAlvoSolta] = useState<number | null>(null);
+
+  // ---- um gatilho ou vários, sempre lidos como lista ----
+  const gats: Record<string, any>[] = Array.isArray(gatilho)
+    ? gatilho
+    : (gatilho && gatilho.tipo ? [gatilho] : []);
+
+  // Salva UM como objeto e VÁRIOS como array. Assim uma automação de gatilho
+  // único continua no banco exatamente como estava — nada de migração.
+  const salvarGatilhos = (lista: Record<string, any>[]) =>
+    onMudar({ gatilho: lista.length === 0 ? null : lista.length === 1 ? lista[0] : lista });
+
+  const mudarGatilho = (i: number, novo: Record<string, any>) =>
+    salvarGatilhos(gats.map((g, x) => (x === i ? novo : g)));
+
+  const removerGatilho = (i: number) => {
+    salvarGatilhos(gats.filter((_, x) => x !== i));
+    setEditando(null);
+  };
 
   // As tags que existem NA CONTA DO MANYCHAT. São elas que disparam os
   // fluxos de lá — saber se a escolhida existe é a diferença entre montar
@@ -451,27 +475,34 @@ export default function FluxoAutomacao({
   const mapL = Object.fromEntries(refs.listas.map((x) => [x.lista_id, x.nome]));
   const mapT = Object.fromEntries(refs.tags.map((x) => [x.tag_id, x.nome]));
 
-  function descreverGatilho(): string {
-    if (!gatilho?.tipo) return "Escolha o que inicia esta automação";
-    if (gatilho.tipo === "lista_inscrita")
-      return gatilho.lista_id
-        ? `Contato com inscrição na lista ${mapL[gatilho.lista_id] ?? gatilho.lista_id}`
+  function descreverGatilho(g?: Record<string, any> | null): string {
+    if (!g?.tipo) return "Escolha o que inicia esta automação";
+    if (g.tipo === "lista_inscrita")
+      return g.lista_id
+        ? `Contato com inscrição na lista ${mapL[g.lista_id] ?? g.lista_id}`
         : "Contato se inscreve numa lista — falta escolher qual";
-    if (gatilho.tipo === "tag_adicionada")
-      return gatilho.tag_id
-        ? `Contato recebe a tag ${mapT[gatilho.tag_id] ?? gatilho.tag_id}`
+    if (g.tipo === "tag_adicionada")
+      return g.tag_id
+        ? `Contato recebe a tag ${mapT[g.tag_id] ?? g.tag_id}`
         : "Contato recebe uma tag — falta escolher qual";
-    if (gatilho.tipo === "lista_descadastrada")
-      return gatilho.lista_id
-        ? `Contato se descadastra da lista ${mapL[gatilho.lista_id] ?? gatilho.lista_id}`
+    if (g.tipo === "lista_descadastrada")
+      return g.lista_id
+        ? `Contato se descadastra da lista ${mapL[g.lista_id] ?? g.lista_id}`
         : "Contato se descadastra de qualquer lista";
-    if (gatilho.tipo === "lead_criado") return "Um contato novo é criado";
-    if (gatilho.tipo === "email_aberto") return "Contato abre um e-mail";
-    if (gatilho.tipo === "email_clicado") return "Contato clica num link do e-mail";
-    if (gatilho.tipo === "compra_realizada")
-      return gatilho.produto ? `Contato compra "${gatilho.produto}"` : "Contato faz uma compra";
-    return String(gatilho.tipo);
+    if (g.tipo === "lead_criado") return "Um contato novo é criado";
+    if (g.tipo === "email_aberto") return "Contato abre um e-mail";
+    if (g.tipo === "email_clicado") return "Contato clica num link do e-mail";
+    if (g.tipo === "compra_realizada")
+      return g.produto ? `Contato compra "${g.produto}"` : "Contato faz uma compra";
+    if (g.tipo === "data_do_contato")
+      return g.campo ? `Chega a data "${g.campo}"` : "Chega uma data do contato — falta o campo";
+    return String(g.tipo);
   }
+
+  // um gatilho está completo quando tem tipo e, se precisar de alvo, o alvo
+  const gatilhoOk = (g: Record<string, any>) =>
+    !!g?.tipo && (SEM_ALVO.includes(g.tipo) || !!g.lista_id || !!g.tag_id
+                  || !!g.produto || !!g.campo || !!g.qualquer_lista);
 
   function descreverPasso(p: Passo): string {
     const c = p.config ?? {};
@@ -517,10 +548,6 @@ export default function FluxoAutomacao({
     if (p.tipo === "condicao") return !!c.condicao?.tipo;
     return true;
   };
-  const SEM_ALVO = ["lead_criado", "email_aberto", "email_clicado",
-                    "compra_realizada", "lista_descadastrada"];
-  const gatilhoCompleto = !!gatilho?.tipo &&
-    (SEM_ALVO.includes(gatilho.tipo) || !!gatilho.lista_id || !!gatilho.tag_id);
 
   const iconeDe = (tipo: string) => ACOES.find((a) => a.id === tipo)?.icone ?? "•";
 
@@ -538,6 +565,24 @@ export default function FluxoAutomacao({
     onMudar({ passos: passos.filter((_, x) => x !== i).map((p, x) => ({ ...p, ordem: x + 1 })) });
     setEditando(null);
   }
+  // Solta a caixinha na posição de destino. A origem vem do próprio evento,
+  // não do estado: entre o "peguei" e o "soltei" pode não ter havido
+  // re-render, e aí o estado ainda estaria vazio na hora de reordenar.
+  function soltarEm(destino: number, origemDoEvento?: string) {
+    const origem = origemDoEvento !== undefined && origemDoEvento !== ""
+      ? Number(origemDoEvento)
+      : arrastando;
+    setArrastando(null);
+    setAlvoSolta(null);
+    if (origem === null || Number.isNaN(origem) || origem === destino) return;
+    if (origem < 0 || origem >= passos.length) return;
+    const c = [...passos];
+    const [levado] = c.splice(origem, 1);
+    c.splice(destino, 0, levado);
+    onMudar({ passos: c.map((p, x) => ({ ...p, ordem: x + 1 })) });
+    setEditando(null);
+  }
+
   function mover(i: number, dir: -1 | 1) {
     const alvo = i + dir;
     if (alvo < 0 || alvo >= passos.length) return;
@@ -561,6 +606,10 @@ export default function FluxoAutomacao({
       <div style={{ width: 2, height: 26, background: "var(--borda)" }} />
     </div>
   );
+
+  // qual gatilho a gaveta está editando (-1 = está editando um passo)
+  const iG = typeof editando === "object" && editando !== null ? editando.g : -1;
+  const gAtual = iG >= 0 ? gats[iG] ?? null : null;
 
   const cartao = (ok: boolean) => ({
     width: 420, maxWidth: "100%", padding: "14px 18px", borderRadius: 10,
@@ -623,32 +672,105 @@ export default function FluxoAutomacao({
                     backgroundSize: "22px 22px" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
                       zoom: `${zoom}%` }}>
-          {/* gatilho */}
-          <div style={cartao(gatilhoCompleto)} onClick={() => setSeletor({ tipo: "gatilho" })}>
-            <div style={{
-              width: 38, height: 38, borderRadius: "50%", flex: "0 0 auto",
-              background: "rgba(107,78,168,.12)", display: "flex",
-              alignItems: "center", justifyContent: "center", fontSize: 18,
-            }}>{GATILHOS.find((g) => g.id === gatilho?.tipo)?.icone ?? "▶"}</div>
-            <div>
-              <div style={{ color: "var(--texto2)", fontSize: "calc(12.5px * var(--escala-texto))" }}>
-                Inicie a automação quando
+          {/* gatilhos — um ou vários, qualquer um deles inicia a automação */}
+          {gats.length === 0 && (
+            <div style={cartao(false)} onClick={() => setSeletor({ tipo: "gatilho", indice: 0 })}>
+              <div style={{
+                width: 38, height: 38, borderRadius: "50%", flex: "0 0 auto",
+                background: "rgba(107,78,168,.12)", display: "flex",
+                alignItems: "center", justifyContent: "center", fontSize: 18,
+              }}>▶</div>
+              <div>
+                <div style={{ color: "var(--texto2)", fontSize: "calc(12.5px * var(--escala-texto))" }}>
+                  Inicie a automação quando
+                </div>
+                <b style={{ fontSize: "calc(14px * var(--escala-texto))" }}>
+                  Escolha o que inicia esta automação
+                </b>
               </div>
-              <b style={{ fontSize: "calc(14px * var(--escala-texto))" }}>{descreverGatilho()}</b>
             </div>
-          </div>
-          {gatilho?.tipo && (
-            <div style={{ marginTop: 8 }}>
-              <button onClick={() => setEditando("gatilho")}>ajustar o gatilho</button>
+          )}
+
+          {gats.map((g, i) => (
+            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              {i > 0 && (
+                <div style={{
+                  margin: "8px 0", padding: "2px 12px", borderRadius: 999,
+                  background: "var(--marca-fraca)", color: "var(--marca)",
+                  fontSize: "calc(11.5px * var(--escala-texto))", fontWeight: 700,
+                }}>OU</div>
+              )}
+              <div style={cartao(gatilhoOk(g))} onClick={() => setEditando({ g: i })}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: "50%", flex: "0 0 auto",
+                  background: "rgba(107,78,168,.12)", display: "flex",
+                  alignItems: "center", justifyContent: "center", fontSize: 18,
+                }}>{GATILHOS.find((x) => x.id === g.tipo)?.icone ?? "▶"}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: "var(--texto2)", fontSize: "calc(12.5px * var(--escala-texto))" }}>
+                    {i === 0 ? "Inicie a automação quando" : "Ou quando"}
+                  </div>
+                  <b style={{ fontSize: "calc(14px * var(--escala-texto))" }}>{descreverGatilho(g)}</b>
+                </div>
+                {gats.length > 1 && (
+                  <button className="perigo" title="remover este gatilho"
+                    style={{ flex: "0 0 auto", padding: "2px 9px" }}
+                    onClick={(ev) => { ev.stopPropagation(); removerGatilho(i); }}>−</button>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {gats.length > 0 && (
+            <button style={{ marginTop: 10 }}
+              onClick={() => setSeletor({ tipo: "gatilho", indice: gats.length })}>
+              + outro gatilho
+            </button>
+          )}
+          {gats.length > 1 && (
+            <div className="sub" style={{ marginTop: 6, textAlign: "center", maxWidth: 420 }}>
+              Qualquer um deles inicia a automação. A pessoa entra uma vez só, mesmo
+              que dois aconteçam juntos.
             </div>
           )}
 
           <Conector posicao={0} />
 
-          {/* passos */}
+          {/* passos — arrastáveis pela alça, para trocar a ordem */}
           {passos.map((p, i) => (
-            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <div style={cartao(completo(p))} onClick={() => setEditando(i)}>
+            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
+              onDragOver={(ev) => {
+                ev.preventDefault();          // sem isto o navegador recusa a solta
+                if (alvoSolta !== i) setAlvoSolta(i);
+              }}
+              onDrop={(ev) => {
+                ev.preventDefault();
+                soltarEm(i, ev.dataTransfer.getData("text/plain"));
+              }}>
+              {/* linha que mostra onde a caixinha vai cair */}
+              {alvoSolta === i && arrastando !== null && arrastando !== i && (
+                <div style={{ width: 420, maxWidth: "100%", height: 3, borderRadius: 3,
+                              background: "var(--marca)", marginBottom: 6 }} />
+              )}
+              <div draggable
+                onDragStart={(ev) => {
+                  setArrastando(i);
+                  ev.dataTransfer.effectAllowed = "move";
+                  // o Firefox só inicia o arrasto se algo for escrito aqui
+                  ev.dataTransfer.setData("text/plain", String(i));
+                }}
+                onDragEnd={() => { setArrastando(null); setAlvoSolta(null); }}
+                style={{
+                  ...cartao(completo(p)),
+                  opacity: arrastando === i ? .4 : 1,
+                  cursor: arrastando === null ? "pointer" : "grabbing",
+                }}
+                onClick={() => setEditando(i)}>
+                <span title="arraste para mudar a ordem"
+                  style={{ flex: "0 0 auto", cursor: "grab", color: "var(--texto2)",
+                           fontSize: "calc(15px * var(--escala-texto))", lineHeight: 1,
+                           letterSpacing: -2, userSelect: "none" }}
+                  onClick={(ev) => ev.stopPropagation()}>⠿</span>
                 <div style={{
                   width: 38, height: 38, borderRadius: "50%", flex: "0 0 auto",
                   background: "rgba(107,78,168,.12)", display: "flex",
@@ -686,9 +808,17 @@ export default function FluxoAutomacao({
 
       {/* janelas de escolha */}
       {seletor?.tipo === "gatilho" && (
-        <Seletor titulo="Selecione o que inicia a automação" itens={GATILHOS}
+        <Seletor titulo={gats.length ? "Selecione o outro gatilho" : "Selecione o que inicia a automação"}
+          itens={GATILHOS}
           onFechar={() => setSeletor(null)}
-          onEscolher={(id) => { onMudar({ gatilho: { tipo: id } }); setSeletor(null); setEditando("gatilho"); }} />
+          onEscolher={(id) => {
+            const i = (seletor as { indice: number }).indice;
+            const lista = [...gats];
+            lista[i] = { tipo: id };
+            salvarGatilhos(lista);
+            setSeletor(null);
+            setEditando({ g: i });
+          }} />
       )}
       {seletor?.tipo === "acao" && (
         <Seletor titulo="Selecione a ação" itens={ACOES}
@@ -701,57 +831,51 @@ export default function FluxoAutomacao({
         <div className="gaveta" style={{ width: 420 }}>
           <button className="fechar" onClick={() => setEditando(null)}>✕</button>
 
-          {editando === "gatilho" ? (
+          {iG >= 0 ? (
             <>
               <h2>Gatilho</h2>
-              <div className="sub">{descreverGatilho()}</div>
-              {gatilho?.tipo === "lista_inscrita" && (
+              <div className="sub">{descreverGatilho(gAtual)}</div>
+              {gAtual?.tipo === "lista_inscrita" && (
                 <>
                   <label>Lista</label>
-                  <select value={gatilho.lista_id ?? ""}
-                    onChange={(e) => onMudar({ gatilho: { tipo: "lista_inscrita", lista_id: Number(e.target.value) } })}>
-                    <option value="">— escolher —</option>
-                    {refs.listas.map((l) => <option key={l.lista_id} value={l.lista_id}>{l.nome}</option>)}
-                  </select>
+                  <Escolher valor={gAtual.lista_id ?? ""} vazio="— escolher —"
+                    aoMudar={(v) => mudarGatilho(iG, { tipo: "lista_inscrita", lista_id: Number(v) })}
+                    opcoes={refs.listas.map((l) => ({ valor: l.lista_id, rotulo: l.nome }))} />
                 </>
               )}
-              {gatilho?.tipo === "tag_adicionada" && (
+              {gAtual?.tipo === "tag_adicionada" && (
                 <>
                   <label>Tag</label>
-                  <select value={gatilho.tag_id ?? ""}
-                    onChange={(e) => onMudar({ gatilho: { tipo: "tag_adicionada", tag_id: Number(e.target.value) } })}>
-                    <option value="">— escolher —</option>
-                    {refs.tags.map((t) => <option key={t.tag_id} value={t.tag_id}>{t.nome}</option>)}
-                  </select>
+                  <Escolher valor={gAtual.tag_id ?? ""} vazio="— escolher —"
+                    aoMudar={(v) => mudarGatilho(iG, { tipo: "tag_adicionada", tag_id: Number(v) })}
+                    opcoes={refs.tags.map((t) => ({ valor: t.tag_id, rotulo: t.nome }))} />
                 </>
               )}
-              {gatilho?.tipo === "lista_descadastrada" && (
+              {gAtual?.tipo === "lista_descadastrada" && (
                 <>
                   <label>Lista (vazio = qualquer uma)</label>
-                  <select value={gatilho.lista_id ?? ""}
-                    onChange={(e) => onMudar({ gatilho: {
+                  <Escolher valor={gAtual.lista_id ?? ""} vazio="qualquer lista"
+                    aoMudar={(v) => mudarGatilho(iG, {
                       tipo: "lista_descadastrada",
-                      ...(e.target.value ? { lista_id: Number(e.target.value) } : {}) } })}>
-                    <option value="">qualquer lista</option>
-                    {refs.listas.map((l) => <option key={l.lista_id} value={l.lista_id}>{l.nome}</option>)}
-                  </select>
+                      ...(v ? { lista_id: Number(v) } : {}) })}
+                    opcoes={refs.listas.map((l) => ({ valor: l.lista_id, rotulo: l.nome }))} />
                 </>
               )}
-              {(gatilho?.tipo === "email_aberto" || gatilho?.tipo === "email_clicado") && (
+              {(gAtual?.tipo === "email_aberto" || gAtual?.tipo === "email_clicado") && (
                 <div className="aviso">
                   Dispara na primeira abertura (ou clique) que o contato fizer. O registro já
                   acontece hoje — foi assim que o seu teste apareceu no relatório.
                 </div>
               )}
               {["compra_realizada", "carrinho_abandonado", "boleto_gerado",
-                "pagamento_atrasado", "pagamento_expirou"].includes(gatilho?.tipo) && gatilho && (
+                "pagamento_atrasado", "pagamento_expirou"].includes(gAtual?.tipo) && gAtual && (
                 <>
                   <label>Produto (vazio = qualquer um)</label>
-                  <input value={gatilho.produto ?? ""} placeholder="parte do nome do produto"
-                    onChange={(e) => onMudar({ gatilho: {
-                      tipo: gatilho.tipo,
-                      ...(e.target.value ? { produto: e.target.value } : {}) } })} />
-                  {gatilho?.tipo !== "compra_realizada" && (
+                  <input value={gAtual.produto ?? ""} placeholder="parte do nome do produto"
+                    onChange={(e) => mudarGatilho(iG, {
+                      tipo: gAtual.tipo,
+                      ...(e.target.value ? { produto: e.target.value } : {}) })} />
+                  {gAtual?.tipo !== "compra_realizada" && (
                     <div className="aviso" style={{ marginTop: 8 }}>
                       No e-mail deste fluxo você pode escrever <b>%EVENTO.produto%</b> e
                       <b> %EVENTO.valor%</b> — sai o produto que a pessoa deixou para trás,
@@ -760,15 +884,13 @@ export default function FluxoAutomacao({
                   )}
                 </>
               )}
-              {gatilho?.tipo === "data_do_contato" && (
+              {gAtual?.tipo === "data_do_contato" && (
                 <>
                   <label>Campo de data</label>
                   {refs.camposData?.length ? (
-                    <select value={gatilho.campo ?? ""}
-                      onChange={(e) => onMudar({ gatilho: { ...gatilho, tipo: "data_do_contato", campo: e.target.value } })}>
-                      <option value="">— escolher —</option>
-                      {refs.camposData.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <Escolher valor={gAtual.campo ?? ""} vazio="— escolher —"
+                      aoMudar={(v) => mudarGatilho(iG, { ...gAtual, tipo: "data_do_contato", campo: v })}
+                      opcoes={refs.camposData.map((c) => ({ valor: c, rotulo: c }))} />
                   ) : (
                     <div className="aviso">
                       Nenhum campo de data cadastrado ainda. Crie um em <b>Campos</b>
@@ -777,22 +899,27 @@ export default function FluxoAutomacao({
                     </div>
                   )}
                   <label>Avisar quantos dias antes</label>
-                  <input type="number" min={0} max={60} value={gatilho.dias_antes ?? 0}
-                    onChange={(e) => onMudar({ gatilho: { ...gatilho, tipo: "data_do_contato", dias_antes: Number(e.target.value) } })} />
+                  <input type="number" min={0} max={60} value={gAtual.dias_antes ?? 0}
+                    onChange={(e) => mudarGatilho(iG, { ...gAtual, tipo: "data_do_contato", dias_antes: Number(e.target.value) })} />
                   <div className="sub" style={{ marginTop: 4 }}>
                     0 = no próprio dia. Compara dia e mês, então serve para data que se
                     repete todo ano, e dispara no máximo uma vez por ano por pessoa.
                   </div>
                 </>
               )}
-              {gatilho?.tipo === "lead_criado" && (
+              {gAtual?.tipo === "lead_criado" && (
                 <div className="aviso">Dispara para todo contato novo, venha de onde vier: painel, importação, formulário ou API.</div>
               )}
-              <div style={{ marginTop: 14 }}>
-                <button onClick={() => setSeletor({ tipo: "gatilho" })}>Trocar o gatilho</button>
+              <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
+                <button onClick={() => setSeletor({ tipo: "gatilho", indice: iG })}>
+                  Trocar este gatilho
+                </button>
+                {gats.length > 1 && (
+                  <button className="perigo" onClick={() => removerGatilho(iG)}>Remover</button>
+                )}
               </div>
             </>
-          ) : (
+          ) : typeof editando === "number" ? (
             <>
               <h2>Passo {editando + 1}</h2>
               <div className="sub">{descreverPasso(passos[editando])}</div>
@@ -801,23 +928,18 @@ export default function FluxoAutomacao({
                 {passos[editando].tipo === "enviar_email" && (
                   <>
                     <label>Mensagem</label>
-                    <select value={passos[editando].config.mensagem_id ?? ""}
-                      onChange={(e) => mudarPasso(editando as number, { mensagem_id: e.target.value })}>
-                      <option value="">— escolher —</option>
-                      {refs.mensagens.map((m) => (
-                        <option key={m.mensagem_id} value={m.mensagem_id}>{m.nome} · {m.subject}</option>
-                      ))}
-                    </select>
+                    <Escolher valor={passos[editando].config.mensagem_id ?? ""} vazio="— escolher —"
+                      aoMudar={(v) => mudarPasso(editando as number, { mensagem_id: v })}
+                      opcoes={refs.mensagens.map((m) => (
+                        { valor: m.mensagem_id, rotulo: m.nome, detalhe: m.subject }))} />
                   </>
                 )}
                 {passos[editando].tipo === "esperar" && (
                   <>
                     <label>Quanto tempo</label>
-                    <select value={passos[editando].config.duracao ?? ""}
-                      onChange={(e) => mudarPasso(editando as number, { duracao: e.target.value })}>
-                      <option value="">— escolher —</option>
-                      {DURACOES.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
-                    </select>
+                    <Escolher valor={passos[editando].config.duracao ?? ""} vazio="— escolher —"
+                      aoMudar={(v) => mudarPasso(editando as number, { duracao: v })}
+                      opcoes={DURACOES.map(([v, r]) => ({ valor: v, rotulo: r }))} />
                   </>
                 )}
                 {passos[editando].tipo === "manychat_tag" && (
@@ -882,21 +1004,17 @@ export default function FluxoAutomacao({
                 {(passos[editando].tipo === "aplicar_tag" || passos[editando].tipo === "remover_tag") && (
                   <>
                     <label>Tag</label>
-                    <select value={passos[editando].config.tag_id ?? ""}
-                      onChange={(e) => mudarPasso(editando as number, { tag_id: Number(e.target.value) })}>
-                      <option value="">— escolher —</option>
-                      {refs.tags.map((t) => <option key={t.tag_id} value={t.tag_id}>{t.nome}</option>)}
-                    </select>
+                    <Escolher valor={passos[editando].config.tag_id ?? ""} vazio="— escolher —"
+                      aoMudar={(v) => mudarPasso(editando as number, { tag_id: Number(v) })}
+                      opcoes={refs.tags.map((t) => ({ valor: t.tag_id, rotulo: t.nome }))} />
                   </>
                 )}
                 {(passos[editando].tipo === "inscrever_lista" || passos[editando].tipo === "desinscrever_lista") && (
                   <>
                     <label>Lista</label>
-                    <select value={passos[editando].config.lista_id ?? ""}
-                      onChange={(e) => mudarPasso(editando as number, { lista_id: Number(e.target.value) })}>
-                      <option value="">— escolher —</option>
-                      {refs.listas.map((l) => <option key={l.lista_id} value={l.lista_id}>{l.nome}</option>)}
-                    </select>
+                    <Escolher valor={passos[editando].config.lista_id ?? ""} vazio="— escolher —"
+                      aoMudar={(v) => mudarPasso(editando as number, { lista_id: Number(v) })}
+                      opcoes={refs.listas.map((l) => ({ valor: l.lista_id, rotulo: l.nome }))} />
                   </>
                 )}
                 {passos[editando].tipo === "condicao" && (() => {
@@ -907,31 +1025,25 @@ export default function FluxoAutomacao({
                   return (
                     <>
                       <label>A condição</label>
-                      <select value={cd.tipo ?? ""}
-                        onChange={(e) => mudarPasso(editando as number,
-                          { ...cfg, condicao: { tipo: e.target.value } })}>
-                        <option value="">— escolher —</option>
-                        {CONDICOES.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
-                      </select>
+                      <Escolher valor={cd.tipo ?? ""} vazio="— escolher —"
+                        aoMudar={(v) => mudarPasso(editando as number,
+                          { ...cfg, condicao: { tipo: v } })}
+                        opcoes={CONDICOES.map(([v, r]) => ({ valor: v, rotulo: r }))} />
 
                       {cd.tipo === "tem_tag" && (
                         <>
                           <label>Tag</label>
-                          <select value={cd.tag_id ?? ""}
-                            onChange={(e) => mudaCond({ tag_id: Number(e.target.value) })}>
-                            <option value="">— escolher —</option>
-                            {refs.tags.map((t) => <option key={t.tag_id} value={t.tag_id}>{t.nome}</option>)}
-                          </select>
+                          <Escolher valor={cd.tag_id ?? ""} vazio="— escolher —"
+                            aoMudar={(v) => mudaCond({ tag_id: Number(v) })}
+                            opcoes={refs.tags.map((t) => ({ valor: t.tag_id, rotulo: t.nome }))} />
                         </>
                       )}
                       {cd.tipo === "na_lista" && (
                         <>
                           <label>Lista</label>
-                          <select value={cd.lista_id ?? ""}
-                            onChange={(e) => mudaCond({ lista_id: Number(e.target.value) })}>
-                            <option value="">— escolher —</option>
-                            {refs.listas.map((l) => <option key={l.lista_id} value={l.lista_id}>{l.nome}</option>)}
-                          </select>
+                          <Escolher valor={cd.lista_id ?? ""} vazio="— escolher —"
+                            aoMudar={(v) => mudaCond({ lista_id: Number(v) })}
+                            opcoes={refs.listas.map((l) => ({ valor: l.lista_id, rotulo: l.nome }))} />
                         </>
                       )}
                       {(cd.tipo === "abriu_email" || cd.tipo === "clicou_email") && (
@@ -1024,7 +1136,7 @@ export default function FluxoAutomacao({
                 <button className="perigo" onClick={() => removerPasso(editando as number)}>remover</button>
               </div>
             </>
-          )}
+          ) : null}
         </div>
       )}
       {adicionando && (

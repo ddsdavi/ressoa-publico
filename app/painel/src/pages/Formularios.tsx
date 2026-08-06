@@ -374,7 +374,7 @@ Não altere nenhuma outra página, rota, dependência ou arquivo.`;
                       onClick={() => copiar(`${base}/f/${instalando.slug}`, "link")}>
                       {copiado === "link" ? "Copiado ✓" : "Copiar"}
                     </button>
-                    <a className="botao" style={{ flex: "0 0 auto", lineHeight: "36px" }}
+                    <a className="botao" style={{ flex: "0 0 auto" }}
                       href={`${base}/f/${instalando.slug}`} target="_blank" rel="noreferrer">
                       Abrir
                     </a>
@@ -404,7 +404,7 @@ Não altere nenhuma outra página, rota, dependência ou arquivo.`;
             </label>
             {editando !== "novo" && (
               <a className="botao" href={`${base}/f/${(editando as Form).slug}`}
-                 target="_blank" rel="noreferrer" style={{ lineHeight: "36px" }}>
+                 target="_blank" rel="noreferrer" style={{ flex: "0 0 auto" }}>
                 Ver a página
               </a>
             )}
