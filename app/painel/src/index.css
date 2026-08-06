@@ -844,7 +844,15 @@ html.tema-escuro .auto-item:not(.ligada):hover .auto-nome .link-tabela { color: 
 .auto-chip i { font-style: normal; }
 .auto-chip b { color: var(--ac-texto); font-weight: 700; }
 .auto-chip.vazio { background: none; border-style: dashed; font-style: italic; }
-.auto-passos .seta { color: var(--ac-texto2); font-size: calc(11px * var(--escala-texto)); padding-left: 2px; }
+/* A seta a 11px virava um ponto: ninguem descobria que os chips abrem os
+   passos. Maior, com area propria e reagindo ao hover da linha inteira. */
+.auto-passos .seta {
+  flex: 0 0 auto; width: 18px; height: 18px; margin-left: 3px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ac-texto2); font-size: calc(13px * var(--escala-texto)); line-height: 1;
+}
+.auto-linha:hover .auto-passos:not(:disabled) .seta { background: var(--ac-pill); color: var(--ac-azul); }
+html.tema-escuro .auto-linha:hover .auto-passos:not(:disabled) .seta { color: #D9A3E6; }
 
 .auto-exec {
   flex: 0 0 auto; width: 96px; text-align: right;

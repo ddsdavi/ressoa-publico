@@ -145,7 +145,10 @@ export default function Automacoes() {
     incompletas: autos.filter(incompleta).length,
   };
 
-  // a busca varre o que a pessoa vê: nome, gatilho, nota e o texto dos passos
+  // A busca varre o que a pessoa vê — e o que ela vê na linha fechada é o
+  // RÓTULO DO CHIP, não a descrição do passo. Sem os rótulos aqui, procurar
+  // por "planilha" não achava nada, embora três linhas mostrassem "1 planilha":
+  // a descrição desses passos herdados do AC diz "Google Sheets (via n8n)".
   const visiveis = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return autos.filter((a) => {
@@ -156,6 +159,7 @@ export default function Automacoes() {
       const alvo = [
         a.nome, a.nota ?? "", descreverGatilho(a.gatilho),
         ...a.automacao_passos.map(descreverPasso),
+        ...resumirPassos(a.automacao_passos).map((r) => r.rot),
       ].join(" ").toLowerCase();
       return alvo.includes(q);
     });
