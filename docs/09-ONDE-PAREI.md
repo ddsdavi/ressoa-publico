@@ -168,9 +168,11 @@ join automacoes a on a.automacao_id = p.automacao_fk
 where p.tipo = 'enviar_email' and p.config->>'mensagem_id' is null;
 ```
 
-**Divergência de conteúdo para o Davi decidir:** o e-mail diz que a live é
-"quarta-feira às 12:37" (texto herdado do AC, provavelmente erro de digitação
-de 12h30/13h); a landing diz **13h**. Um dos dois está errado.
+**Horário corrigido (06/08):** o e-mail dizia "quarta-feira às 12:37" e
+"às 12h37" — erro de digitação herdado do AC, enquanto a landing sempre disse
+**13h**. As quatro ocorrências (HTML e texto puro) viraram `13h` a pedido do
+Davi. Nenhuma outra mensagem da biblioteca citava esse horário: as duas com
+"12h00" são da Formação em Biorressonância, outro assunto.
 
 ---
 
