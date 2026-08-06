@@ -99,7 +99,11 @@ body {
 .ac-sidebar a.ativo { background: var(--ac-pill); font-weight: 500; }
 .ac-sidebar .rodape { font-size: calc(11px * var(--escala-texto)); color: var(--ac-texto2); padding: 18px 10px; }
 
-.conteudo { margin-left: 314px; flex: 1; padding: 24px 32px; max-width: 1360px; transition: margin-left .2s ease; }
+/* min-width: 0 — sem isso, o mínimo automático de item de flex é a largura
+   do conteúdo, e qualquer texto de linha única (a nota das automações, uma
+   URL) empurra a página inteira para fora da tela. Com a barra aberta o
+   max-width disfarçava; com a barra fechada (max-width: none) aparecia. */
+.conteudo { margin-left: 314px; flex: 1; min-width: 0; padding: 24px 32px; max-width: 1360px; transition: margin-left .2s ease; }
 
 /* Encolher a barra da seção: ela some, o rail de ícones fica, e o botão
    acompanha a borda que sobrou — sempre visível para desfazer. */
