@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import ApiWebhooks from "./ApiWebhooks";
 import Ajuda from "../components/Ajuda";
+import CampoSegredo from "../components/CampoSegredo";
 
 // Fontes que existem em Windows, Mac, Android e iOS. Fonte fora desta lista
 // não é arriscada: é loteria — o cliente cai para o padrão dele e o e-mail
@@ -291,8 +292,8 @@ export default function Config() {
         {cfg.provedor_email !== "ses" && (
           <>
             <label>Chave da API do Resend</label>
-            <input type="password" value={cfg.resend_api_key ?? ""} placeholder="re_..."
-              onChange={(e) => setCfg({ ...cfg, resend_api_key: e.target.value })} />
+            <CampoSegredo value={cfg.resend_api_key ?? ""} placeholder="re_..."
+              onChange={(v) => setCfg({ ...cfg, resend_api_key: v })} />
           </>
         )}
         {cfg.provedor_email === "ses" && (
@@ -307,8 +308,8 @@ export default function Config() {
                 fora do banco.
               </Ajuda>
             </label>
-            <input type="password" value={cfg.ses_segredo ?? ""} placeholder="uma frase secreta qualquer"
-              onChange={(e) => setCfg({ ...cfg, ses_segredo: e.target.value })} />
+            <CampoSegredo value={cfg.ses_segredo ?? ""} placeholder="uma frase secreta qualquer"
+              onChange={(v) => setCfg({ ...cfg, ses_segredo: v })} />
 
           </>
         )}
@@ -449,9 +450,9 @@ export default function Config() {
           </Ajuda>
         </label>
         <div style={{ display: "flex", gap: 8 }}>
-          <input type="password" value={capChave} style={{ flex: 1 }}
+          <CampoSegredo value={capChave} style={{ flex: 1 }}
             placeholder={capConfigurada ? "••••••••  (digite para trocar)" : "cole aqui uma chave longa e aleatória"}
-            onChange={(e) => setCapChave(e.target.value)} />
+            onChange={setCapChave} />
           <button onClick={salvarChaveCaptacao} disabled={!capChave.trim()}>Guardar</button>
         </div>
 
@@ -486,9 +487,9 @@ export default function Config() {
           </Ajuda>
         </label>
         <div style={{ display: "flex", gap: 8 }}>
-          <input type="password" value={mcChave} style={{ flex: 1 }}
+          <CampoSegredo value={mcChave} style={{ flex: 1 }}
             placeholder={mcConfigurado ? "••••••••  (digite para trocar)" : "cole aqui a chave do ManyChat"}
-            onChange={(e) => setMcChave(e.target.value)} />
+            onChange={setMcChave} />
           <button onClick={salvarManyChat} disabled={!mcChave.trim()}>Guardar</button>
           <button onClick={testarManyChat} disabled={!mcConfigurado}>Testar</button>
         </div>
@@ -555,14 +556,14 @@ export default function Config() {
           Client ID
           {gsStatus.app_configurado && <span style={{ color: "var(--marca)" }}> · configurado ✓</span>}
         </label>
-        <input type="password" value={gsId}
+        <CampoSegredo value={gsId}
           placeholder={gsStatus.app_configurado ? "••••••••  (digite para trocar)" : "termina em .apps.googleusercontent.com"}
-          onChange={(e) => setGsId(e.target.value)} />
+          onChange={setGsId} />
         <label style={{ marginTop: 10 }}>Client Secret</label>
         <div style={{ display: "flex", gap: 8 }}>
-          <input type="password" value={gsSegredo} style={{ flex: 1 }}
+          <CampoSegredo value={gsSegredo} style={{ flex: 1 }}
             placeholder={gsStatus.app_configurado ? "••••••••  (digite para trocar)" : "começa com GOCSPX-"}
-            onChange={(e) => setGsSegredo(e.target.value)} />
+            onChange={setGsSegredo} />
           <button onClick={guardarChavesGoogle}
             disabled={!gsId.trim() && !gsSegredo.trim()}>Guardar</button>
         </div>

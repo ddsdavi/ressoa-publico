@@ -159,6 +159,13 @@ label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) {
 input:focus, select:focus, textarea:focus { outline: 2px solid rgba(0, 76, 255, .25); border-color: var(--ac-azul); }
 label { font-size: calc(12.5px * var(--escala-texto)); font-weight: 600; color: var(--ac-texto2); display: block; margin: 12px 0 5px; }
 
+/* Chave de API e client secret saem em tarja daqui, e não de type="password":
+   campo de senha faz o Chrome oferecer "salvar senha" em cima de uma chave que
+   não é senha de ninguém. Ver components/CampoSegredo.tsx. O texto de dica
+   continua legível — dica em bolinhas não dica nada. */
+input.segredo { -webkit-text-security: disc; }
+input.segredo::placeholder { -webkit-text-security: none; }
+
 /* ============ Botões (medidas exatas do AC) ============ */
 button, .botao {
   font: inherit; font-size: calc(14px * var(--escala-texto)); font-weight: 500; height: 36px; padding: 8px 12px;
