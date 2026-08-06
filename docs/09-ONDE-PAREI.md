@@ -181,11 +181,15 @@ ligado e a decisão do Davi de manter a planilha como segurança):
    `executar_webhooks` ligado, cada inscrição gera uma execução quebrada no
    n8n — sem efeito além do ruído; desativar essa réplica quando o passo de
    planilha assumir.
-3. **Ativar a automação "[RESSOA] Lives Semanais — tag no ManyChat"** com um
-   teste controlado antes (armadilha 33: tela que salva não prova que o motor
-   executa — nenhum passo `manychat_tag` nem `google_sheets` nativo rodou
-   pelo motor em produção ainda). Aplicar a tag 85 num lead próprio, esperar
-   o minuto do cron e conferir `manychat_log` e `google_sheets_log`.
+3. ~~**Ativar a automação "[RESSOA] Lives Semanais — tag no ManyChat"**~~
+   **ATIVADA E PROVADA em 06/08, 02h.** O teste foi o completo, sem simulação:
+   tag 85 aplicada no lead do Davi → evento na fila → `processar_eventos_sistema`
+   às 02:05:00 → `executar_automacoes` chamou o passo → ManyChat marcado às
+   02:06:01 (`manychat_log`: acao "marcou", tag `LIVES SEMANAIS - INSCRITOS`,
+   sucesso, assinante 1347252605), e a conta do ManyChat confirma a tag no
+   assinante. **É o primeiro passo `manychat_tag` executado pelo MOTOR em
+   produção** — até aqui só a tela tinha feito isso (armadilha 33).
+   O `google_sheets` nativo continua sem estreia: depende da conta Google.
 4. **Nada de arquivar o n8n**: decisão do Davi em 05/08 — os fluxos ficam
    como reserva. A planilha das lives passa a ser alimentada pela própria
    Ressoa (passo 2), e o registro-mestre é a base (Leads → tag 85).
