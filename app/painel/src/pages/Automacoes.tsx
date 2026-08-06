@@ -1,6 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import FluxoAutomacao from "../components/FluxoAutomacao";
+
+// Lista de automações. São dezenas, com nomes herdados do ActiveCampaign
+// (15LC_..., 16LC_...), e a leitura tem que caber num relance: o que está
+// ligado, o que dispara cada uma e quantos passos ela tem. Por isso cada
+// automação é UMA LINHA — os passos só aparecem quando a pessoa pede.
 
 type Passo = { passo_id?: string; ordem: number; tipo: string; config: Record<string, any> };
 type Auto = {
@@ -9,6 +14,35 @@ type Auto = {
   automacao_passos: Passo[];
 };
 
+const ICONE_GATILHO: Record<string, string> = {
+  lista_inscrita: "📋", lista_descadastrada: "📤", tag_adicionada: "🏷", lead_criado: "👤",
+  email_aberto: "👁", email_clicado: "🔗", compra_realizada: "💰", carrinho_abandonado: "🛒",
+  boleto_gerado: "🧾", pagamento_atrasado: "⏳", pagamento_expirou: "❌", data_do_contato: "🎂",
+};
+
+// resumo curto por tipo de passo, para a linha fechada: "✉ 2 e-mails · ⚡ 1 webhook"
+const RESUMO_PASSO: Record<string, { icone: string; um: string; varios: string }> = {
+  enviar_email: { icone: "✉", um: "e-mail", varios: "e-mails" },
+  esperar: { icone: "⏱", um: "espera", varios: "esperas" },
+  aplicar_tag: { icone: "🏷", um: "tag", varios: "tags" },
+  remover_tag: { icone: "🏷", um: "tag removida", varios: "tags removidas" },
+  inscrever_lista: { icone: "📋", um: "lista", varios: "listas" },
+  desinscrever_lista: { icone: "📤", um: "saída de lista", varios: "saídas de lista" },
+  webhook: { icone: "⚡", um: "webhook", varios: "webhooks" },
+  google_sheets: { icone: "📗", um: "planilha", varios: "planilhas" },
+  google_drive: { icone: "📁", um: "Drive", varios: "Drive" },
+  manychat_tag: { icone: "💬", um: "ManyChat", varios: "ManyChat" },
+  condicao: { icone: "🔀", um: "condição", varios: "condições" },
+};
+
+type Filtro = "todas" | "ativas" | "desligadas" | "incompletas";
+const FILTROS: { id: Filtro; rot: string; dica: string }[] = [
+  { id: "todas", rot: "Todas", dica: "Todas as automações" },
+  { id: "ativas", rot: "Ativas", dica: "Estão ligadas e podem disparar agora" },
+  { id: "desligadas", rot: "Desligadas", dica: "Existem, mas não disparam" },
+  { id: "incompletas", rot: "Incompletas", dica: "Sem gatilho ou sem passo nenhum — não fazem nada" },
+];
+
 export default function Automacoes() {
   const [autos, setAutos] = useState<Auto[]>([]);
   const [listas, setListas] = useState<{ lista_id: number; nome: string }[]>([]);
@@ -16,6 +50,9 @@ export default function Automacoes() {
   const [mensagens, setMensagens] = useState<{ mensagem_id: string; nome: string; subject: string }[]>([]);
   const [camposData, setCamposData] = useState<string[]>([]);
   const [execs, setExecs] = useState<Record<string, number>>({});
+  const [busca, setBusca] = useState("");
+  const [filtro, setFiltro] = useState<Filtro>("todas");
+  const [abertas, setAbertas] = useState<Set<string>>(new Set());
   const [editId, setEditId] = useState<string | "nova" | null>(null);
   const [eNome, setENome] = useState("");
   const [eGatilhoTipo, setEGatilhoTipo] = useState("lista_inscrita");
@@ -53,8 +90,17 @@ export default function Automacoes() {
       if (g.qualquer_lista) return "Entrou em QUALQUER lista";
       return `Entrou na lista "${mapListas[g.lista_id] ?? g.lista_id}"`;
     }
+    if (g.tipo === "lista_descadastrada") return `Saiu da lista "${mapListas[g.lista_id] ?? g.lista_id}"`;
     if (g.tipo === "tag_adicionada") return `Ganhou a tag "${mapTags[g.tag_id] ?? g.tag_id}"`;
     if (g.tipo === "lead_criado") return "Lead novo criado";
+    if (g.tipo === "email_aberto") return "Abriu um e-mail";
+    if (g.tipo === "email_clicado") return "Clicou num link do e-mail";
+    if (g.tipo === "compra_realizada") return g.produto ? `Comprou "${g.produto}"` : "Fez uma compra";
+    if (g.tipo === "carrinho_abandonado") return "Abandonou o carrinho";
+    if (g.tipo === "boleto_gerado") return "Gerou boleto e não pagou";
+    if (g.tipo === "pagamento_atrasado") return "Pagamento atrasou";
+    if (g.tipo === "pagamento_expirou") return "Pagamento expirou";
+    if (g.tipo === "data_do_contato") return `Chegou a data "${g.campo ?? "?"}"`;
     return String(g.tipo);
   }
 
@@ -69,20 +115,65 @@ export default function Automacoes() {
       case "google_sheets": return c.planilha_id
         ? `Planilha: ${c.planilha_nome ?? "Google"} · ${c.aba ?? "?"}`
         : `Google Sheets (${c.nota ?? "via n8n"})`;
+      case "google_drive": return `Google Drive${c.url ? "" : " — falta a URL do n8n"}`;
       case "esperar": return `Esperar ${c.duracao ?? "?"}`;
       case "aplicar_tag": return `Aplicar tag "${mapTags[Number(c.tag_id)] ?? c.tag_id}"`;
       case "remover_tag": return `Remover tag "${mapTags[Number(c.tag_id)] ?? c.tag_id}"`;
       case "inscrever_lista": return `Inscrever na lista "${mapListas[Number(c.lista_id)] ?? c.lista_id}"`;
       case "desinscrever_lista": return `Desinscrever da lista "${mapListas[Number(c.lista_id)] ?? c.lista_id}"`;
+      case "manychat_tag": return `Marcar no ManyChat: "${c.tag ?? "?"}"`;
+      case "condicao": return `Se / então (${c.condicao?.tipo ?? "falta escolher"})`;
       default: return p.tipo;
     }
   }
+
+  function resumirPassos(passos: Passo[]) {
+    const conta = new Map<string, number>();
+    for (const p of passos) conta.set(p.tipo, (conta.get(p.tipo) ?? 0) + 1);
+    return [...conta.entries()].map(([tipo, n]) => {
+      const r = RESUMO_PASSO[tipo] ?? { icone: "•", um: tipo, varios: tipo };
+      return { tipo, n, icone: r.icone, rot: n > 1 ? r.varios : r.um };
+    });
+  }
+
+  const incompleta = (a: Auto) => !a.gatilho?.tipo || !a.automacao_passos.length;
+
+  const contagens = {
+    todas: autos.length,
+    ativas: autos.filter((a) => a.ativa).length,
+    desligadas: autos.filter((a) => !a.ativa).length,
+    incompletas: autos.filter(incompleta).length,
+  };
+
+  // a busca varre o que a pessoa vê: nome, gatilho, nota e o texto dos passos
+  const visiveis = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    return autos.filter((a) => {
+      if (filtro === "ativas" && !a.ativa) return false;
+      if (filtro === "desligadas" && a.ativa) return false;
+      if (filtro === "incompletas" && !incompleta(a)) return false;
+      if (!q) return true;
+      const alvo = [
+        a.nome, a.nota ?? "", descreverGatilho(a.gatilho),
+        ...a.automacao_passos.map(descreverPasso),
+      ].join(" ").toLowerCase();
+      return alvo.includes(q);
+    });
+  }, [autos, busca, filtro, listas, tags, mensagens]);
 
   async function alternar(a: Auto) {
     const acao = a.ativa ? "DESATIVAR" : "ATIVAR";
     if (!confirm(`${acao} a automação "${a.nome}"?`)) return;
     await supabase.from("automacoes").update({ ativa: !a.ativa }).eq("automacao_id", a.automacao_id);
     carregar();
+  }
+
+  function alternarDetalhe(id: string) {
+    setAbertas((atual) => {
+      const novo = new Set(atual);
+      novo.has(id) ? novo.delete(id) : novo.add(id);
+      return novo;
+    });
   }
 
   function abrirEditor(a: Auto | null) {
@@ -183,52 +274,143 @@ export default function Automacoes() {
     carregar();
   }
 
-  return (
-    <div>
-      <h1>Automações</h1>
-      <div className="sub">
-        Quando acontece uma coisa, faça outra: mandar e-mail, aplicar tag, inscrever
-        numa lista, <b>marcar a pessoa no ManyChat</b>, <b>escrever numa planilha</b> ou
-        avisar outro sistema. Automação nova nasce desligada.
-      </div>
-
-      <div className="caixa">
-        <button className="primario" onClick={() => abrirEditor(null)}>+ Nova automação</button>
-      </div>
-
-      {autos.map((a) => (
-        <div className="caixa" key={a.automacao_id}>
-          <div className="linha">
-            <div style={{ flex: 3 }}>
-              <h2 style={{ marginBottom: 2 }}>
-                {a.nome}{" "}
-                {a.ativa
-                  ? <span className="etiqueta et-verde">ativa</span>
-                  : <span className="etiqueta et-cinza">inativa</span>}
-                {a.origem_ac_id && <span className="etiqueta et-cinza">AC #{a.origem_ac_id}</span>}
-                {execs[a.automacao_id] ? <span className="etiqueta et-roxa">{execs[a.automacao_id]} execuções</span> : null}
-              </h2>
-              <div style={{ fontSize: "calc(13px * var(--escala-texto))", color: "var(--texto2)" }}>
-                Gatilho: <b style={{ color: "var(--texto)" }}>{descreverGatilho(a.gatilho)}</b>
-                {a.nota && <> · <i>{a.nota}</i></>}
-              </div>
+  function Item({ a }: { a: Auto }) {
+    const passos = [...a.automacao_passos].sort((x, y) => x.ordem - y.ordem);
+    const aberta = abertas.has(a.automacao_id);
+    const resumo = resumirPassos(passos);
+    const n = execs[a.automacao_id] ?? 0;
+    return (
+      <div className={"auto-item" + (a.ativa ? " ligada" : "")}>
+        <div className="auto-linha">
+          <div className="auto-info">
+            <div className="auto-nome">
+              <button className="link-tabela" onClick={() => abrirEditor(a)}>{a.nome}</button>
+              {incompleta(a) && (
+                <span className="etiqueta et-amarela" title="Sem gatilho ou sem passos — não faz nada">
+                  incompleta
+                </span>
+              )}
+              {a.origem_ac_id && <span className="auto-origem" title="Veio do ActiveCampaign">AC #{a.origem_ac_id}</span>}
             </div>
-            <div className="direita" style={{ flex: 1, whiteSpace: "nowrap" }}>
-              <button onClick={() => abrirEditor(a)}>Editar</button>{" "}
-              <button onClick={() => alternar(a)}>{a.ativa ? "Desativar" : "Ativar"}</button>
+            <div className="auto-gatilho">
+              <span className="ic">{a.gatilho?.tipo ? (ICONE_GATILHO[a.gatilho.tipo] ?? "⚙") : "∅"}</span>
+              {descreverGatilho(a.gatilho)}
             </div>
+            {a.nota && <div className="auto-nota" title={a.nota}>{a.nota}</div>}
           </div>
-          <div style={{ marginTop: 10 }}>
-            {[...a.automacao_passos].sort((x, y) => x.ordem - y.ordem).map((p) => (
-              <div className="passo" key={p.passo_id}>
+
+          <button
+            className={"auto-passos" + (aberta ? " aberta" : "")}
+            onClick={() => alternarDetalhe(a.automacao_id)}
+            title={passos.length ? "Ver os passos" : "Esta automação não tem passos"}
+            disabled={!passos.length}
+          >
+            {passos.length
+              ? resumo.map((r) => (
+                <span className="auto-chip" key={r.tipo}>
+                  <i>{r.icone}</i><b>{r.n}</b> {r.rot}
+                </span>
+              ))
+              : <span className="auto-chip vazio">sem passos</span>}
+            {!!passos.length && <span className="seta">{aberta ? "▴" : "▾"}</span>}
+          </button>
+
+          <div className="auto-exec" title="Contatos que já entraram nesta automação">
+            {n ? <><b>{n}</b> execuções</> : <span className="zero">—</span>}
+          </div>
+
+          <div className="auto-acoes">
+            <button onClick={() => abrirEditor(a)}>Editar</button>
+            <label className="interruptor" title={a.ativa ? "Desativar" : "Ativar"}>
+              <input type="checkbox" checked={a.ativa} onChange={() => alternar(a)} />
+              <span className="trilho" />
+              <span className="rot">{a.ativa ? "Ativa" : "Desligada"}</span>
+            </label>
+          </div>
+        </div>
+
+        {aberta && !!passos.length && (
+          <div className="auto-detalhe">
+            {passos.map((p, i) => (
+              <div className="passo" key={p.passo_id ?? i}>
                 <span className="ordem">{p.ordem}</span>
                 <span>{descreverPasso(p)}</span>
               </div>
             ))}
-            {!a.automacao_passos.length && <div className="sub">sem passos</div>}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const ativas = visiveis.filter((a) => a.ativa);
+  const paradas = visiveis.filter((a) => !a.ativa);
+  const emSecoes = filtro === "todas" && !!ativas.length && !!paradas.length;
+
+  return (
+    <div>
+      <div className="pagina-topo">
+        <div>
+          <h1>Automações {!!autos.length && <span className="contagem">({autos.length})</span>}</h1>
+          <div className="sub">
+            Quando acontece uma coisa, faça outra: mandar e-mail, aplicar tag, inscrever
+            numa lista, <b>marcar a pessoa no ManyChat</b>, <b>escrever numa planilha</b> ou
+            avisar outro sistema. Automação nova nasce desligada.
           </div>
         </div>
-      ))}
+        <button className="primario" onClick={() => abrirEditor(null)}>+ Nova automação</button>
+      </div>
+
+      <div className="barra-ferramentas">
+        <div className="campo-busca">
+          <span className="lupa" aria-hidden="true">⌕</span>
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por nome, gatilho, tag, lista ou passo…"
+          />
+          {!!busca && <button className="limpa" onClick={() => setBusca("")} title="Limpar busca">×</button>}
+        </div>
+        <div className="chips">
+          {FILTROS.map((f) => (
+            <button
+              key={f.id}
+              className={"chip-filtro" + (filtro === f.id ? " on" : "")}
+              onClick={() => setFiltro(f.id)}
+              title={f.dica}
+            >
+              {f.rot} <b>{contagens[f.id]}</b>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!visiveis.length ? (
+        <div className="caixa vazio-lista">
+          <b>Nada encontrado.</b>
+          <div className="sub">
+            {autos.length
+              ? "Nenhuma automação bate com a busca ou o filtro."
+              : "Ainda não existe nenhuma automação aqui."}
+          </div>
+          {(!!busca || filtro !== "todas") && (
+            <button onClick={() => { setBusca(""); setFiltro("todas"); }}>Limpar busca e filtros</button>
+          )}
+        </div>
+      ) : (
+        <div className="lista-auto">
+          {emSecoes ? (
+            <>
+              <div className="secao">Ativas <span>{ativas.length}</span></div>
+              {ativas.map((a) => <Item a={a} key={a.automacao_id} />)}
+              <div className="secao">Desligadas <span>{paradas.length}</span></div>
+              {paradas.map((a) => <Item a={a} key={a.automacao_id} />)}
+            </>
+          ) : (
+            visiveis.map((a) => <Item a={a} key={a.automacao_id} />)
+          )}
+        </div>
+      )}
 
       {editId && (
         <FluxoAutomacao

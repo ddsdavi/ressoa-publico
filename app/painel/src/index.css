@@ -734,6 +734,181 @@ html.tema-escuro .tabela-permissoes .sim { color: #5FD49A; }
 html.tema-escuro .tabela-permissoes .nao { color: #6B5E77; }
 .tabela-permissoes td { height: 42px; }
 
+/* ============================================================
+   AUTOMAÇÕES — lista compacta, busca e filtros
+   São dezenas de automações com nomes herdados do AC. Em cartões
+   grandes e empilhados ninguém achava nada: tudo tinha o mesmo peso
+   visual e os passos de todas ficavam abertos ao mesmo tempo.
+   Aqui cada automação é UMA LINHA; os passos abrem sob demanda.
+   ============================================================ */
+
+/* cabeçalho da página com a ação principal na mesma linha do título */
+.pagina-topo { display: flex; align-items: flex-start; gap: 20px; margin-bottom: 16px; }
+.pagina-topo > div:first-child { min-width: 0; }
+.pagina-topo .sub { margin-bottom: 0; max-width: 78ch; }
+.pagina-topo > button { flex: 0 0 auto; margin-left: auto; }
+
+/* barra de busca + filtros */
+.barra-ferramentas {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.campo-busca { position: relative; flex: 1 1 260px; max-width: 400px; }
+.campo-busca input { height: 36px; border-radius: 999px; padding-left: 34px; padding-right: 32px; }
+.campo-busca .lupa {
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+  color: var(--ac-texto2); font-size: calc(16px * var(--escala-texto)); pointer-events: none; line-height: 1;
+}
+.campo-busca .limpa {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  height: 24px; width: 24px; padding: 0; border: 0; background: none; border-radius: 50%;
+  color: var(--ac-texto2); font-size: calc(16px * var(--escala-texto)); line-height: 1;
+}
+.campo-busca .limpa:hover { background: var(--ac-pill); color: var(--ac-texto); }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip-filtro {
+  height: 34px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--ac-borda-suave);
+  background: var(--ac-superficie); color: var(--ac-texto2);
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: calc(13px * var(--escala-texto));
+}
+.chip-filtro b { font-weight: 700; color: var(--ac-texto); }
+.chip-filtro:hover { border-color: var(--ac-borda); background: var(--ac-hover); }
+.chip-filtro.on {
+  background: var(--marca-fraca); color: var(--ac-azul);
+  border-color: color-mix(in srgb, var(--ac-azul) 45%, var(--ac-borda));
+  font-weight: 600;
+}
+.chip-filtro.on b { color: inherit; }
+html.tema-escuro .chip-filtro.on { color: #D9A3E6; }
+
+/* a lista inteira é um cartão só, com separadores finos */
+.lista-auto {
+  background: var(--ac-superficie); border: 1px solid var(--ac-borda-suave);
+  border-radius: 10px; overflow: hidden; box-shadow: 0 1px 2px rgba(23, 0, 32, .04);
+}
+.lista-auto .secao {
+  display: flex; align-items: center; gap: 8px; padding: 8px 18px;
+  background: var(--ac-banda); border-bottom: 1px solid var(--ac-borda-suave);
+  font-size: calc(11px * var(--escala-texto)); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .6px; color: var(--ac-texto2);
+}
+.lista-auto .secao span {
+  background: var(--ac-pill); border-radius: 999px; padding: 1px 8px; letter-spacing: 0;
+}
+.auto-item { border-bottom: 1px solid var(--ac-borda-suave); position: relative; }
+.auto-item:last-child { border-bottom: 0; }
+.auto-item::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--ac-borda); opacity: .55;
+}
+.auto-item.ligada::before { background: var(--ac-verde); opacity: 1; }
+
+.auto-linha { display: flex; align-items: center; gap: 16px; padding: 12px 18px 12px 21px; }
+.auto-linha:hover { background: var(--ac-hover); }
+
+.auto-info { flex: 1 1 auto; min-width: 0; }
+.auto-nome { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.auto-nome .link-tabela { font-size: calc(14.5px * var(--escala-texto)); }
+.auto-item:not(.ligada) .auto-nome .link-tabela { color: var(--ac-texto2); }
+.auto-item:not(.ligada):hover .auto-nome .link-tabela { color: var(--ac-azul); }
+html.tema-escuro .auto-item:not(.ligada):hover .auto-nome .link-tabela { color: #C77FD6; }
+.auto-origem {
+  font-size: calc(11px * var(--escala-texto)); color: var(--ac-texto2);
+  border: 1px solid var(--ac-borda-suave); border-radius: 5px; padding: 1px 6px;
+}
+.auto-gatilho {
+  display: flex; align-items: center; gap: 7px; margin-top: 3px;
+  font-size: calc(13px * var(--escala-texto)); color: var(--ac-texto);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.auto-gatilho .ic { flex: 0 0 auto; font-size: calc(13px * var(--escala-texto)); opacity: .9; }
+.auto-nota {
+  margin-top: 3px; font-size: calc(12px * var(--escala-texto)); color: var(--ac-texto2);
+  font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* resumo dos passos: clicável, abre o detalhe embaixo */
+.auto-passos {
+  flex: 0 1 auto; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  justify-content: flex-end; max-width: 330px;
+  height: auto; padding: 4px 6px; border: 0; background: none; border-radius: 8px;
+}
+.auto-passos:hover:not(:disabled) { background: var(--ac-pill); }
+.auto-passos:disabled { opacity: 1; cursor: default; }
+.auto-chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px;
+  border-radius: 999px; background: var(--ac-banda); border: 1px solid var(--ac-borda-suave);
+  color: var(--ac-texto2); font-size: calc(12px * var(--escala-texto)); white-space: nowrap;
+}
+.auto-chip i { font-style: normal; }
+.auto-chip b { color: var(--ac-texto); font-weight: 700; }
+.auto-chip.vazio { background: none; border-style: dashed; font-style: italic; }
+.auto-passos .seta { color: var(--ac-texto2); font-size: calc(11px * var(--escala-texto)); padding-left: 2px; }
+
+.auto-exec {
+  flex: 0 0 auto; width: 96px; text-align: right;
+  font-size: calc(12px * var(--escala-texto)); color: var(--ac-texto2);
+}
+.auto-exec b { font-size: calc(14px * var(--escala-texto)); color: var(--ac-texto); font-weight: 700; }
+.auto-exec .zero { color: var(--ac-borda); }
+
+.auto-acoes { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; }
+.auto-acoes > button { height: 32px; padding: 6px 12px; }
+
+/* detalhe: os passos numerados, só de quem foi aberto */
+.auto-detalhe {
+  padding: 4px 18px 14px 21px; margin-left: 24px; border-left: 2px solid var(--ac-borda-suave);
+}
+.auto-detalhe .passo:last-child { border-bottom: 0; }
+.auto-detalhe .passo span:last-child {
+  overflow-wrap: anywhere; /* URLs de webhook não podem estourar a linha */
+}
+
+.vazio-lista { text-align: center; padding: 34px 18px; }
+.vazio-lista .sub { margin: 6px 0 14px; }
+
+/* interruptor liga/desliga — o estado vira uma coisa só, visível de longe */
+.interruptor { position: relative; display: inline-flex; align-items: center; gap: 9px; cursor: pointer; }
+.interruptor input[type="checkbox"] {
+  position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0;
+}
+.interruptor .trilho {
+  flex: 0 0 auto; width: 38px; height: 22px; border-radius: 999px;
+  background: var(--ac-pill); position: relative;
+  transition: background-color .16s ease;
+}
+.interruptor .trilho::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+  border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 31, .3);
+  transition: transform .16s ease;
+}
+.interruptor input:checked + .trilho { background: var(--ac-verde); }
+.interruptor input:checked + .trilho::after { transform: translateX(16px); }
+.interruptor input:focus-visible + .trilho {
+  outline: 2px solid rgba(130, 48, 143, .45); outline-offset: 2px;
+}
+.interruptor .rot {
+  font-size: calc(12px * var(--escala-texto)); color: var(--ac-texto2);
+  width: 62px; white-space: nowrap;
+}
+.interruptor input:checked ~ .rot { color: var(--ac-verde); font-weight: 600; }
+html.tema-escuro .interruptor input:checked + .trilho { background: #2E9E67; }
+html.tema-escuro .interruptor input:checked ~ .rot { color: #5FD49A; }
+
+@media (max-width: 1100px) {
+  .auto-linha { flex-wrap: wrap; }
+  .auto-info { flex: 1 1 100%; }
+  .auto-passos { justify-content: flex-start; max-width: none; padding-left: 0; }
+  .auto-exec { width: auto; margin-left: auto; }
+}
+@media (max-width: 640px) {
+  .pagina-topo { flex-direction: column; gap: 12px; }
+  .pagina-topo > button { margin-left: 0; }
+  .campo-busca { max-width: none; }
+  .auto-acoes { flex: 1 1 100%; justify-content: space-between; }
+}
+
 /* nomes e números clicáveis nas tabelas (padrão AC) */
 .link-tabela {
   background: none; border: 0; padding: 0; height: auto; color: var(--ac-azul);
