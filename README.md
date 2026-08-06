@@ -88,6 +88,7 @@ Passo a passo detalhado: **[docs/01-INSTALAR.md](docs/01-INSTALAR.md)**
 | **[07 — Vendas e Hotmart](docs/07-VENDAS-E-HOTMART.md)** | receber compra em tempo real e atribuir a venda ao anúncio |
 | **[08 — Recuperação e conteúdo](docs/08-RECUPERACAO-E-CONTEUDO.md)** | carrinho abandonado, contador regressivo, módulos salvos e ManyChat |
 | **[09 — Onde parei](docs/09-ONDE-PAREI.md)** | **comece por aqui:** estado atual, travas ligadas e o que está pendente |
+| **[10 — Criar uma captação](docs/10-CRIAR-UMA-CAPTACAO.md)** | a receita do zero: lista, tag, formulário, ManyChat e planilha |
 
 ---
 

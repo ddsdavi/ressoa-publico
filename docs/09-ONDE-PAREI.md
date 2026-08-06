@@ -140,8 +140,11 @@ O que já existe aqui (criado e testado em 05/08/2026):
   n8n aplicava no ManyChat.
 - **Formulário publicado `lives-semanais`** — inscreve na lista 6 (Lives
   Semanais) e aplica a tag 85. Tem página própria em
-  `/functions/v1/formulario?f=lives-semanais`, e aceita POST direto com
-  `form_slug=lives-semanais` + `nome`, `email`, `whatsapp`.
+  `ressoa.drapatriciadomingos.com.br/f/lives-semanais`, e aceita POST direto
+  com `form_slug=lives-semanais` + `nome`, `email`, `whatsapp`. (O endereço
+  `…supabase.co/functions/v1/formulario?f=slug` **não** serve como página: o
+  domínio de funções devolve HTML como `text/plain`, e o visitante veria o
+  código cru. Como destino de POST, é o certo.)
 - **Automação "[RESSOA] Lives Semanais — tag no ManyChat"** — gatilho: tag 85
   adicionada; passo único: marcar `LIVES SEMANAIS - INSCRITOS` no ManyChat,
   criando o assinante se não existir. Nasceu **desativada**, de propósito.
@@ -150,13 +153,22 @@ O teste de 05/08: GET da página do formulário, POST no formato acima com um
 lead real — achado pelo WhatsApp sem criar duplicata, tag aplicada, nenhuma
 lista alterada, nenhum e-mail disparado.
 
+A receita genérica para repetir isto em qualquer captação nova está em
+[10 — Criar uma captação](10-CRIAR-UMA-CAPTACAO.md).
+
 A ordem para concluir (revista em 05/08 à noite, com `executar_webhooks`
 ligado e a decisão do Davi de manter a planilha como segurança):
 
-1. **Apontar a página de inscrição para cá.** De preferência direto: o POST é
-   público e qualquer construtor de página faz. Ao entrar na lista 6, a
-   automação réplica "Lives Semanais" (ativa) manda o e-mail "Inscrição
-   confirmada" — envio real, no lugar do que o AC mandava.
+1. ~~**Apontar a página de inscrição para cá.**~~ **FEITO em 06/08.** A landing
+   fica no Lovable (projeto `d13360ee-f9c0-40a6-9ea8-62d5214c35e7`,
+   `harmonized-home-flow`, rota `/livessemanais`); só o componente
+   `src/components/LivesSemanaisLanding.tsx` foi alterado, e o formulário faz
+   POST com `form_slug: lives-semanais`. Testado no navegador (card de
+   confirmação + contador `formularios.envios` subindo) e **publicado pelo
+   Davi**. Ao entrar na lista 6, a automação réplica "Lives Semanais" (ativa)
+   manda o e-mail "Inscrição confirmada" — envio real, no lugar do que o AC
+   mandava. Falta só a prova com uma pessoa NOVA (não feita de propósito:
+   exigiria inventar um telefone, e número inventado pode ser de terceiro real).
 2. **Planilha sem n8n (mudou em 05/08 à noite).** A pedido do Davi, o passo
    "Planilha do Google" ficou NATIVO: conta Google conectada em Configurações
    → Planilhas (setup único do app OAuth descrito lá), e o passo guarda
