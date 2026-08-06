@@ -81,6 +81,9 @@ function Layout() {
   const [menuAberto, setMenuAberto] = useState(false);
   const [contaAberta, setContaAberta] = useState(false);
   const [tourAberto, setTourAberto] = useState(false);
+  // A barra da seção encolhe para dar tela ao conteúdo. A escolha fica salva:
+  // quem encolheu uma vez não quer encolher de novo a cada visita.
+  const [barraFechada, setBarraFechada] = useState(() => localStorage.getItem("ressoa-barra") === "fechada");
 
   useEffect(() => {
     if (!tourJaVisto()) {
@@ -89,9 +92,13 @@ function Layout() {
     }
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem("ressoa-barra", barraFechada ? "fechada" : "aberta");
+  }, [barraFechada]);
+
 
   return (
-    <div className="ac-app">
+    <div className={`ac-app${barraFechada ? " barra-fechada" : ""}`}>
       <header className="ac-topbar">
         <button className="hamburguer" onClick={() => setMenuAberto(!menuAberto)}
           title="Menu">{menuAberto ? "✕" : "☰"}</button>
@@ -158,7 +165,14 @@ function Layout() {
             </NavLink>
           ))}
         </nav>
-        <aside className="ac-sidebar">
+        <button className="alterna-barra" onClick={() => setBarraFechada(!barraFechada)}
+          aria-expanded={!barraFechada} aria-controls="barra-secao"
+          title={barraFechada ? `Abrir o menu de ${secao.titulo}` : "Encolher o menu da seção"}
+          aria-label={barraFechada ? `Abrir o menu de ${secao.titulo}` : "Encolher o menu da seção"}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 6-6 6 6 6" /></svg>
+        </button>
+        <aside className="ac-sidebar" id="barra-secao" inert={barraFechada}>
           <h1>{secao.titulo}</h1>
           {secao.grupos.map((g, i) => (
             <div key={i}>

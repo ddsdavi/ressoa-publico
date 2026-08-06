@@ -87,6 +87,7 @@ body {
   width: 250px; background: var(--ac-superficie); border-right: 1px solid var(--ac-borda-suave);
   position: fixed; top: 56px; bottom: 0; left: 64px; overflow-y: auto;
   padding: 22px 14px; z-index: 40;
+  transition: width .2s ease, padding .2s ease;
 }
 .ac-sidebar h1 { font-size: calc(22px * var(--escala-texto)); font-weight: 700; color: var(--ac-texto); padding: 0 10px 14px; }
 .ac-sidebar .grupo { font-size: calc(12px * var(--escala-texto)); font-weight: 700; letter-spacing: .4px; color: var(--ac-texto2); text-transform: uppercase; padding: 16px 10px 6px; }
@@ -98,7 +99,37 @@ body {
 .ac-sidebar a.ativo { background: var(--ac-pill); font-weight: 500; }
 .ac-sidebar .rodape { font-size: calc(11px * var(--escala-texto)); color: var(--ac-texto2); padding: 18px 10px; }
 
-.conteudo { margin-left: 314px; flex: 1; padding: 24px 32px; max-width: 1360px; }
+.conteudo { margin-left: 314px; flex: 1; padding: 24px 32px; max-width: 1360px; transition: margin-left .2s ease; }
+
+/* Encolher a barra da seção: ela some, o rail de ícones fica, e o botão
+   acompanha a borda que sobrou — sempre visível para desfazer. */
+.barra-fechada .ac-sidebar {
+  width: 0; padding-left: 0; padding-right: 0;
+  border-right-width: 0; overflow: hidden;
+}
+/* Sem soltar o max-width o conteudo so escorregava para a esquerda e o vazio
+   trocava de lado — encolher a barra nao dava tela nenhuma. Fechada, o
+   conteudo toma tudo; aberta, volta a respeitar o limite de leitura. */
+.barra-fechada .conteudo { margin-left: 64px; max-width: none; }
+
+.alterna-barra {
+  position: fixed; top: 76px; left: 301px; z-index: 55;
+  width: 26px; height: 26px; padding: 0; border-radius: 50%;
+  background: var(--ac-superficie); border: 1px solid var(--ac-borda);
+  color: var(--ac-texto2); display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 5px rgba(23, 0, 32, .16);
+  transition: left .2s ease, background-color .16s ease, color .16s ease, border-color .16s ease;
+}
+.alterna-barra:hover { background: var(--ac-hover); color: var(--ac-azul); border-color: var(--ac-azul); }
+.alterna-barra svg { display: block; transition: transform .2s ease; }
+.barra-fechada .alterna-barra { left: 51px; }
+.barra-fechada .alterna-barra svg { transform: rotate(180deg); }
+/* fechada, ela pousa em cima do rail quase preto: precisa de sombra própria */
+html.tema-escuro .alterna-barra { box-shadow: 0 1px 6px rgba(0, 0, 0, .55); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ac-sidebar, .conteudo, .alterna-barra, .alterna-barra svg { transition: none; }
+}
 
 /* ============ Cabeçalho de página ============ */
 h1 { font-size: calc(20px * var(--escala-texto)); font-weight: 600; margin-bottom: 2px; }
@@ -381,9 +412,9 @@ html.tema-escuro input:focus, html.tema-escuro select:focus, html.tema-escuro te
 
 @media (max-width: 900px) {
   html, body { overflow-x: hidden; }
-  .ac-rail, .ac-sidebar { display: none; }
+  .ac-rail, .ac-sidebar, .alterna-barra { display: none; }
   .hamburguer { display: flex; align-items: center; }
-  .conteudo { margin-left: 0; padding: 14px 12px; max-width: 100%; }
+  .conteudo, .barra-fechada .conteudo { margin-left: 0; padding: 14px 12px; max-width: 100%; }
   .ac-topbar { gap: 8px; padding: 0 10px; }
   .ac-topbar .direita > span { display: none; }   /* só o nome; não os controles */
   .ac-topbar .chip { display: none; }
