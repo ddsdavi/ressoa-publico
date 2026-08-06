@@ -126,6 +126,54 @@ endereço (armadilha 28) — e esvazie de novo ao terminar.
 
 ---
 
+## Lives semanais: FUNCIONANDO de ponta a ponta (06/08/2026, 23h25)
+
+Uma inscrição real na página publicada (`biopatriciadomingos.com.br/livessemanais`)
+percorreu a corrente inteira, cronometrada:
+
+| Etapa | Prova |
+|---|---|
+| Página → base | lead na lista 6 com `source = form:lives-semanais` |
+| Tag | `LIVES SEMANAIS - INSCRITOS` aplicada |
+| E-mail | "✅ Inscrição confirmada" — `sent` pelo Resend às 23:25 |
+| WhatsApp | ManyChat marcado às 23:24 (`manychat_log`, sucesso) |
+
+**O que estava quebrado e foi consertado no meio do caminho:** a automação
+"Lives Semanais" (réplica do AC, gatilho lista 6) tinha o passo de e-mail com
+o config `{"assunto": "...", "mensagem": "inscricao - live semanal"}` — só o
+**nome** da mensagem, herdado do AC. O executor precisa de `mensagem_id`, e sem
+ele o passo passava em branco: **ninguém que se inscrevia recebia
+confirmação**, e nada no painel denunciava isso (o passo aparecia montado).
+Agora aponta para a mensagem `20d3fec7…` ("✅ Inscrição confirmada", que já
+estava na biblioteca, vinda do AC).
+
+**A varredura foi feita, e o buraco é maior.** Estas automações **ativas** têm
+passo de e-mail sem `mensagem_id` — ou seja, **estão no ar sem enviar nada**:
+
+| Automação ativa | O e-mail que não sai |
+|---|---|
+| **Hotmart Purchase Confirmation Email** | confirmação de compra |
+| 16LC_CADASTRADOS | boas-vindas do lançamento |
+| 18LC_NOV25_BLACK - Inscritos | boas-vindas da Black |
+| LP_COMPROU_INGRESSO_IMER_TERAP | confirmação de ingresso |
+| LSHT_DEZ25 | boas-vindas |
+
+(Também `DESAFIO_CASA_HARMONIZADA` e `LP_2026_01_03_COMPRADORES_INGRESSO`, as
+duas desligadas.) Consertar exige escolher **qual mensagem da biblioteca vai em
+cada uma** — decisão de conteúdo, do Davi. A consulta que acha:
+
+```sql
+select a.nome, a.ativa from automacao_passos p
+join automacoes a on a.automacao_id = p.automacao_fk
+where p.tipo = 'enviar_email' and p.config->>'mensagem_id' is null;
+```
+
+**Divergência de conteúdo para o Davi decidir:** o e-mail diz que a live é
+"quarta-feira às 12:37" (texto herdado do AC, provavelmente erro de digitação
+de 12h30/13h); a landing diz **13h**. Um dos dois está errado.
+
+---
+
 ## Lives semanais: as peças prontas para assumir do n8n
 
 Como era: página de inscrição → ActiveCampaign (lista "Lives Semanais") → uma
