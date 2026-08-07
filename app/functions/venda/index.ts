@@ -333,7 +333,7 @@ Deno.serve(async (req) => {
   // o status ficaria certo e o resto da informação sumiria. Por isso o que
   // chega vazio preserva o que já estava lá.
   const { data: existente } = await supabase.from("tabela_4_alunos")
-    .select("forma_de_pagamento, parcelas, data_compra, valor, nome_produto, evento_origem, status, email_compra, documento")
+    .select("forma_de_pagamento, parcelas, data_compra, valor, nome_produto, evento_origem, status, email_compra, whatsapp_compra, documento")
     .eq("codigo_transacao", transacao).maybeSingle();
 
   // Pedido pago não volta a ser boleto à espera de pagamento. Os eventos
@@ -371,6 +371,9 @@ Deno.serve(async (req) => {
     // e-mail da compra se perdia. É para cá que vai a comunicação
     // deste produto.
     email_compra: v.email ?? existente?.email_compra ?? null,
+    // e com qual número. Quem tem mais de um celular recebe o WhatsApp
+    // deste produto no número com que comprou ESTE produto.
+    whatsapp_compra: fone ?? existente?.whatsapp_compra ?? null,
     documento: doc ?? existente?.documento ?? null,
     updated_at: new Date().toISOString(),
   }, { onConflict: "codigo_transacao" });
@@ -382,7 +385,12 @@ Deno.serve(async (req) => {
   // por conta própria é decisão de gente.
   if (v.email) {
     await supabase.rpc("registrar_email_do_lead", {
-      p_lead: leadId, p_email: v.email, p_origem: "compra",
+      p_lead: leadId, p_email: v.email, p_origem: "compra", p_nome: v.nome,
+    });
+  }
+  if (fone) {
+    await supabase.rpc("registrar_telefone_do_lead", {
+      p_lead: leadId, p_whatsapp: fone, p_origem: "compra", p_nome: v.nome,
     });
   }
 

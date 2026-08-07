@@ -20,13 +20,68 @@ Foi construída para operar a base da Nome do Remetente — 12 mil leads de sua 
 | **Formulários** | construtor com página publicada no seu próprio domínio |
 | **Vendas** | recebe a Hotmart em tempo real: produto, valor, status, reembolso |
 | **Atribuição** | de qual anúncio veio cada venda, com receita por origem |
-| **Pontuação** | nota por lead calculada a partir do comportamento real |
+| **Lead scoring** | duas réguas por lead: quem está pronto pra **comprar** e pra quem é seguro **enviar** |
+| **Telemetria de venda** | quanto cada automação e cada campanha **vendeu em reais**, não só abertura e clique |
+| **Recuperação** | boleto e PIX gerados e não pagos, pagamento atrasado, carrinho abandonado |
 | **Relatórios** | base, campanhas, tags, campos e de onde vem o dinheiro |
 | **Acesso** | três níveis de usuário, com as regras dentro do banco |
 | **WhatsApp** | marca a pessoa no ManyChat quando ela compra, e é a tag que dispara a mensagem lá |
 | **Planilhas** | conta Google conectada uma vez; automações escrevem linhas com as colunas mapeadas |
 
 O WhatsApp não sai daqui: quem manda é o ManyChat. A Ressoa decide **quem** e **quando**.
+
+---
+
+## As duas réguas do lead scoring
+
+Cada lead carrega **dois números que não se misturam**, porque respondem a perguntas
+diferentes:
+
+| Régua | O que enxerga | Para que serve |
+|---|---|---|
+| **Venda** (0 a 100) | recência da última compra (com decaimento), quantidade, gasto, presença nas lives | ordenar quem está mais perto de comprar — e dizer **o que oferecer** |
+| **Engajamento** | abertura, clique, tempo parado | decidir por quem começar a enviar sem machucar a reputação do domínio |
+
+A régua de venda não olha e-mail de propósito: vendas é uma coisa, engajamento é outra.
+
+Duas escolhas de desenho que evitam o defeito clássico de lead scoring:
+
+- **O número é contínuo, não soma de regras binárias.** Regra binária empata milhares de
+  pessoas no mesmo valor, e empate não ordena — que é justamente o serviço do número.
+- **As faixas são por percentil, não por corte fixo.** "Prontíssimo" é sempre o top 5%;
+  a régua se recalibra sozinha conforme a base muda, e nunca satura.
+
+Junto do número vai a **próxima oferta**: o degrau da esteira que faz sentido para aquela
+pessoa agora, com o motivo escrito por extenso ("Comprou 3x · R$ 420 · última há 9 dias").
+Nenhum score é caixa preta. Cada oferta vira segmento em um clique, e segmento é o que a
+campanha mira.
+
+---
+
+## Como se sabe se o e-mail vendeu
+
+Abertura e clique não pagam boleto. A telemetria cruza os envios com as compras aprovadas
+e mostra, por automação e por campanha: pessoas, e-mails, aberturas, cliques,
+**compradores, receita e receita por e-mail**.
+
+A regra de atribuição é conservadora de propósito: só conta a compra que aconteceu
+**depois** do e-mail sair, dentro de uma janela. É isso que impede uma sequência disparada
+*por* uma compra de se creditar por ela — sem esse cuidado, a automação "converteria" 100%
+no primeiro dia.
+
+---
+
+## O freio de entregabilidade
+
+Domínio que dispara demais, ou para lista velha, é tratado como spam — e o estrago não é
+da campanha, é do domínio, por meses.
+
+De hora em hora o sistema olha os últimos 7 dias e, se o bounce passar de 2% ou a
+reclamação de spam de 0,1% (os limites que o Gmail publica), **pausa o envio sozinho** e
+registra um alerta no painel. A fila não perde nada: espera.
+
+O freio só age a partir de um volume mínimo. Com pouca amostra, um único bounce vira "taxa
+alta" e pararia a operação por estatística de nada.
 
 ---
 
@@ -145,6 +200,12 @@ acontece três vezes, em momentos diferentes, e a última é no instante do envi
 por campanha por pessoa é garantido por chave única no banco, não por código que pode
 falhar.
 
+**Toda sequência tem porta de saída.** Antes de cada e-mail, a automação confere se a
+pessoa já fez o que a sequência queria — quem compra no meio do caminho sai sozinho, sem
+receber a oferta do que acabou de comprar. Uma observação que custou uma correção: desligar
+a automação **não** para quem já está dentro dela, porque o executor decide pelo estado da
+*execução*. Para parar de verdade, encerre também as execuções em aberto.
+
 ---
 
 ## Segurança e dados pessoais
@@ -155,14 +216,38 @@ O `.gitignore` bloqueia, e isso não é opcional:
 - `activecampaign-export/` — dados pessoais de milhares de pessoas
 - `vendas-hotmart/` — nome, e-mail, telefone e valor pago de compradores
 - todo e qualquer `.csv`
+- `*.local.sql` — migração cujos **valores** são dado pessoal
 
-Antes de publicar um fork, confira:
+### Migração com dado pessoal dentro
+
+Algumas tabelas são pequenas mas guardam identificação direta: CPF com nome de cliente,
+e-mail da própria equipe. A migração fica dividida em duas:
+
+| Arquivo | Contém | Vai para o Git? |
+|---|---|---|
+| `assunto_v1.sql` | tabela, políticas e **o porquê** | sim |
+| `assunto_dados.local.sql` | só os valores reais | **não** |
+
+Quem reconstrói o banco do zero roda os dois, nessa ordem — está escrito dentro de cada um.
+Sem o segundo, a tabela nasce vazia e a regra que ela representa some sem avisar.
+
+### Antes de publicar
 
 ```bash
-git ls-files | grep -E "\.env$|export/|\.csv$"
+git ls-files | grep -E "\.env$|export/|\.csv$|\.local\.sql$"
 ```
 
-Não deve retornar nada.
+Não deve retornar nada. E vale varrer as linhas **adicionadas** desde a última publicação,
+não só a árvore:
+
+```bash
+git diff <última-publicação>..HEAD | grep "^+" |
+  grep -nE "[A-Za-z0-9._%+-]+@(gmail|hotmail|outlook|yahoo)\.|[0-9]{10,15}"
+```
+
+Telefone estrangeiro não tem o `55` na frente: procurar por `55\d{10,11}` deixa passar o
+número de um comprador de fora. Procure qualquer sequência longa de dígitos e olhe uma a
+uma — foi assim que 14 telefones reais foram pegos num arquivo de teste em 06/08/2026.
 
 ---
 
